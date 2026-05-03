@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# environment
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# AI pipeline raw/generated data
+tools/ai-pipeline/data/raw/*
+tools/ai-pipeline/data/extracted/*
+tools/ai-pipeline/outputs/*
+
+!tools/ai-pipeline/data/raw/.gitkeep
+!tools/ai-pipeline/data/extracted/.gitkeep
+!tools/ai-pipeline/outputs/.gitkeep
+
+# Java / Spring Boot
+.gradle/
+**/.gradle/
+apps/backend/build/
+
+# Node / Expo
+node_modules/
+**/node_modules/
+.expo/
+dist/
+build/
+
+# secrets
+*.pem
+*.key
+*.p12
+google-services.json
+GoogleService-Info.plist
