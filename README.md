@@ -56,8 +56,8 @@ apps/mobile
 → 시작화면, 홈, 문제집, 약점 분석, 마이페이지/아바타, 친구, 상점 화면
 
 tools/ai-pipeline
-→ Python + OpenAI API 기반 내부 콘텐츠 생성 도구
-→ 개념 생성, 공통 오해 생성, 문제 생성, 문제 검수
+→ Python + PyMuPDF + OpenAI API 기반 내부 콘텐츠 생성 도구
+→ PDF 텍스트 추출, 개념 생성, 공통 오해 생성, 문제 생성, 문제 검수
 
 docs
 → 팀원들이 같이 보는 문서
@@ -76,31 +76,9 @@ scripts
 
 ---
 
-## AI 파이프라인 실행
+## GitHub에 올라오지 않는 파일
 
-```bash
-cd tools/ai-pipeline
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-pip install -r requirements.txt
-
-cp .env.example .env
-```
-
-`.env`에 실제 값 입력.
-
-```txt
-OPENAI_API_KEY=your_api_key
-OPENAI_MODEL=gpt-5.4-mini
-OPENAI_REVIEW_MODEL=gpt-5.4-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-```
-
----
-
-## GitHub에 올리지 않는 것
+아래 파일들은 보안, 저작권, 용량, 중간 산출물 문제 때문에 GitHub에 올리지 않는다.
 
 ```txt
 .venv/
@@ -114,37 +92,112 @@ outputs/
 
 ```txt
 .env
-→ API Key 포함
+→ OpenAI API Key 포함
+→ 직접 생성해야 함
 
 .venv
-→ 개인 로컬 가상환경
+→ 개인 로컬 Python 가상환경
+→ 직접 생성해야 함
 
 data/raw
-→ 원본 자료
+→ 전공서적 PDF 원본 자료
+→ GitHub 업로드 금지
+→ 직접 폴더를 만들고 PDF를 넣어야 함
 
 data/extracted
-→ 추출 중간 결과
+→ PyMuPDF로 PDF에서 추출한 chunks.json
+→ 원문 텍스트 일부가 포함될 수 있음
+→ 직접 실행해서 생성해야 함
 
 outputs
 → AI 생성 결과물
+→ taxonomy, concept_cards, questions, final_report 등
+→ 직접 실행해서 생성해야 함
 ```
 
 ---
 
-## 클론 후 세팅
+## 클론 후 필수 세팅
+
+처음 클론한 팀원은 아래 순서대로 세팅한다.
 
 ```bash
 git clone https://github.com/yongzooda/coremate.git
 cd coremate/tools/ai-pipeline
+```
 
+가상환경 생성 및 실행.
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
 
+패키지 설치.
+
+```bash
 pip install -r requirements.txt
+```
 
+환경변수 파일 생성.
+
+```bash
 cp .env.example .env
 ```
 
-`.env`에 API Key 입력 후 사용.
+`.env`에 실제 OpenAI API Key 입력.
+
+```txt
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_REVIEW_MODEL=gpt-5.4-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+설치 확인.
+
+```bash
+python -c "import openai; print('openai import 성공')"
+python -c "import fitz; print('PyMuPDF import 성공')"
+```
+
+`fitz` import가 성공하면 PyMuPDF가 정상 설치된 것이다.
+
+---
+
+## PDF 원본 자료 준비
+
+GitHub에는 `data/raw/`가 올라오지 않는다.
+
+따라서 파이프라인 실행 전에 직접 폴더를 만들고 PDF를 넣어야 한다.
+
+자료구조 테스트 기준:
+
+```bash
+mkdir -p data/raw/DATA_STRUCTURE
+```
+
+아래 위치에 자료구조 PDF를 넣는다.
+
+```txt
+tools/ai-pipeline/data/raw/DATA_STRUCTURE/open_data_structures.pdf
+```
+
+파일명은 예시다.
+
+현재 스크립트는 `data/raw/{SUBJECT_CODE}/` 안의 `.pdf` 파일을 읽는다.
+
+```txt
+data/raw/DATA_STRUCTURE/
+  open_data_structures.pdf
+```
+
+주의 사항:
+
+```txt
+PDF 원본은 GitHub에 올리지 않는다.
+팀 내부 공유 드라이브나 개인 로컬에서만 관리한다.
+PDF가 없으면 01_extract_pdf.py 실행 시 오류가 난다.
+```
 
 ---
