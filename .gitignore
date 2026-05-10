@@ -28,12 +28,26 @@ tools/ai-pipeline/outputs/*
 **/.gradle/
 apps/backend/build/
 
+# Local Spring Boot config
+apps/backend/src/main/resources/application-local.yml
+apps/backend/src/main/resources/application-local.yaml
+apps/backend/src/main/resources/application-secret.yml
+apps/backend/src/main/resources/application-secret.yaml
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
 # Node / Expo
 node_modules/
 **/node_modules/
 .expo/
 dist/
 build/
+
+# Logs
+*.log
 
 # secrets
 *.pem
