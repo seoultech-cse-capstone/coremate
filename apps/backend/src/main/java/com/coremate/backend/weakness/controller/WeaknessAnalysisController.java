@@ -32,68 +32,108 @@ import java.util.List;
 @RequestMapping("/api/v1/weakness")
 public class WeaknessAnalysisController {
 
+    // 약점 분석 대상 완료 문제집 후보 조회
     @Operation(summary = "약점 분석 대상 완료 문제집 후보 조회", description = "사용자가 분석표 생성에 사용할 수 있는 완료된 문제집/모의고사 회차를 조회한다.")
     @GetMapping("/eligible-solve-sessions")
     public ApiResponse<List<EligibleSolveSessionResponse>> getEligibleSolveSessions(
-            @Parameter(description = "임시 사용자 ID", example = "1") @RequestParam(defaultValue = "1") Long userId,
-            @Parameter(description = "과목 ID", example = "1") @RequestParam(required = false) Long subjectId,
-            @Parameter(description = "대분류 ID", example = "20") @RequestParam(required = false) Long categoryLv1Id,
-            @Parameter(description = "중분류 ID", example = "101") @RequestParam(required = false) Long categoryLv2Id,
-            @Parameter(description = "개념 ID", example = "1002") @RequestParam(required = false) Long conceptId
+            @Parameter(description = "임시 사용자 ID", example = "1")
+            @RequestParam(defaultValue = "1") Long userId,
+
+            @Parameter(description = "과목 ID", example = "1")
+            @RequestParam(required = false) Long subjectId,
+
+            @Parameter(description = "대분류 ID", example = "20")
+            @RequestParam(required = false) Long categoryLv1Id,
+
+            @Parameter(description = "중분류 ID", example = "101")
+            @RequestParam(required = false) Long categoryLv2Id,
+
+            @Parameter(description = "개념 ID", example = "1002")
+            @RequestParam(required = false) Long conceptId
     ) {
+
+        // DB 연동 전 분석 후보 목록 확인용 더미 데이터
         return ApiResponse.success("약점 분석 대상 후보 조회 성공", sampleEligibleSessions());
     }
 
+    // 약점 분석표 생성 요청
     @Operation(summary = "약점 분석표 생성 요청", description = "완료 문제집 1~10개를 선택해 AI 약점 분석표 생성을 요청한다. 현재는 OpenAI 호출 없이 더미 완료 응답을 반환한다.")
     @PostMapping("/reports")
     public ApiResponse<WeaknessAnalysisReportDetailResponse> createWeaknessAnalysisReport(
-            @Parameter(description = "임시 사용자 ID", example = "1") @RequestParam(defaultValue = "1") Long userId,
+            @Parameter(description = "임시 사용자 ID", example = "1")
+            @RequestParam(defaultValue = "1") Long userId,
+
             @Valid @RequestBody CreateWeaknessAnalysisReportRequest request
     ) {
+
+        // 요청 제목 미입력 시 기본 분석표 제목 사용
         WeaknessAnalysisReportDetailResponse response = sampleReportDetail(
                 20001L,
                 userId,
                 request.title() == null || request.title().isBlank() ? "자료구조 이진 트리 약점 분석표" : request.title(),
                 request.analysisScopeType()
         );
+
         return ApiResponse.success("약점 분석표 생성 요청 성공", response);
     }
 
+    // 생성된 약점 분석표 목록 조회
     @Operation(summary = "생성된 약점 분석표 목록 조회", description = "사용자가 생성한 약점 분석표 목록을 조회한다.")
     @GetMapping("/reports")
     public ApiResponse<List<WeaknessAnalysisReportSummaryResponse>> getWeaknessAnalysisReports(
-            @Parameter(description = "임시 사용자 ID", example = "1") @RequestParam(defaultValue = "1") Long userId,
-            @Parameter(description = "분석 범위 필터", example = "CATEGORY_LV2") @RequestParam(required = false) AnalysisScopeType analysisScopeType,
-            @Parameter(description = "상태 필터", example = "COMPLETED") @RequestParam(required = false) AnalysisReportStatus status
+            @Parameter(description = "임시 사용자 ID", example = "1")
+            @RequestParam(defaultValue = "1") Long userId,
+
+            @Parameter(description = "분석 범위 필터", example = "CATEGORY_LV2")
+            @RequestParam(required = false) AnalysisScopeType analysisScopeType,
+
+            @Parameter(description = "상태 필터", example = "COMPLETED")
+            @RequestParam(required = false) AnalysisReportStatus status
     ) {
+
+        // DB 연동 전 분석표 목록 확인용 더미 데이터
         return ApiResponse.success("약점 분석표 목록 조회 성공", List.of(
                 new WeaknessAnalysisReportSummaryResponse(20001L, "자료구조 이진 트리 약점 분석표", AnalysisScopeType.CATEGORY_LV2, "자료구조 > 트리 > 이진 트리", AnalysisReportStatus.COMPLETED, 2, 10, 4, 100, LocalDateTime.now().minusHours(1), true),
                 new WeaknessAnalysisReportSummaryResponse(20002L, "자료구조 트리 약점 분석표", AnalysisScopeType.CATEGORY_LV1, "자료구조 > 트리", AnalysisReportStatus.COMPLETED, 3, 15, 5, 100, LocalDateTime.now().minusDays(3), true)
         ));
     }
 
+    // 약점 분석표 상세 조회
     @Operation(summary = "약점 분석표 상세 조회", description = "분석표 본문, 약점 개념 목록, 근거 로그, PDF/뷰어 정보를 조회한다.")
     @GetMapping("/reports/{analysisReportId}")
     public ApiResponse<WeaknessAnalysisReportDetailResponse> getWeaknessAnalysisReportDetail(
-            @Parameter(description = "약점 분석표 ID", example = "20001") @PathVariable Long analysisReportId,
-            @Parameter(description = "임시 사용자 ID", example = "1") @RequestParam(defaultValue = "1") Long userId
+            @Parameter(description = "약점 분석표 ID", example = "20001")
+            @PathVariable Long analysisReportId,
+
+            @Parameter(description = "임시 사용자 ID", example = "1")
+            @RequestParam(defaultValue = "1") Long userId
     ) {
+
+        // DB 연동 전 분석표 상세 확인용 더미 데이터
         return ApiResponse.success("약점 분석표 상세 조회 성공", sampleReportDetail(analysisReportId, userId, "자료구조 이진 트리 약점 분석표", AnalysisScopeType.CATEGORY_LV2));
     }
 
+    // 약점 분석표 파일 정보 조회
     @Operation(summary = "약점 분석표 파일 정보 조회", description = "PDF 다운로드 URL, 앱 내 뷰어 타입, 저장 경로 정보를 조회한다.")
     @GetMapping("/reports/{analysisReportId}/file")
     public ApiResponse<WeaknessAnalysisReportFileResponse> getWeaknessAnalysisReportFile(
-            @Parameter(description = "약점 분석표 ID", example = "20001") @PathVariable Long analysisReportId
+            @Parameter(description = "약점 분석표 ID", example = "20001")
+            @PathVariable Long analysisReportId
     ) {
+
+        // PDF 다운로드 및 앱 내 뷰어 정보 더미 데이터
         return ApiResponse.success("약점 분석표 파일 정보 조회 성공", sampleFile(analysisReportId));
     }
 
+    // 약점 분석표 삭제 처리
     @Operation(summary = "약점 분석표 삭제", description = "분석표를 실제 삭제하지 않고 상태를 DELETED로 변경하는 API 계약이다.")
     @DeleteMapping("/reports/{analysisReportId}")
     public ApiResponse<WeaknessAnalysisReportSummaryResponse> deleteWeaknessAnalysisReport(
-            @Parameter(description = "약점 분석표 ID", example = "20001") @PathVariable Long analysisReportId
+            @Parameter(description = "약점 분석표 ID", example = "20001")
+            @PathVariable Long analysisReportId
     ) {
+
+        // 논리 삭제 상태 응답 확인용 더미 데이터
         WeaknessAnalysisReportSummaryResponse response = new WeaknessAnalysisReportSummaryResponse(
                 analysisReportId,
                 "자료구조 이진 트리 약점 분석표",
@@ -107,9 +147,11 @@ public class WeaknessAnalysisController {
                 LocalDateTime.now().minusHours(1),
                 false
         );
+
         return ApiResponse.success("약점 분석표 삭제 성공", response);
     }
 
+    // 약점 분석표 상세 응답 더미 데이터 생성
     private WeaknessAnalysisReportDetailResponse sampleReportDetail(Long reportId, Long userId, String title, AnalysisScopeType scopeType) {
         return new WeaknessAnalysisReportDetailResponse(
                 reportId,
@@ -135,6 +177,7 @@ public class WeaknessAnalysisController {
         );
     }
 
+    // 분석표 생성 가능 완료 문제집 후보 더미 데이터
     private List<EligibleSolveSessionResponse> sampleEligibleSessions() {
         return List.of(
                 new EligibleSolveSessionResponse(9001L, "완전 이진 트리 개념 문제집", SolveSessionType.CONCEPT_PRACTICE, 1L, "자료구조", 20L, "트리", 101L, "이진 트리", 1002L, "완전 이진 트리", 5, 2, 1, 1, LocalDateTime.now().minusDays(1), true, "틀린 문항이 2개 이상이라 분석 추천"),
@@ -142,12 +185,17 @@ public class WeaknessAnalysisController {
         );
     }
 
+    // 약점 개념 및 근거 로그 더미 데이터
     private List<WeaknessConceptResponse> sampleWeaknessConcepts() {
+
+        // 약점 판단 근거가 되는 문제별 풀이 로그
         List<WeaknessEvidenceLogResponse> evidenceLogs = List.of(
                 new WeaknessEvidenceLogResponse(40001L, 10001L, 5001L, "완전 이진 트리에 대한 설명으로 가장 적절한 것은?", "WRONG", 80, 45, 1, "A", "B", false),
                 new WeaknessEvidenceLogResponse(40002L, 10003L, 5003L, "포화 이진 트리와 완전 이진 트리의 차이로 적절한 것은?", "LONG_TIME", 95, 60, 0, "B", "B", true),
                 new WeaknessEvidenceLogResponse(40003L, 10004L, 5004L, "힙이 배열로 표현되기 쉬운 이유는?", "HINT_USED", 70, 50, 2, "C", "C", true)
         );
+
+        // AI 약점 분석 결과 응답 구조 확인용 더미 데이터
         return List.of(
                 new WeaknessConceptResponse(
                         30001L,
@@ -163,6 +211,7 @@ public class WeaknessAnalysisController {
         );
     }
 
+    // 약점 분석표 PDF 파일 정보 더미 데이터
     private WeaknessAnalysisReportFileResponse sampleFile(Long reportId) {
         return new WeaknessAnalysisReportFileResponse(
                 reportId,
