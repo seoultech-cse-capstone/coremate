@@ -4,6 +4,7 @@ import com.coremate.backend.content.dto.response.CategoryLv1Response;
 import com.coremate.backend.content.dto.response.CategoryLv2Response;
 import com.coremate.backend.content.dto.response.ConceptDetailResponse;
 import com.coremate.backend.content.dto.response.ConceptResponse;
+import com.coremate.backend.content.dto.response.SourceRefResponse;
 import com.coremate.backend.content.dto.response.SubjectResponse;
 import com.coremate.backend.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -92,10 +93,14 @@ public class ContentController {
                 "완전 이진 트리는 배열 기반 힙 구현에서 자주 사용되는 이진 트리 형태다. 노드는 위 레벨부터 채워지며 마지막 레벨에서는 왼쪽부터 연속적으로 배치된다.",
                 List.of("이진 트리", "마지막 레벨", "왼쪽 채움", "힙"),
                 List.of("마지막 레벨을 제외한 레벨은 모두 채워진다.", "마지막 레벨의 노드는 왼쪽부터 연속적으로 채워진다.", "배열로 표현하기 쉽다."),
-                List.of("Data Structures textbook - Tree chapter", "팀 내부 concept card 검수본"),
+                List.of(
+                        new SourceRefResponse("DATA_STRUCTURE_open_data_structures_p120", "open_data_structures.pdf", 120),
+                        new SourceRefResponse("DATA_STRUCTURE_open_data_structures_p121", "open_data_structures.pdf", 121)
+                ),
                 "approved",
                 true
         );
+
         return ApiResponse.success("하위 개념 상세 조회 성공", response);
     }
 }

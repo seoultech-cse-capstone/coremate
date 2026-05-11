@@ -23,7 +23,7 @@ public record ProblemSetQuestionResponse(
         @Schema(description = "문제 형식", example = "MCQ_4")
         QuestionFormat questionFormat,
 
-        @Schema(description = "문제 유형", example = "DEFINITION")
+        @Schema(description = "문제 유형", example = "definition")
         QuestionType questionType,
 
         @Schema(description = "문제 본문", example = "완전 이진 트리에 대한 설명으로 가장 적절한 것은?")

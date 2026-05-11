@@ -30,7 +30,7 @@ public record DailyQuizQuestionResponse(
         @Schema(description = "문제 형식", example = "MCQ_4")
         QuestionFormat questionFormat,
 
-        @Schema(description = "문제 유형", example = "DEFINITION")
+        @Schema(description = "문제 유형", example = "definition")
         QuestionType questionType,
 
         @Schema(description = "문제 본문")

@@ -18,7 +18,7 @@ public record ConceptDetailResponse(
         @Schema(description = "과목명", example = "자료구조")
         String subjectName,
 
-        @Schema(description = "대분류 ID", example = "10")
+        @Schema(description = "대분류 ID", example = "20")
         Long categoryLv1Id,
 
         @Schema(description = "대분류명", example = "트리")
@@ -51,8 +51,8 @@ public record ConceptDetailResponse(
         @Schema(description = "핵심 성질")
         List<String> keyProperties,
 
-        @Schema(description = "출처 메타데이터")
-        List<String> sourceRefs,
+        @Schema(description = "출처 메타데이터 목록")
+        List<SourceRefResponse> sourceRefs,
 
         @Schema(description = "검수 상태", example = "approved")
         String reviewStatus,
