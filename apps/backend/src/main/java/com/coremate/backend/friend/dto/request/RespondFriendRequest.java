@@ -1,4 +1,24 @@
 package com.coremate.backend.friend.dto.request;
 
-public record RespondFriendRequest() {
+import com.coremate.backend.friend.dto.type.FriendStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Schema(description = "Respond to friend request")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RespondFriendRequest {
+    @Schema(example = "123")
+    @NotNull
+    private Long friendId;
+
+    @Schema(example = "ACCEPTED")
+    @NotNull
+    private FriendStatus status;
 }

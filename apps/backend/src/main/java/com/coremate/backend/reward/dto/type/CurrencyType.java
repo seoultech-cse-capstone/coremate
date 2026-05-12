@@ -1,4 +1,5 @@
 package com.coremate.backend.reward.dto.type;
 
-public class CurrencyType {
+public enum CurrencyType {
+    COIN
 }
