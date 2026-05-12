@@ -1,4 +1,16 @@
 package com.coremate.backend.avatar.dto.response;
 
-public record AvatarEquippedItemResponse() {
+import com.coremate.backend.avatar.dto.type.AvatarItemType;
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(description = "아바타 장착 아이템 응답")
+public record AvatarEquippedItemResponse(
+        @Schema(example = "HEAD") String slot,
+        @Schema(example = "100") Long userItemId,
+        @Schema(example = "1") Long itemId,
+        @Schema(example = "Blue Hat") String itemName,
+        @Schema(example = "HEAD") AvatarItemType itemType,
+        @Schema(example = "RARE") String rarity,
+        @Schema(example = "https://cdn.example.com/hat.png") String imageUrl
+) {
 }

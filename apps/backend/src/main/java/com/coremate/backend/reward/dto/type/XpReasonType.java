@@ -1,4 +1,8 @@
 package com.coremate.backend.reward.dto.type;
 
-public class XpReasonType {
+public enum XpReasonType {
+    SOLVE_QUESTION,
+    COMPLETE_SESSION,
+    DAILY_ATTENDANCE,
+    DAILY_QUIZ
 }
