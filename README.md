@@ -149,8 +149,8 @@ cp .env.example .env
 
 ```txt
 OPENAI_API_KEY=your_api_key
-OPENAI_MODEL=gpt-5.4-mini
-OPENAI_REVIEW_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.4
+OPENAI_REVIEW_MODEL=gpt-5.4
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 ```
 
