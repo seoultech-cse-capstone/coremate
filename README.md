@@ -123,7 +123,7 @@ outputs
 
 ```bash
 git clone https://github.com/yongzooda/coremate.git
-cd coremate/tools/ai-pipeline
+cd tools/ai-pipeline
 ```
 
 가상환경 생성 및 실행.
