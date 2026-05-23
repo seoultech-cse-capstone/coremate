@@ -8,7 +8,7 @@ import yaml
 from tqdm import tqdm
 
 from schemas.common_mistake_schema import COMMON_MISTAKE_SCHEMA
-from src.openai_client import call_openai_json
+from src.ai_client import call_ai_json
 
 
 if len(sys.argv) < 2:
@@ -88,7 +88,7 @@ for concept_card in tqdm(concept_cards):
         relations_json=json.dumps(related_relations, ensure_ascii=False, indent=2),
     )
 
-    result = call_openai_json(
+    result = call_ai_json(
         system_prompt="너는 CS 전공 학습자의 공통 오개념을 정리하는 전문가다.",
         user_prompt=user_prompt,
         schema_name="common_mistake_schema",

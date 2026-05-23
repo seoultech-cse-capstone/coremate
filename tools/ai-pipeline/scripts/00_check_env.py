@@ -1,13 +1,8 @@
 import _bootstrap
 
-from src.openai_client import client, DEFAULT_MODEL
+from src.ai_client import AI_PROVIDER, check_ai_connection
 
-if not DEFAULT_MODEL:
-    raise RuntimeError(".env에 OPENAI_MODEL이 없습니다.")
+message = check_ai_connection()
 
-response = client.responses.create(
-    model=DEFAULT_MODEL,
-    input="한국어로 'OpenAI API 연결 성공'이라고만 답해줘.",
-)
-
-print(response.output_text)
+print(f"{AI_PROVIDER} API 연결 성공")
+print(message)

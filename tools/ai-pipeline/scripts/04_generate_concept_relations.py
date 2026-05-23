@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from schemas.concept_relation_schema import CONCEPT_RELATION_SCHEMA
-from src.openai_client import call_openai_json
+from src.ai_client import call_ai_json
 
 
 if len(sys.argv) < 2:
@@ -23,7 +23,7 @@ user_prompt = prompt_template.format(
     concept_cards_json=json.dumps(concept_cards, ensure_ascii=False, indent=2)
 )
 
-result = call_openai_json(
+result = call_ai_json(
     system_prompt="너는 CS 전공 개념 간 관계를 정확히 분류하는 전문가다.",
     user_prompt=user_prompt,
     schema_name="concept_relation_schema",
