@@ -112,12 +112,8 @@ def _call_gemini_json(
         contents=user_prompt,
         config={
             "system_instruction": system_prompt,
-            "response_format": {
-                "text": {
-                    "mime_type": "application/json",
-                    "schema": schema,
-                }
-            },
+            "response_mime_type": "application/json",
+            "response_json_schema": schema,
         },
     )
 
