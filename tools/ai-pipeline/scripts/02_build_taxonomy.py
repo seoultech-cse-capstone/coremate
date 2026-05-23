@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 from schemas.taxonomy_schema import TAXONOMY_SCHEMA
-from src.openai_client import call_openai_json
+from src.ai_client import call_ai_json
 from src.taxonomy_validator import validate_taxonomy
 
 
@@ -36,7 +36,7 @@ user_prompt = prompt_template.format(
     taxonomy_scope_json=json.dumps(taxonomy_scope, ensure_ascii=False, indent=2),
 )
 
-result = call_openai_json(
+result = call_ai_json(
     system_prompt="너는 CS 전공 지식을 학습 앱용 계층 구조로 정리하는 전문가다.",
     user_prompt=user_prompt,
     schema_name="taxonomy_schema",
