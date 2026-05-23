@@ -7,7 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from schemas.question_review_schema import QUESTION_REVIEW_SCHEMA
-from src.openai_client import REVIEW_MODEL, call_openai_json
+from src.ai_client import REVIEW_MODEL, call_ai_json
 
 
 if len(sys.argv) < 2:
@@ -40,7 +40,7 @@ for question in tqdm(questions):
         question_json=json.dumps(question, ensure_ascii=False, indent=2),
     )
 
-    result = call_openai_json(
+    result = call_ai_json(
         system_prompt="너는 CS 문제의 정답성, 명확성, 해설 품질을 검토하는 전문가다.",
         user_prompt=user_prompt,
         schema_name="question_review_schema",

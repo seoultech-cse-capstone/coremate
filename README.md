@@ -6,198 +6,536 @@ CS 전공지식 반복 학습 앱.
 
 ---
 
-## 구조
+## 프로젝트 구조
 
 ```txt
 coremate/
-  README.md
-  .gitignore
-  .env.example
-
   apps/
-    backend/              # Spring Boot 백엔드 서버
+    backend/              # Spring Boot 백엔드
     mobile/               # React Native + Expo 모바일 앱
 
   tools/
-    ai-pipeline/          # Python 기반 CS 콘텐츠/문제 생성 파이프라인
+    ai-pipeline/          # AI 콘텐츠 생성 파이프라인
 
-  docs/
-    product/              # 기획서, MVP, 화면 흐름
-    api/                  # API 명세
-    db/                   # DB 명세, ERD
-    ai/                   # AI 파이프라인 설명, 프롬프트 규칙
-    deploy/               # 배포 방법 정리
-
-  infra/
-    docker-compose.local.yml
-    aws/                  # ECS, RDS, S3, CloudWatch 관련 정리
-
-  scripts/
-    seed/                 # 초기 데이터 insert SQL
-    local/                # 로컬 실행/DB 초기화 스크립트
-
-  .github/
-    workflows/            # GitHub Actions CI/CD
-    ISSUE_TEMPLATE/
-    pull_request_template.md
+  docs/                   # 기획, API, DB, AI, 배포 문서
+  infra/                  # Docker, AWS 등 인프라 설정
+  scripts/                # DB seed, 로컬 실행 스크립트
+  .github/                # GitHub Actions, PR/Issue 템플릿
 ```
 
 ---
 
-## 폴더 역할
+# AI 콘텐츠 파이프라인 빠른 실행 가이드
+
+`tools/ai-pipeline`은 전공서적 PDF를 기반으로 CoreMate 서비스에 사용할 CS 학습 콘텐츠 초안을 생성하는 내부 도구다.
+
+생성 결과는 바로 DB에 저장하지 않는다.  
+사람이 JSON 파일과 `final_report.md`를 검수한 뒤 최종 승인된 데이터만 DB에 반영한다.
+
+---
+
+## 생성되는 파일
+
+한 과목을 실행하면 아래 파일들이 생성된다.
 
 ```txt
-apps/backend
-→ Java 21 + Spring Boot 서버
-→ 로그인, 문제집, 풀이 기록, 약점 분석, 보상, 아바타, 친구, 상점 API
+outputs/{SUBJECT_CODE}/taxonomy.json
+outputs/{SUBJECT_CODE}/concept_cards.json
+outputs/{SUBJECT_CODE}/concept_relations.json
+outputs/{SUBJECT_CODE}/common_mistakes.json
+outputs/{SUBJECT_CODE}/questions.json
+outputs/{SUBJECT_CODE}/question_reviews.json
+outputs/{SUBJECT_CODE}/final_report.md
+```
 
-apps/mobile
-→ React Native + Expo 앱
-→ 시작화면, 홈, 문제집, 약점 분석, 마이페이지/아바타, 친구, 상점 화면
+PDF 추출 결과는 아래에 생성된다.
 
-tools/ai-pipeline
-→ Python + PyMuPDF + OpenAI API 기반 내부 콘텐츠 생성 도구
-→ PDF 텍스트 추출, 개념 생성, 공통 오해 생성, 문제 생성, 문제 검수
-
-docs
-→ 팀원들이 같이 보는 문서
-→ 기획서, DB 명세, API 명세, 화면 흐름, AI 파이프라인 정리
-
-infra
-→ 배포/로컬 실행 관련 설정
-→ Docker, AWS ECS/Fargate, RDS, S3 등
-
-scripts
-→ DB 초기 데이터, 로컬 개발용 스크립트
-
-.github
-→ PR 템플릿, 이슈 템플릿, 자동 테스트/배포 설정
+```txt
+data/extracted/{SUBJECT_CODE}/chunks.json
 ```
 
 ---
 
-## GitHub에 올라오지 않는 파일
+## 지원 AI Provider
 
-아래 파일들은 보안, 저작권, 용량, 중간 산출물 문제 때문에 GitHub에 올리지 않는다.
-
-```txt
-.venv/
-.env
-__pycache__/
-data/raw/
-data/extracted/
-outputs/
-.DS_Store
-```
+`.env`의 `AI_PROVIDER` 값으로 사용할 AI를 선택한다.
 
 ```txt
-.env
-→ OpenAI API Key 포함
-→ 직접 생성해야 함
-
-.venv
-→ 개인 로컬 Python 가상환경
-→ 직접 생성해야 함
-
-data/raw
-→ 전공서적 PDF 원본 자료
-→ GitHub 업로드 금지
-→ 직접 폴더를 만들고 PDF를 넣어야 함
-
-data/extracted
-→ PyMuPDF로 PDF에서 추출한 chunks.json
-→ 원문 텍스트 일부가 포함될 수 있음
-→ 직접 실행해서 생성해야 함
-
-outputs
-→ AI 생성 결과물
-→ taxonomy, concept_cards, questions, final_report 등
-→ 직접 실행해서 생성해야 함
+AI_PROVIDER=openai
+AI_PROVIDER=gemini
 ```
+
+| 값 | 의미 |
+| --- | --- |
+| `openai` | OpenAI GPT 모델 사용 |
+| `gemini` | Google Gemini 모델 사용 |
+
+AI Provider를 바꿔도 실행 명령어와 결과 파일 구조는 동일하다.
 
 ---
 
-## 클론 후 필수 세팅
+## 과목 코드
 
-처음 클론한 팀원은 아래 순서대로 세팅한다.
+| 과목 | SUBJECT_CODE |
+| --- | --- |
+| 자료구조 | `DATA_STRUCTURE` |
+| 알고리즘 | `ALGORITHM` |
+| 운영체제 | `OPERATING_SYSTEM` |
+| 데이터베이스 | `DATABASE` |
+| 컴퓨터구조 | `COMPUTER_ARCHITECTURE` |
+| 네트워크 | `NETWORK` |
+
+---
+
+# 처음 세팅
+
+## 1. 저장소 클론
 
 ```bash
 git clone https://github.com/yongzooda/coremate.git
-cd tools/ai-pipeline
 ```
 
-가상환경 생성 및 실행.
+GitHub 저장소를 내 컴퓨터로 받는다.
+
+```bash
+cd coremate/tools/ai-pipeline
+```
+
+AI 파이프라인 폴더로 이동한다.
+
+---
+
+## 2. 가상환경 생성
 
 ```bash
 python3 -m venv .venv
+```
+
+Python 패키지를 프로젝트별로 분리하기 위한 가상환경을 만든다.
+
+```bash
 source .venv/bin/activate
 ```
 
-패키지 설치.
+가상환경을 활성화한다.
+
+---
+
+## 3. 패키지 설치
 
 ```bash
 pip install -r requirements.txt
 ```
 
-환경변수 파일 생성.
+AI 파이프라인 실행에 필요한 패키지를 설치한다.
 
-```bash
-cp .env.example .env
-```
-
-`.env`에 실제 OpenAI API Key 입력.
-
-```txt
-OPENAI_API_KEY=your_api_key
-OPENAI_MODEL=gpt-5.4-mini
-OPENAI_REVIEW_MODEL=gpt-5.4-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-```
-
-설치 확인.
+설치 확인:
 
 ```bash
 python -c "import openai; print('openai import 성공')"
+python -c "from google import genai; print('google-genai import 성공')"
 python -c "import fitz; print('PyMuPDF import 성공')"
 ```
 
-`fitz` import가 성공하면 PyMuPDF가 정상 설치된 것이다.
-
 ---
 
-## PDF 원본 자료 준비
-
-GitHub에는 `data/raw/`가 올라오지 않는다.
-
-따라서 파이프라인 실행 전에 직접 폴더를 만들고 PDF를 넣어야 한다.
-
-자료구조 테스트 기준:
+## 4. .env 파일 생성
 
 ```bash
-mkdir -p data/raw/DATA_STRUCTURE
+cp -n .env.example .env
 ```
 
-아래 위치에 자료구조 PDF를 넣는다.
+개인 API 키를 넣을 `.env` 파일을 만든다.
+
+`.env` 예시:
 
 ```txt
-tools/ai-pipeline/data/raw/DATA_STRUCTURE/open_data_structures.pdf
+AI_PROVIDER=openai
+
+OPENAI_API_KEY=본인_OPENAI_API_KEY
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_REVIEW_MODEL=gpt-5.4-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
+GEMINI_API_KEY=본인_GEMINI_API_KEY
+GEMINI_MODEL=gemini-3.5-flash
+GEMINI_REVIEW_MODEL=gemini-3.5-flash
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 ```
 
-파일명은 예시다.
-
-현재 스크립트는 `data/raw/{SUBJECT_CODE}/` 안의 `.pdf` 파일을 읽는다.
+OpenAI로 실행하려면:
 
 ```txt
-data/raw/DATA_STRUCTURE/
-  open_data_structures.pdf
+AI_PROVIDER=openai
 ```
 
-주의 사항:
+Gemini로 실행하려면:
 
 ```txt
-PDF 원본은 GitHub에 올리지 않는다.
-팀 내부 공유 드라이브나 개인 로컬에서만 관리한다.
-PDF가 없으면 01_extract_pdf.py 실행 시 오류가 난다.
+AI_PROVIDER=gemini
+```
+
+`.env`는 API 키가 들어가는 개인 파일이므로 GitHub에 올리면 안 된다.
+
+---
+
+## 5. API 연결 확인
+
+```bash
+python scripts/00_check_env.py
+```
+
+현재 `.env`에 설정된 AI Provider와 모델로 API 연결이 되는지 확인한다.
+
+```bash
+python scripts/00_list_models.py
+```
+
+현재 AI Provider에서 사용 가능한 모델 목록을 확인한다.
+
+---
+
+# PDF 준비
+
+## 1. 과목별 PDF 폴더 생성
+
+```bash
+mkdir -p data/raw/{SUBJECT_CODE}
+```
+
+과목별 PDF를 넣을 폴더를 만든다.
+
+운영체제 예시:
+
+```bash
+mkdir -p data/raw/OPERATING_SYSTEM
 ```
 
 ---
+
+## 2. PDF 넣기
+
+과목별 PDF는 아래 위치에 넣는다.
+
+```txt
+data/raw/{SUBJECT_CODE}/
+```
+
+운영체제 예시:
+
+```txt
+data/raw/OPERATING_SYSTEM/
+  operating_systems_and_middleware.pdf
+  xv6_riscv_book_rev5.pdf
+  intro_computer_architecture_and_operating_systems.pdf
+```
+
+기본 원칙은 과목당 PDF 3개다.
+
+```txt
+메인 전공서 1개
++ 보조 전공서 1개
++ 구현/응용/심화 자료 1개
+```
+
+PDF 원문은 저작권과 용량 문제 때문에 GitHub에 올리지 않는다.
+
+---
+
+# 파이프라인 실행
+
+아래 명령어에서 `{SUBJECT_CODE}`를 실제 과목 코드로 바꿔 실행한다.
+
+예시:
+
+```txt
+{SUBJECT_CODE} → OPERATING_SYSTEM
+```
+
+---
+
+## 1. PDF 텍스트 추출
+
+```bash
+python scripts/01_extract_pdf.py {SUBJECT_CODE}
+```
+
+`data/raw/{SUBJECT_CODE}/` 안의 PDF를 읽고 텍스트를 추출한다.
+
+결과:
+
+```txt
+data/extracted/{SUBJECT_CODE}/chunks.json
+```
+
+---
+
+## 2. taxonomy 생성
+
+```bash
+python scripts/02_build_taxonomy.py {SUBJECT_CODE}
+```
+
+과목의 학습 구조를 생성한다.
+
+구조:
+
+```txt
+subject
+→ category_lv1
+→ category_lv2
+→ concept
+```
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/taxonomy.json
+```
+
+경고가 있으면 추가 생성:
+
+```txt
+outputs/{SUBJECT_CODE}/taxonomy_warnings.txt
+```
+
+---
+
+## 3. taxonomy 검수
+
+```bash
+code outputs/{SUBJECT_CODE}/taxonomy.json
+```
+
+생성된 taxonomy를 사람이 직접 검수한다.
+
+이 단계에서는 반드시 멈추고 확인한다.  
+taxonomy가 잘못되면 이후 생성 결과도 같이 흔들린다.
+
+---
+
+## 4. concept card 생성
+
+```bash
+python scripts/03_generate_concept_cards.py {SUBJECT_CODE}
+```
+
+각 concept의 설명, 핵심 키워드, 근거 source를 생성한다.
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/concept_cards.json
+```
+
+---
+
+## 5. concept relation 생성
+
+```bash
+python scripts/04_generate_concept_relations.py {SUBJECT_CODE}
+```
+
+개념 간 관계를 생성한다.
+
+관계 유형:
+
+```txt
+related
+confusing
+prerequisite
+```
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/concept_relations.json
+```
+
+---
+
+## 6. common mistake 생성
+
+```bash
+python scripts/05_generate_common_mistakes.py {SUBJECT_CODE}
+```
+
+개념별 공통 오해와 교정 설명을 생성한다.
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/common_mistakes.json
+```
+
+---
+
+## 7. question 생성
+
+```bash
+python scripts/06_generate_questions.py {SUBJECT_CODE}
+```
+
+concept card, concept relation, common mistake를 기반으로 4지선다 문제를 생성한다.
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/questions.json
+```
+
+경고가 있으면 추가 생성:
+
+```txt
+outputs/{SUBJECT_CODE}/question_validation_errors.txt
+```
+
+---
+
+## 8. question review 생성
+
+```bash
+python scripts/07_review_questions.py {SUBJECT_CODE}
+```
+
+생성된 문제를 AI가 다시 검토한다.
+
+검토 verdict:
+
+```txt
+pass
+revise
+reject
+```
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/question_reviews.json
+```
+
+---
+
+## 9. final report 생성
+
+```bash
+python scripts/08_make_report.py {SUBJECT_CODE}
+```
+
+생성된 JSON 결과를 사람이 보기 쉬운 Markdown 보고서로 만든다.
+
+결과:
+
+```txt
+outputs/{SUBJECT_CODE}/final_report.md
+```
+
+확인:
+
+```bash
+code outputs/{SUBJECT_CODE}/final_report.md
+```
+
+---
+
+# 한 과목 전체 실행 예시
+
+운영체제 실행 예시:
+
+```bash
+cd ~/coremate/tools/ai-pipeline
+source .venv/bin/activate
+
+python scripts/00_check_env.py
+
+python scripts/01_extract_pdf.py OPERATING_SYSTEM
+python scripts/02_build_taxonomy.py OPERATING_SYSTEM
+```
+
+여기서 반드시 taxonomy를 검수한다.
+
+```bash
+code outputs/OPERATING_SYSTEM/taxonomy.json
+```
+
+검수가 끝나면 이어서 실행한다.
+
+```bash
+python scripts/03_generate_concept_cards.py OPERATING_SYSTEM
+python scripts/04_generate_concept_relations.py OPERATING_SYSTEM
+python scripts/05_generate_common_mistakes.py OPERATING_SYSTEM
+python scripts/06_generate_questions.py OPERATING_SYSTEM
+python scripts/07_review_questions.py OPERATING_SYSTEM
+python scripts/08_make_report.py OPERATING_SYSTEM
+```
+
+최종 결과를 확인한다.
+
+```bash
+code outputs/OPERATING_SYSTEM/final_report.md
+```
+
+---
+
+
+# 다시 실행해야 하는 경우
+
+| 수정한 것 | 다시 실행할 단계 |
+| --- | --- |
+| PDF 파일 변경 | `01_extract_pdf`부터 |
+| yaml의 taxonomy 범위 변경 | `02_build_taxonomy`부터 |
+| taxonomy.json 직접 수정 | `03_generate_concept_cards`부터 |
+| concept_cards.json 수정 | `04_generate_concept_relations`부터 |
+| common_mistakes.json 수정 | `06_generate_questions`부터 |
+| questions.json 수정 | `07_review_questions`부터 |
+| report만 다시 만들기 | `08_make_report`만 |
+| AI_PROVIDER 또는 모델 변경 | 원하는 생성 단계부터 다시 실행 |
+
+---
+
+# 자주 쓰는 확인 명령어
+
+
+PDF가 들어갔는지 확인:
+
+```bash
+ls data/raw/{SUBJECT_CODE}
+```
+
+추출된 chunk 개수 확인:
+
+```bash
+python -c "import json; data=json.load(open('data/extracted/{SUBJECT_CODE}/chunks.json')); print(len(data)); print(data[0].keys())"
+```
+
+최종 결과 폴더 확인:
+
+```bash
+ls outputs/{SUBJECT_CODE}
+```
+
+---
+
+# GitHub에 올리면 안 되는 것
+
+아래 파일과 폴더는 GitHub에 올리지 않는다.
+
+```txt
+.env
+.venv/
+data/raw/
+data/extracted/
+outputs/
+__pycache__/
+```
+
+이유:
+
+| 항목 | 이유 |
+| --- | --- |
+| `.env` | API 키 포함 |
+| `.venv/` | 개인 로컬 가상환경 |
+| `data/raw/` | PDF 원문 포함 |
+| `data/extracted/` | PDF 추출 텍스트 포함 |
+| `outputs/` | 검수 전 AI 생성 결과 |
+| `__pycache__/` | Python 캐시 |

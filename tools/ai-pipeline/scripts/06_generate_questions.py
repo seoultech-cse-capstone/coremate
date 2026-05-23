@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from schemas.question_schema import QUESTION_SCHEMA
 from src.hash_utils import make_question_hash
-from src.openai_client import call_openai_json
+from src.ai_client import call_ai_json
 from src.validators import validate_question, validate_questions
 
 
@@ -203,7 +203,7 @@ for concept_card in tqdm(concept_cards):
         question_count=question_count,
     )
 
-    result = call_openai_json(
+    result = call_ai_json(
         system_prompt="너는 CS 전공 지식 문제를 정확하게 생성하는 전문가다.",
         user_prompt=user_prompt,
         schema_name="question_schema",

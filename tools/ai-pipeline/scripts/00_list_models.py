@@ -1,8 +1,8 @@
 import _bootstrap
 
-from src.openai_client import client
+from src.ai_client import AI_PROVIDER, list_ai_models
 
-models = client.models.list()
+print(f"provider: {AI_PROVIDER}")
 
-for model in models.data:
-    print(model.id)
+for model_id in list_ai_models():
+    print(model_id)
