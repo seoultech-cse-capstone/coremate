@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/lightplu/Desktop/coremate/apps/backend/.claude/karpathy-hook.sh",
+            "statusMessage": "Karpathy 가이드라인 로드 중..."
+          }
+        ]
+      }
+    ]
+  }
+}
