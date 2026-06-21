@@ -1,0 +1,61 @@
+name: 기능 개발
+description: 새로운 기능 개발 작업을 등록합니다.
+title: "[FEAT] "
+labels: ["feat"]
+body:
+  - type: dropdown
+    id: domain
+    attributes:
+      label: 담당 영역
+      description: 어느 파트 작업인가요?
+      options:
+        - Frontend
+        - Backend
+        - AI Pipeline
+        - Infra
+        - Common
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 기능 설명
+      description: 개발하려는 기능을 간단히 설명해주세요.
+      placeholder: 예) 사용자가 푼 문제집 목록에서 AI 약점 분석을 요청할 수 있도록 한다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: 작업 상세 내용
+      description: 해야 할 일을 체크리스트로 작성해주세요.
+      value: |
+        - [ ] 
+        - [ ] 
+        - [ ] 
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: API / 데이터 구조
+      description: 관련 API, DTO, JSON 구조, DB 컬럼 등이 있으면 작성해주세요.
+      placeholder: |
+        예)
+        POST /api/workbooks/{workbookId}/analysis
+        GET /api/workbooks/{workbookId}/analysis
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 완료 조건
+      description: 이 Issue가 완료됐다고 판단할 기준을 작성해주세요.
+      value: |
+        - [ ] 기능이 정상 동작한다.
+        - [ ] 예외 상황이 처리된다.
+        - [ ] 관련 화면/API 테스트를 완료했다.
+    validations:
+      required: true
