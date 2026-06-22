@@ -27,6 +27,8 @@ tools/ai-pipeline/outputs/*
 .gradle/
 **/.gradle/
 apps/backend/build/
+apps/backend/bin/
+*.class
 
 # Local Spring Boot config
 apps/backend/src/main/resources/application-local.yml
@@ -38,6 +40,11 @@ apps/backend/src/main/resources/application-secret.yaml
 .idea/
 *.iml
 out/
+
+# VS Code Java / Eclipse
+.project
+.classpath
+.settings/
 
 # Node / Expo
 node_modules/

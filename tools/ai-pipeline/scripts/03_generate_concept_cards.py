@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from schemas.concept_card_schema import CONCEPT_CARD_SCHEMA
 from src.chunk_retriever import retrieve_chunks_by_keywords
-from src.openai_client import call_openai_json
+from src.ai_client import call_ai_json
 
 
 if len(sys.argv) < 2:
@@ -61,7 +61,7 @@ for concept in tqdm(list(iter_concepts(taxonomy))):
         source_chunks_json=json.dumps(related_chunks, ensure_ascii=False, indent=2),
     )
 
-    result = call_openai_json(
+    result = call_ai_json(
         system_prompt="너는 CS 전공 개념을 공통 조사 템플릿에 맞게 구조화하는 전문가다.",
         user_prompt=user_prompt,
         schema_name="concept_card_schema",
