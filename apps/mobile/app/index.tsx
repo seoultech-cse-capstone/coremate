@@ -1,6 +1,6 @@
 import { router } from "expo-router";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 export default function StartScreen() {
   return (
