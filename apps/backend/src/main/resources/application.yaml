@@ -1,3 +1,29 @@
 spring:
   application:
     name: backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/coremate?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: coremate
+    password: coremate
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+    open-in-view: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  # HS256용 최소 256bit(32byte) 이상의 Base64 인코딩 시크릿. 운영 환경에서는 반드시 교체할 것.
+  secret: Y29yZW1hdGUtand0LXNlY3JldC1rZXktZm9yLWxvY2FsLWRldmVsb3BtZW50LTIwMjY=
+  access-token-expiry-sec: 3600      # 1시간
+  refresh-token-expiry-sec: 604800   # 7일
