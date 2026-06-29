@@ -1,7 +1,14 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { FONT } from "../constants/fonts";
+
 export default function LoginScreen() {
+  const handleLogin = () => {
+    // TODO: Connect email login API.
+    router.replace("/(tabs)/home");
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.form}>
@@ -30,7 +37,7 @@ export default function LoginScreen() {
 
         <Pressable
           style={styles.loginButton}
-          onPress={() => router.replace("/(tabs)/home")}
+          onPress={handleLogin}
         >
           <Text style={styles.loginButtonText}>Login</Text>
         </Pressable>
@@ -77,9 +84,10 @@ const styles = StyleSheet.create({
   brand: {
     marginBottom: 12,
     marginTop: -40,
-    fontSize: 34,
-    fontWeight: "900",
     color: "#6D5DFB",
+    fontFamily: FONT.kufam,
+    fontSize: 34,
+    fontWeight: "700",
     textAlign: "center",
   },
   fieldGroup: {
@@ -87,18 +95,21 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: "#1f2937",
+    fontFamily: FONT.kufam,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   input: {
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#d1d5db",
     backgroundColor: "#ffffff",
+    color: "#111827",
+    fontFamily: FONT.kufam,
+    fontSize: 16,
+    fontWeight: "500",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: "#111827",
   },
   loginButton: {
     alignItems: "center",
@@ -109,8 +120,9 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: "#ffffff",
+    fontFamily: FONT.kufam,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "500",
   },
   inlineLinksRow: {
     flexDirection: "row",
@@ -120,8 +132,9 @@ const styles = StyleSheet.create({
   },
   inlineLinkText: {
     color: "#6D5DFB",
+    fontFamily: FONT.kufam,
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   separatorRow: {
     marginTop: 4,
@@ -142,12 +155,14 @@ const styles = StyleSheet.create({
   },
   guestButtonText: {
     color: "#6D5DFB",
+    fontFamily: FONT.kufam,
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "500",
   },
   guestNotice: {
     marginTop: 2,
     color: "#64748b",
+    fontFamily: FONT.pretendard,
     fontSize: 13,
     lineHeight: 18,
     textAlign: "center",

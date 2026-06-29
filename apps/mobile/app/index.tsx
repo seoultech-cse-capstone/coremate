@@ -2,6 +2,8 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { FONT } from "../constants/fonts";
+
 export default function StartScreen() {
   return (
     <LinearGradient
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
   },
   emailButtonText: {
     color: "#0f172a",
+    fontFamily: FONT.pretendard,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -81,6 +84,7 @@ const styles = StyleSheet.create({
   },
   kakaoButtonText: {
     color: "#191919",
+    fontFamily: FONT.pretendard,
     fontSize: 16,
     fontWeight: "800",
   },

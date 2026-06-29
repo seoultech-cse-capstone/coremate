@@ -1,6 +1,8 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { FONT } from "../constants/fonts";
+
 export default function RegisterScreen() {
   return (
     <View style={styles.container}>
@@ -25,6 +27,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#6D5DFB",
+    fontFamily: FONT.pretendard,
     fontSize: 30,
     fontWeight: "900",
     textAlign: "center",
@@ -32,6 +35,7 @@ const styles = StyleSheet.create({
   description: {
     marginTop: 12,
     color: "#64748b",
+    fontFamily: FONT.pretendard,
     fontSize: 15,
     lineHeight: 22,
     textAlign: "center",
@@ -45,6 +49,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#ffffff",
+    fontFamily: FONT.pretendard,
     fontSize: 15,
     fontWeight: "800",
   },

@@ -1,13 +1,28 @@
 import { Stack } from "expo-router";
+import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 
+import { FONT } from "../constants/fonts";
+
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    [FONT.pretendard]: require("../assets/fonts/PretendardVariable.ttf"),
+    [FONT.kufam]: require("../assets/fonts/Kufam-VariableFont_wght.ttf"),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <>
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: "#ffffff" },
-          headerTitleStyle: { fontWeight: "700" },
+          headerTitleStyle: {
+            fontFamily: FONT.pretendard,
+            fontWeight: "700",
+          },
           headerTintColor: "#1f2937",
           contentStyle: { backgroundColor: "#f8fafc" },
         }}
