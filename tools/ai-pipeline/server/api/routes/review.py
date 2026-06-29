@@ -2,6 +2,10 @@ from fastapi import APIRouter, HTTPException, status
 
 from server.models.review import (
     ApprovedArtifactExportResponse,
+    BulkReviewApproveArtifactResponse,
+    BulkReviewApproveRequest,
+    BulkReviewApproveSubjectResponse,
+    BulkSubjectReviewApproveRequest,
     ReviewArtifactSummary,
     ReviewArtifactType,
     ReviewDecisionRequest,
@@ -12,6 +16,8 @@ from server.services.review_service import (
     ReviewDataError,
     ReviewItemNotFoundError,
     ReviewSourceNotFoundError,
+    bulk_approve_artifact,
+    bulk_approve_subject_artifacts,
     export_approved_artifact,
     get_review_item,
     list_review_artifacts,
@@ -35,6 +41,33 @@ def list_subject_review_artifacts(subject_code: str) -> list[ReviewArtifactSumma
     return list_review_artifacts(subject_code)
 
 
+@router.post(
+    "/subjects/{subject_code}/bulk-approve",
+    response_model=BulkReviewApproveSubjectResponse,
+)
+def bulk_approve_subject_review_artifacts(
+    subject_code: str,
+    request: BulkSubjectReviewApproveRequest = BulkSubjectReviewApproveRequest(),
+) -> BulkReviewApproveSubjectResponse:
+    _ensure_subject_exists(subject_code)
+
+    try:
+        return bulk_approve_subject_artifacts(
+            subject_code=subject_code,
+            request=request,
+        )
+    except ReviewSourceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ReviewDataError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
 @router.get(
     "/subjects/{subject_code}/artifacts/{artifact_type}/items",
     response_model=ReviewItemListResponse,
@@ -49,6 +82,35 @@ def list_subject_review_items(
         return list_review_items(
             subject_code=subject_code,
             artifact_type=artifact_type,
+        )
+    except ReviewSourceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except ReviewDataError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post(
+    "/subjects/{subject_code}/artifacts/{artifact_type}/bulk-approve",
+    response_model=BulkReviewApproveArtifactResponse,
+)
+def bulk_approve_subject_review_artifact(
+    subject_code: str,
+    artifact_type: ReviewArtifactType,
+    request: BulkReviewApproveRequest = BulkReviewApproveRequest(),
+) -> BulkReviewApproveArtifactResponse:
+    _ensure_subject_exists(subject_code)
+
+    try:
+        return bulk_approve_artifact(
+            subject_code=subject_code,
+            artifact_type=artifact_type,
+            request=request,
         )
     except ReviewSourceNotFoundError as exc:
         raise HTTPException(

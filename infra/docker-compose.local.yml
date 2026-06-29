@@ -1,0 +1,29 @@
+name: coremate-local
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: coremate-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: coremate
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+09:00
+    volumes:
+      - coremate_mysql_data:/var/lib/mysql
+      - ../scripts/db/content_master_schema.sql:/docker-entrypoint-initdb.d/01_content_master_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  coremate_mysql_data:
