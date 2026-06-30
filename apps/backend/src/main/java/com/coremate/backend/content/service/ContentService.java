@@ -50,9 +50,8 @@ public class ContentService {
     }
 
     public List<CategoryLv1Response> getCategoryLv1List(Long subjectId) {
-        if (!subjectRepository.existsById(subjectId)) {
-            throw new CoreMateException(ErrorCode.SUBJECT_NOT_FOUND);
-        }
+        subjectRepository.findBySubjectIdAndActiveTrue(subjectId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.SUBJECT_NOT_FOUND));
         return categoryLv1Repository.findAllBySubject_SubjectIdAndActiveTrueOrderBySortOrderAsc(subjectId)
                 .stream()
                 .map(c -> new CategoryLv1Response(
@@ -69,9 +68,8 @@ public class ContentService {
     }
 
     public List<CategoryLv2Response> getCategoryLv2List(Long categoryLv1Id) {
-        if (!categoryLv1Repository.existsById(categoryLv1Id)) {
-            throw new CoreMateException(ErrorCode.RESOURCE_NOT_FOUND);
-        }
+        categoryLv1Repository.findByCategoryLv1IdAndActiveTrue(categoryLv1Id)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.RESOURCE_NOT_FOUND));
         return categoryLv2Repository.findAllByCategoryLv1_CategoryLv1IdAndActiveTrueOrderBySortOrderAsc(categoryLv1Id)
                 .stream()
                 .map(c -> new CategoryLv2Response(
@@ -88,9 +86,8 @@ public class ContentService {
     }
 
     public List<ConceptResponse> getConcepts(Long categoryLv2Id, Long userId) {
-        if (!categoryLv2Repository.existsById(categoryLv2Id)) {
-            throw new CoreMateException(ErrorCode.RESOURCE_NOT_FOUND);
-        }
+        categoryLv2Repository.findByCategoryLv2IdAndActiveTrue(categoryLv2Id)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.RESOURCE_NOT_FOUND));
         return conceptRepository.findAllByCategoryLv2_CategoryLv2IdAndActiveTrueOrderBySortOrderAsc(categoryLv2Id)
                 .stream()
                 .map(c -> new ConceptResponse(
