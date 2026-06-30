@@ -9,8 +9,8 @@ import {
   View,
 } from "react-native";
 
-import { YourProgress } from "../../components/home/YourProgress";
 import { FONT } from "../../constants/fonts";
+import { YourProgress } from "../../src/features/home/components/YourProgress";
 
 export default function HomeScreen() {
   const { height } = useWindowDimensions();

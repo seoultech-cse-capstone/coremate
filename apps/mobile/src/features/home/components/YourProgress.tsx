@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, View } from "react-native";
 
-import { FONT } from "../../constants/fonts";
+import { FONT } from "../../../../constants/fonts";
 
 const progressItems = [
   { title: "Data Structure", percent: 85 },
