@@ -1,0 +1,20 @@
+# Expo
+.expo/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Generated Expo types
+expo-env.d.ts
+
+# Logs
+*.log
