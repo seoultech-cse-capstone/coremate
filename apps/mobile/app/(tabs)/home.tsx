@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import {
   Pressable,
   ScrollView,
@@ -42,11 +43,22 @@ export default function HomeScreen() {
           </Pressable>
 
           <View style={styles.secondaryRow}>
-            <Pressable style={styles.secondaryButton}>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push("/(tabs)/content")}
+            >
               <Text style={styles.secondaryButtonText}>연습문제 풀이</Text>
             </Pressable>
 
-            <Pressable style={[styles.secondaryButton, styles.weaknessButton]}>
+            <Pressable
+              style={[styles.secondaryButton, styles.weaknessButton]}
+              onPress={() =>
+                router.push({
+                  pathname: "/(tabs)/log-weak",
+                  params: { mode: "weakness", entry: Date.now().toString() },
+                })
+              }
+            >
               <Text
                 style={[
                   styles.secondaryButtonText,

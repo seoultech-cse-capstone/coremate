@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigation } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../constants/fonts";
@@ -8,12 +8,28 @@ type LogWeakMode = "wrongNote" | "weakness";
 
 export default function LogWeakScreen() {
   const navigation = useNavigation();
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<LogWeakMode>("wrongNote");
   const isWrongNote = mode === "wrongNote";
   const title = isWrongNote ? "오답노트" : "약점분석";
 
+  const updateMode = (nextMode: LogWeakMode) => {
+    setMode(nextMode);
+    router.setParams({ mode: nextMode });
+  };
+
   useEffect(() => {
-    navigation.setOptions({ title });
+    if (modeParam === "weakness") {
+      setMode("weakness");
+    }
+
+    if (modeParam === "wrongNote") {
+      setMode("wrongNote");
+    }
+  }, [modeParam]);
+
+  useEffect(() => {
+    navigation.setOptions({ title, tabBarLabel: title });
   }, [navigation, title]);
 
   return (
@@ -26,7 +42,7 @@ export default function LogWeakScreen() {
         <View style={styles.toggle}>
           <Pressable
             style={[styles.toggleButton, isWrongNote && styles.activeButton]}
-            onPress={() => setMode("wrongNote")}
+            onPress={() => updateMode("wrongNote")}
           >
             <Text
               style={[
@@ -40,7 +56,7 @@ export default function LogWeakScreen() {
 
           <Pressable
             style={[styles.toggleButton, !isWrongNote && styles.activeButton]}
-            onPress={() => setMode("weakness")}
+            onPress={() => updateMode("weakness")}
           >
             <Text
               style={[
