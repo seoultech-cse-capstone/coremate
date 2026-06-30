@@ -151,7 +151,7 @@ public class ContentService {
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return Collections.emptyList();
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
         }
     }
 
@@ -162,7 +162,7 @@ public class ContentService {
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            return Collections.emptyList();
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
         }
     }
 }
