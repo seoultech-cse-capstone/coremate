@@ -17,16 +17,18 @@ export default function HomeScreen() {
   const panelTopOffset = Math.round(height * 0.42);
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingTop: panelTopOffset },
-      ]}
-    >
-      <View style={[styles.bottomPanel, { minHeight: height }]}>
-        <View style={styles.panelContent}>
+    <View style={styles.screen}>
+      <View style={{ height: panelTopOffset }} />
+
+      <View style={styles.bottomPanel}>
+        <ScrollView
+          style={styles.panelScroll}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.panelContent,
+            { paddingBottom: Math.round(height * 0.45) },
+          ]}
+        >
           <View style={styles.levelBarTrack}>
             <LinearGradient
               colors={["#6D5DFB", "#2EE6A6"]}
@@ -71,30 +73,32 @@ export default function HomeScreen() {
           </View>
 
           <YourProgress />
-        </View>
+        </ScrollView>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: "#6D5DFB",
   },
-  scrollContent: {
-    backgroundColor: "#6D5DFB",
-  },
   bottomPanel: {
+    flex: 1,
     width: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     backgroundColor: "#F3F3F3",
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    overflow: "hidden",
+  },
+  panelScroll: {
+    flex: 1,
+    backgroundColor: "#F3F3F3",
   },
   panelContent: {
-    paddingBottom: 28,
+    paddingHorizontal: 24,
+    paddingTop: 32,
   },
   levelBarTrack: {
     width: "100%",
