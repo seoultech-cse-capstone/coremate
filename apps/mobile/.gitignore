@@ -1,0 +1,42 @@
+# Expo
+.expo/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+web-build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+.env*.local
+
+# Generated Expo / TypeScript files
+expo-env.d.ts
+*.tsbuildinfo
+
+# Native build outputs
+.kotlin/
+/ios/
+/android/
+
+# Credentials
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store

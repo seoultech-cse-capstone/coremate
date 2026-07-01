@@ -30,6 +30,7 @@ public enum ErrorCode {
     // Content
     SUBJECT_NOT_FOUND(HttpStatus.NOT_FOUND, "과목을 찾을 수 없습니다"),
     CONCEPT_NOT_FOUND(HttpStatus.NOT_FOUND, "개념을 찾을 수 없습니다"),
+    INVALID_CONTENT_DATA(HttpStatus.INTERNAL_SERVER_ERROR, "콘텐츠 데이터가 손상되었습니다"),
 
     // ProblemSet
     PROBLEM_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "문제집을 찾을 수 없습니다"),
