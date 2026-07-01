@@ -84,7 +84,11 @@ public class AuthService {
                 .build();
     }
 
-    public void logout(Long userId) {
+    public void logout(Long userId, String refreshToken) {
+        String stored = redisTemplate.opsForValue().get(REFRESH_KEY_PREFIX + userId);
+        if (stored == null || !stored.equals(refreshToken)) {
+            throw new CoreMateException(ErrorCode.INVALID_TOKEN);
+        }
         redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
     }
 

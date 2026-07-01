@@ -47,7 +47,7 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request,
                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-        authService.logout(userDetails.getUserId());
+        authService.logout(userDetails.getUserId(), request.getRefreshToken());
     }
 
     @Operation(summary = "토큰 재발급")
