@@ -1,0 +1,38 @@
+import { Stack } from "expo-router";
+import { useFonts } from "expo-font";
+import { StatusBar } from "expo-status-bar";
+
+import { FONT } from "../constants/fonts";
+
+export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    [FONT.pretendard]: require("../assets/fonts/PretendardVariable.ttf"),
+    [FONT.kufam]: require("../assets/fonts/Kufam-VariableFont_wght.ttf"),
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  return (
+    <>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: "#ffffff" },
+          headerTitleStyle: {
+            fontFamily: FONT.pretendard,
+            fontWeight: "700",
+          },
+          headerTintColor: "#1f2937",
+          contentStyle: { backgroundColor: "#f8fafc" },
+        }}
+      >
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ title: "회원가입" }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+      <StatusBar style="dark" />
+    </>
+  );
+}

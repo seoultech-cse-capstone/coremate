@@ -46,6 +46,7 @@ out/
 .project
 .classpath
 .settings/
+.vscode/
 
 # Node / Expo
 node_modules/

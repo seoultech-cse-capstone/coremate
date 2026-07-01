@@ -1,0 +1,39 @@
+package com.coremate.backend.content.repository;
+
+import com.coremate.backend.content.entity.Question;
+import java.util.List;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+public interface QuestionRepository extends JpaRepository<Question, Long> {
+
+    List<Question> findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(Long conceptId);
+
+    @Query(value = """
+            SELECT * FROM question
+            WHERE concept_id = :conceptId
+              AND is_active = true
+              AND is_concept_practice_eligible = true
+            ORDER BY RAND()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Question> findRandomByConceptId(@Param("conceptId") Long conceptId, @Param("limit") int limit);
+
+    @Query(value = """
+            SELECT q.* FROM question q
+            LEFT JOIN solve_logs sl
+              ON q.question_id = sl.question_id AND sl.user_id = :userId
+            WHERE q.concept_id = :conceptId
+              AND q.is_active = true
+              AND q.is_concept_practice_eligible = true
+              AND sl.solve_log_id IS NULL
+            ORDER BY RAND()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Question> findUnsolvedByConceptId(
+            @Param("conceptId") Long conceptId,
+            @Param("userId") Long userId,
+            @Param("limit") int limit
+    );
+}
