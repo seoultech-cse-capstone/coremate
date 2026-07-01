@@ -23,7 +23,6 @@ spring:
       port: 6379
 
 jwt:
-  # HS256용 최소 256bit(32byte) 이상의 Base64 인코딩 시크릿. 운영 환경에서는 반드시 교체할 것.
-  secret: Y29yZW1hdGUtand0LXNlY3JldC1rZXktZm9yLWxvY2FsLWRldmVsb3BtZW50LTIwMjY=
+  secret: ${JWT_SECRET}
   access-token-expiry-sec: 3600      # 1시간
   refresh-token-expiry-sec: 604800   # 7일

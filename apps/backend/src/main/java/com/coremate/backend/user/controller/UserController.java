@@ -50,7 +50,7 @@ public class UserController {
     }
 
     @Operation(summary = "내 학습 진행도 조회")
-    @GetMapping("/me/learning-progress")
+    @GetMapping("/me/progress")
     public UserLearningProgressResponse getMyLearningProgress(
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         return userService.getLearningProgress(userDetails.getUserId());
