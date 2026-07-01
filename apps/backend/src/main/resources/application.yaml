@@ -1,3 +1,28 @@
 spring:
   application:
     name: backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/coremate?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: coremate
+    password: coremate
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+    open-in-view: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiry-sec: 3600      # 1시간
+  refresh-token-expiry-sec: 604800   # 7일
