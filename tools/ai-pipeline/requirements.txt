@@ -8,3 +8,4 @@ rich
 numpy
 fastapi
 uvicorn[standard]
+mysql-connector-python

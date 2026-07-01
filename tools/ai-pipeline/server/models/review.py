@@ -39,6 +39,39 @@ class ReviewDecisionRequest(BaseModel):
     )
 
 
+class BulkReviewApproveRequest(BaseModel):
+    reviewer: str | None = Field(
+        default=None,
+        description="Name or identifier of the reviewer applying the bulk approval.",
+    )
+    review_note: str | None = Field(
+        default="bulk approval",
+        description="Reviewer note stored on every item approved by this request.",
+    )
+    overwrite_existing: bool = Field(
+        default=False,
+        description=(
+            "If true, rejected or already-reviewed items are changed to approved. "
+            "If false, only pending items are changed while already-approved items are kept."
+        ),
+    )
+    export_approved: bool = Field(
+        default=True,
+        description="If true, write the approved artifact export after approval.",
+    )
+
+
+class BulkSubjectReviewApproveRequest(BulkReviewApproveRequest):
+    artifact_types: list[ReviewArtifactType] | None = Field(
+        default=None,
+        description=(
+            "Artifacts to bulk approve. If omitted, the five DB import artifacts "
+            "are approved: taxonomy, concept_cards, concept_relations, "
+            "common_mistakes, questions."
+        ),
+    )
+
+
 class ReviewArtifactSummary(BaseModel):
     subject_code: str
     artifact_type: ReviewArtifactType
@@ -89,3 +122,20 @@ class ApprovedArtifactExportResponse(BaseModel):
     approved_count: int
     exported_path: str
     exported_content: Any
+
+
+class BulkReviewApproveArtifactResponse(BaseModel):
+    subject_code: str
+    artifact_type: ReviewArtifactType
+    total_count: int
+    changed_count: int
+    already_approved_count: int
+    skipped_count: int
+    approved_count: int
+    exported_path: str | None = None
+    exported_count: int | None = None
+
+
+class BulkReviewApproveSubjectResponse(BaseModel):
+    subject_code: str
+    artifacts: list[BulkReviewApproveArtifactResponse]

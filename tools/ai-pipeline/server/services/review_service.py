@@ -9,6 +9,10 @@ from typing import Any
 from server.core.paths import OUTPUTS_DIR, to_relative_path
 from server.models.review import (
     ApprovedArtifactExportResponse,
+    BulkReviewApproveArtifactResponse,
+    BulkReviewApproveRequest,
+    BulkReviewApproveSubjectResponse,
+    BulkSubjectReviewApproveRequest,
     ReviewArtifactSummary,
     ReviewArtifactType,
     ReviewDecisionRequest,
@@ -68,6 +72,14 @@ REVIEW_ARTIFACT_SPECS = {
         source_file_name="question_reviews.json",
     ),
 }
+
+DB_IMPORT_REVIEW_ARTIFACT_TYPES = [
+    ReviewArtifactType.TAXONOMY,
+    ReviewArtifactType.CONCEPT_CARDS,
+    ReviewArtifactType.CONCEPT_RELATIONS,
+    ReviewArtifactType.COMMON_MISTAKES,
+    ReviewArtifactType.QUESTIONS,
+]
 
 
 def list_review_artifacts(subject_code: str) -> list[ReviewArtifactSummary]:
@@ -180,6 +192,122 @@ def update_review_item(
     )
 
 
+def bulk_approve_subject_artifacts(
+    *,
+    subject_code: str,
+    request: BulkSubjectReviewApproveRequest,
+) -> BulkReviewApproveSubjectResponse:
+    normalized_subject_code = _normalize_subject_code(subject_code)
+    artifact_types = request.artifact_types or DB_IMPORT_REVIEW_ARTIFACT_TYPES
+    seen_artifact_types: set[ReviewArtifactType] = set()
+    responses = []
+
+    for artifact_type in artifact_types:
+        if artifact_type in seen_artifact_types:
+            continue
+
+        seen_artifact_types.add(artifact_type)
+        responses.append(
+            bulk_approve_artifact(
+                subject_code=normalized_subject_code,
+                artifact_type=artifact_type,
+                request=BulkReviewApproveRequest(
+                    reviewer=request.reviewer,
+                    review_note=request.review_note,
+                    overwrite_existing=request.overwrite_existing,
+                    export_approved=request.export_approved,
+                ),
+            )
+        )
+
+    return BulkReviewApproveSubjectResponse(
+        subject_code=normalized_subject_code,
+        artifacts=responses,
+    )
+
+
+def bulk_approve_artifact(
+    *,
+    subject_code: str,
+    artifact_type: ReviewArtifactType,
+    request: BulkReviewApproveRequest,
+) -> BulkReviewApproveArtifactResponse:
+    normalized_subject_code = _normalize_subject_code(subject_code)
+    review_path = _review_path(normalized_subject_code, artifact_type)
+    source_items = _load_source_items(
+        subject_code=normalized_subject_code,
+        artifact_type=artifact_type,
+    )
+    review_records = _read_review_records(review_path)
+    now = datetime.now(timezone.utc).isoformat()
+    changed_count = 0
+    already_approved_count = 0
+    skipped_count = 0
+
+    for source_item in source_items:
+        normalized_record = _normalize_review_record(
+            review_records.get(source_item.item_key)
+        )
+        current_status = ReviewStatus(normalized_record["status"])
+
+        if current_status == ReviewStatus.APPROVED:
+            already_approved_count += 1
+            if not request.overwrite_existing:
+                continue
+        elif current_status != ReviewStatus.PENDING and not request.overwrite_existing:
+            skipped_count += 1
+            continue
+
+        review_records[source_item.item_key] = {
+            "status": ReviewStatus.APPROVED.value,
+            "reviewer": request.reviewer,
+            "review_note": request.review_note,
+            "edited_content": normalized_record.get("edited_content"),
+            "updated_at": now,
+        }
+        changed_count += 1
+
+    _write_review_records(
+        subject_code=normalized_subject_code,
+        artifact_type=artifact_type,
+        review_path=review_path,
+        review_records=review_records,
+    )
+    response = list_review_items(
+        subject_code=normalized_subject_code,
+        artifact_type=artifact_type,
+    )
+    approved_items = [
+        item
+        for item in response.items
+        if item.status == ReviewStatus.APPROVED
+    ]
+    exported_path = None
+    exported_count = None
+
+    if request.export_approved:
+        exported = _export_approved_items(
+            subject_code=normalized_subject_code,
+            artifact_type=artifact_type,
+            approved_items=approved_items,
+            allow_empty=len(source_items) == 0,
+        )
+        exported_path = exported.exported_path
+        exported_count = exported.approved_count
+
+    return BulkReviewApproveArtifactResponse(
+        subject_code=normalized_subject_code,
+        artifact_type=artifact_type,
+        total_count=response.total_count,
+        changed_count=changed_count,
+        already_approved_count=already_approved_count,
+        skipped_count=skipped_count,
+        approved_count=response.approved_count,
+        exported_path=exported_path,
+        exported_count=exported_count,
+    )
+
+
 def export_approved_artifact(
     *,
     subject_code: str,
@@ -196,20 +324,38 @@ def export_approved_artifact(
         if item.status == ReviewStatus.APPROVED
     ]
 
-    if not approved_items:
-        raise ReviewDataError(
-            f"approved review items not found: {normalized_subject_code}/{artifact_type.value}"
-        )
-
-    exported_content = _build_approved_content(
+    return _export_approved_items(
+        subject_code=normalized_subject_code,
         artifact_type=artifact_type,
         approved_items=approved_items,
     )
-    exported_path = _approved_export_path(normalized_subject_code, artifact_type)
+
+
+def _export_approved_items(
+    *,
+    subject_code: str,
+    artifact_type: ReviewArtifactType,
+    approved_items: list[ReviewItemResponse],
+    allow_empty: bool = False,
+) -> ApprovedArtifactExportResponse:
+    if not approved_items and not allow_empty:
+        raise ReviewDataError(
+            f"approved review items not found: {subject_code}/{artifact_type.value}"
+        )
+
+    if not approved_items:
+        exported_content = _empty_approved_content(artifact_type)
+    else:
+        exported_content = _build_approved_content(
+            artifact_type=artifact_type,
+            approved_items=approved_items,
+        )
+
+    exported_path = _approved_export_path(subject_code, artifact_type)
     _write_json(exported_path, exported_content)
 
     return ApprovedArtifactExportResponse(
-        subject_code=normalized_subject_code,
+        subject_code=subject_code,
         artifact_type=artifact_type,
         approved_count=len(approved_items),
         exported_path=to_relative_path(exported_path),
@@ -526,6 +672,13 @@ def _build_approved_content(
         _mark_approved(deepcopy(item.effective_content))
         for item in approved_items
     ]
+
+
+def _empty_approved_content(artifact_type: ReviewArtifactType) -> Any:
+    if artifact_type == ReviewArtifactType.TAXONOMY:
+        raise ReviewDataError("approved taxonomy item is required")
+
+    return []
 
 
 def _build_approved_common_mistakes(
