@@ -1,5 +1,6 @@
 package com.coremate.backend.problemset.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetDetailResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetQuestionResponse;
@@ -11,6 +12,7 @@ import com.coremate.backend.problemset.dto.type.QuestionFormat;
 import com.coremate.backend.problemset.dto.type.QuestionType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,6 +26,7 @@ import java.util.List;
 @Tag(name = "ProblemSet", description = "개념 문제집, 챕터 모의고사, 과목 모의고사 조회 API")
 @RestController
 @RequestMapping("/api/v1/problem-sets")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class ProblemSetController {
 
     // 문제집 목록 요약 정보 조회

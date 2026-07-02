@@ -2,8 +2,10 @@ package com.coremate.backend.reward.controller;
 
 import com.coremate.backend.reward.dto.response.DailyRewardLimitResponse;
 import com.coremate.backend.reward.dto.response.RewardLogResponse;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.reward.dto.response.UserRewardSummaryResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Reward")
 @RestController
 @RequestMapping("/api/rewards")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class RewardController {
 
     @Operation(summary = "보상 요약 조회")

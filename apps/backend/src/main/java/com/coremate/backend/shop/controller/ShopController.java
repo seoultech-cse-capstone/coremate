@@ -3,8 +3,10 @@ package com.coremate.backend.shop.controller;
 import com.coremate.backend.shop.dto.request.PurchaseShopProductRequest;
 import com.coremate.backend.shop.dto.response.ShopProductResponse;
 import com.coremate.backend.shop.dto.response.ShopPurchaseResponse;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.shop.dto.type.ShopProductType;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Shop")
 @RestController
 @RequestMapping("/api/shop")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class ShopController {
 
     @Operation(summary = "상점 상품 조회")

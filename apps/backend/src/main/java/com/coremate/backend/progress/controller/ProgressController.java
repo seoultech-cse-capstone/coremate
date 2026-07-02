@@ -1,5 +1,6 @@
 package com.coremate.backend.progress.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.progress.dto.response.ConceptProgressResponse;
@@ -7,6 +8,7 @@ import com.coremate.backend.progress.dto.response.ProblemSetProgressResponse;
 import com.coremate.backend.progress.dto.response.SubjectProgressResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +21,7 @@ import java.util.List;
 @Tag(name = "Progress", description = "문제집 완료 상태, 개념 완료 상태, 과목별 진행률 API")
 @RestController
 @RequestMapping("/api/v1/progress")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class ProgressController {
 
     // 문제집별 완료/미완료 상태 조회

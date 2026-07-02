@@ -2,8 +2,10 @@ package com.coremate.backend.reward.controller;
 
 import com.coremate.backend.reward.dto.response.UserRewardSummaryResponse;
 import com.coremate.backend.reward.dto.response.XpLogResponse;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.reward.dto.type.XpReasonType;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "XP")
 @RestController
 @RequestMapping("/api/xp")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class XpController {
 
     @Operation(summary = "경험치 요약 조회")

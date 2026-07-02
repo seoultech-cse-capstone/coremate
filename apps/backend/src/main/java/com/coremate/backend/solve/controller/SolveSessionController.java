@@ -1,5 +1,6 @@
 package com.coremate.backend.solve.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.solve.dto.request.CompleteSolveSessionRequest;
@@ -13,9 +14,10 @@ import com.coremate.backend.solve.dto.response.StartSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.SubmitAnswerResponse;
 import com.coremate.backend.solve.service.SolveSessionService;
 import io.swagger.v3.oas.annotations.Operation;
-import java.util.List;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -51,6 +53,7 @@ public class SolveSessionController {
     }
 
     @Operation(summary = "진행 중인 세션 재진입 (회원 전용)", description = "중단한 풀이 세션으로 재진입한다. 전체 문제 목록과 이미 제출한 답안을 반환한다.")
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     @GetMapping("/in-progress")
     public ApiResponse<ResumeSessionResponse> resumeSession(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -62,6 +65,7 @@ public class SolveSessionController {
     }
 
     @Operation(summary = "문제별 답안 제출 (회원 전용)", description = "회원의 선택 답안을 제출하고 DB에 저장한다.")
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     @PostMapping("/{solveSessionId}/answers")
     public ApiResponse<SubmitAnswerResponse> submitAnswer(
             @Parameter(description = "풀이 세션 ID", example = "9001")
@@ -74,6 +78,7 @@ public class SolveSessionController {
     }
 
     @Operation(summary = "풀이 세션 완료 (회원 전용)", description = "모든 문제를 제출한 뒤 세션을 완료 처리하고 결과를 반환한다.")
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     @PatchMapping("/{solveSessionId}/complete")
     public ApiResponse<CompleteSolveSessionResponse> completeSolveSession(
             @Parameter(description = "풀이 세션 ID", example = "9001")

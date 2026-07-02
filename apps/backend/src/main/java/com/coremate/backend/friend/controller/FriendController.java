@@ -9,7 +9,9 @@ import com.coremate.backend.friend.dto.response.FriendRequestResponse;
 import com.coremate.backend.friend.dto.response.FriendResponse;
 import com.coremate.backend.friend.dto.response.FriendSubjectStatResponse;
 import com.coremate.backend.friend.dto.type.FriendStatus;
+import com.coremate.backend.global.config.OpenApiConfig;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Friend")
 @RestController
 @RequestMapping("/api/friends")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class FriendController {
 
     @Operation(summary = "친구 목록 조회")
