@@ -39,6 +39,9 @@ public enum ErrorCode {
     // Solve
     SOLVE_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "풀이 세션을 찾을 수 없습니다"),
     SOLVE_SESSION_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 풀이 세션입니다"),
+    SOLVE_SESSION_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "이미 진행 중인 풀이 세션이 있습니다"),
+    ANSWER_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "이미 제출된 문제입니다"),
+    SOLVE_NOT_ALL_ANSWERED(HttpStatus.BAD_REQUEST, "아직 제출하지 않은 문제가 있습니다"),
 
     // Weakness
     WEAKNESS_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "약점 분석 리포트를 찾을 수 없습니다"),

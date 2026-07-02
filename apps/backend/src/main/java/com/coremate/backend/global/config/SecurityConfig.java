@@ -47,6 +47,11 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html"
                         ).permitAll()
+                        .requestMatchers(
+                                "/api/v1/solve-sessions",
+                                "/api/v1/solve-sessions/guest/complete",
+                                "/api/v1/content/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex
