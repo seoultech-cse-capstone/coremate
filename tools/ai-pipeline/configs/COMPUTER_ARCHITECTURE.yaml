@@ -1,0 +1,225 @@
+subject_code: COMPUTER_ARCHITECTURE
+db_subject_code: CA
+subject_name: 컴퓨터구조
+subject_name_en: Computer Architecture
+
+taxonomy_rules:
+  category_lv1_count: "5~7"
+  category_lv2_per_lv1: "2~6"
+  concepts_per_lv2: "3~10"
+
+taxonomy_scope:
+  scope_summary: "컴퓨터구조 과목은 데이터 표현, 디지털 논리 기초, 명령어 집합, CPU 데이터패스와 제어, 파이프라이닝, 메모리 계층, 입출력과 병렬성 기초를 중심으로 구성한다."
+
+  include_topics:
+    - 컴퓨터 시스템 개요
+    - 폰 노이만 구조
+    - 하버드 구조
+    - 하드웨어와 소프트웨어 인터페이스
+    - 데이터 표현
+    - 비트
+    - 바이트
+    - 2의 보수
+    - 정수 표현
+    - 부동소수점 표현
+    - IEEE 754
+    - 문자 인코딩
+    - 논리 게이트
+    - 불 대수
+    - 조합 논리 회로
+    - 순차 논리 회로
+    - 플립플롭
+    - 레지스터
+    - 멀티플렉서
+    - 디코더
+    - ALU
+    - 명령어 집합 구조
+    - ISA
+    - RISC
+    - CISC
+    - 명령어 형식
+    - 명령어 사이클
+    - 주소 지정 방식
+    - 레지스터 파일
+    - 데이터패스
+    - 제어 장치
+    - 하드와이어드 제어
+    - 마이크로프로그램 제어
+    - 단일 사이클 CPU
+    - 다중 사이클 CPU
+    - 파이프라인
+    - 파이프라인 해저드
+    - 구조적 해저드
+    - 데이터 해저드
+    - 제어 해저드
+    - 포워딩
+    - 스톨
+    - 분기 예측
+    - 메모리 계층
+    - 지역성
+    - 시간 지역성
+    - 공간 지역성
+    - 캐시 메모리
+    - 캐시 매핑
+    - 직접 매핑
+    - 연관 매핑
+    - 집합 연관 매핑
+    - 캐시 미스
+    - 쓰기 정책
+    - 메인 메모리
+    - 가상 메모리 하드웨어 지원
+    - TLB
+    - 버스
+    - 입출력
+    - 인터럽트 기초
+    - DMA
+    - 병렬 처리
+    - 멀티코어
+    - SIMD
+    - 성능 지표
+    - CPI
+    - 클럭 주기
+    - 암달의 법칙
+
+  exclude_topics:
+    - 운영체제 프로세스
+    - 운영체제 스레드
+    - CPU 스케줄링
+    - 문맥 교환
+    - 시스템 콜
+    - 파일시스템
+    - 페이지 교체 정책
+    - 데드락
+    - 세마포어
+    - 뮤텍스
+    - 배열
+    - 연결 리스트
+    - 스택
+    - 큐
+    - 트리
+    - 해시 테이블
+    - 그래프 자료구조
+    - 정렬 알고리즘
+    - 동적 계획법
+    - 그리디 알고리즘
+    - 최단 경로 알고리즘
+    - SQL
+    - 정규화
+    - 데이터베이스 트랜잭션
+    - 데이터베이스 인덱스 설계
+    - TCP
+    - UDP
+    - IP
+    - HTTP
+    - DNS
+    - 네트워크 라우팅
+    - 어셈블리 프로그래밍 실습
+    - 특정 CPU 제품 사용법
+    - 운영체제 설치 및 관리
+    - 클라우드 인프라 운영
+    - Docker
+    - Kubernetes
+
+  overlap_policy: "운영체제 과목에서 더 중심적으로 다루는 프로세스·스레드·스케줄링·파일시스템·페이지 교체 정책은 컴퓨터구조 taxonomy에 넣지 않는다. 컴퓨터구조에서는 CPU, ISA, 파이프라인, 캐시, 메모리 계층 같은 하드웨어 구조와 성능 개념을 중심으로 다룬다."
+
+  duplicate_policy: "같은 concept_name 또는 같은 의미의 concept는 taxonomy 전체에서 한 번만 등장시킨다. 인터럽트나 TLB처럼 운영체제와 연결되는 개념은 하드웨어 지원과 구조적 의미를 중심으로 한 번만 배치한다."
+
+  concept_granularity_policy: "하위 concept는 컴퓨터구조 문제 생성 기준이 될 수 있을 정도로 작아야 하지만, 특정 칩 제품명이나 어셈블리 명령어 하나만 과도하게 쪼개는 것은 피한다. 정의, 비교, 오해, 예시, 적용 문제를 만들 수 있는 구조·성능·하드웨어 동작 단위를 우선한다."
+
+concept_rules:
+  one_line_definition: "한 문장"
+  core_summary: "2~4문장"
+  core_keywords: "3~5개"
+  key_properties: "3~6개"
+
+  review_status_default: draft
+  is_active_default: false
+  version_no_default: 1
+
+source_policy:
+  raw_pdf_storage: "전공서적 PDF 원문은 data/raw/{SUBJECT_CODE}/에만 로컬 보관하고 GitHub와 서비스 DB에는 저장하지 않는다."
+  concept_generation_policy: "PDF 원문을 그대로 복사하지 않고, source_chunks를 근거로 공통 조사 템플릿에 맞게 재구성한다."
+  source_refs_policy: "개념과 문제에는 출처 확인용 source_refs 메타데이터를 남긴다."
+  insufficient_source_policy: "관련 source_chunks가 부족한 개념은 insufficient_source를 true로 표시하고 사람 검수 대상으로 둔다."
+
+relation_rules:
+  allowed_relation_types:
+    - related
+    - confusing
+    - prerequisite
+
+  prerequisite_direction: "source_concept_code는 먼저 알아야 하는 개념, target_concept_code는 이후에 배우는 개념으로 둔다."
+  bidirectional_policy: "related와 confusing은 의미상 양방향 관계다. 테스트 JSON에서는 한 방향만 저장할 수 있고, DB 저장 시 양방향 row 저장 또는 조회 시 양방향 검색 방식 중 하나를 선택한다."
+
+common_mistake_rules:
+  mistakes_per_concept: "2~4"
+  mistake_code_pattern: "{concept_code}_M{index}"
+  correction_text_usage: "correction_text는 문제 풀이 중 물음표 힌트 원문으로 재사용한다."
+  correction_text_policy: "정답을 직접 알려주기보다, 사용자가 어떤 컴퓨터구조 개념이나 하드웨어 동작 차이를 구분해야 하는지 방향을 잡아주는 1~2문장으로 작성한다."
+
+  review_status_default: draft
+  is_active_default: false
+
+question_rules:
+  question_format: MCQ_4
+  questions_per_concept: 2
+
+  choice_key_type: key
+  answer_keys:
+    - A
+    - B
+    - C
+    - D
+
+  difficulty_levels:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+
+  difficulty_source_default: ai_initial
+
+  question_types:
+    - definition
+    - comparison
+    - misconception
+    - example
+    - application
+
+  hint_policy:
+    use_hint_mistake_code: true
+    hint_field_name: hint_mistake_code
+    correction_snapshot_field_name: hint_correction_text_snapshot
+    no_hint_value: null
+
+  source_type_default: ai_generated
+  review_status_default: draft
+  is_active_default: false
+  version_no_default: 1
+
+  eligibility_defaults:
+    is_daily_quiz_eligible: true
+    is_mock_eligible: true
+    is_concept_practice_eligible: true
+
+  content_hash:
+    enabled: true
+    algorithm: sha256
+    purpose: "문제 중복 생성 방지"
+
+review_rules:
+  ai_review_verdicts:
+    - pass
+    - revise
+    - reject
+
+  human_review_statuses:
+    - draft
+    - reviewed
+    - approved
+    - rejected
+    - archived
+
+  review_policy: "AI review는 자동 품질 점검 결과일 뿐이며, 사람이 최종 승인하기 전까지 question의 review_status는 draft로 둔다."
+
