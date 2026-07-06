@@ -39,6 +39,11 @@ public enum ErrorCode {
     // Bookmark
     BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "북마크를 찾을 수 없습니다"),
 
+    // DailyQuiz / Attendance
+    DAILY_QUIZ_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 CS 퀴즈를 찾을 수 없습니다"),
+    DAILY_QUIZ_INCOMPLETE(HttpStatus.BAD_REQUEST, "오늘의 CS 퀴즈 답안이 완성되지 않았습니다"),
+    ATTENDANCE_NOT_FOUND(HttpStatus.NOT_FOUND, "출석 기록을 찾을 수 없습니다"),
+
     // Solve
     SOLVE_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "풀이 세션을 찾을 수 없습니다"),
     SOLVE_SESSION_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 풀이 세션입니다"),
