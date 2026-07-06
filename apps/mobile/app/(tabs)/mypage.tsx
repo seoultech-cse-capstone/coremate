@@ -6,7 +6,7 @@ export default function MyPageScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.titleArea}>
-        <Text style={styles.title}>마이페이지</Text>
+        <Text style={styles.title}>My Page</Text>
       </View>
 
       <View style={styles.panel}>
@@ -22,23 +22,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
   },
   titleArea: {
-    height: 148,
-    justifyContent: "center",
-    paddingHorizontal: 24,
+    minHeight: 82,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(109, 93, 251, 0.8)",
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   title: {
+    flexShrink: 1,
     color: "#ffffff",
     fontFamily: FONT.pretendard,
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "700",
   },
   panel: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     backgroundColor: "#F3F3F3",
     paddingHorizontal: 24,
   },

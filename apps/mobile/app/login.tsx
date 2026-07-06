@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 
@@ -10,7 +11,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
       <View style={styles.form}>
         <Text style={styles.brand}>CoreMate</Text>
 
@@ -67,7 +68,7 @@ export default function LoginScreen() {
           게스트로 로그인할 시, 기능이 제한될 수 있습니다.
         </Text>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
   },
   form: {
     gap: 14,
