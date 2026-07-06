@@ -19,6 +19,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <Stack
         screenOptions={{
+          gestureEnabled: false,
           headerStyle: { backgroundColor: "#ffffff" },
           headerTitleStyle: {
             fontFamily: FONT.pretendard,

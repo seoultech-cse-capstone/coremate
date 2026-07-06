@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 
@@ -7,7 +8,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: "#6D5DFB" }}>
+    <View style={{ flex: 1, backgroundColor: "#6D5DFB" }}>
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -33,6 +34,6 @@ export default function TabsLayout() {
         <Tabs.Screen name="log-weak" options={{ title: "오답노트" }} />
         <Tabs.Screen name="mypage" options={{ title: "마이페이지" }} />
       </Tabs>
-    </SafeAreaView>
+    </View>
   );
 }

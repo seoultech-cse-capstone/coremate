@@ -1,67 +1,81 @@
 import { router } from "expo-router";
+import { ChevronLeft } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 
 export default function SettingsScreen() {
   return (
-    <View style={styles.container}>
-      <View style={styles.headerArea}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>‹</Text>
-        </Pressable>
-        <Text style={styles.title}>설정</Text>
-      </View>
+    <View style={styles.screen}>
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.headerArea}>
+            <Pressable
+              accessibilityLabel="뒤로가기"
+              accessibilityRole="button"
+              hitSlop={10}
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <ChevronLeft color="#111827" size={28} strokeWidth={2.3} />
+            </Pressable>
 
-      <View style={styles.panel}>
-        <Text style={styles.description}>설정 화면을 준비 중입니다.</Text>
-      </View>
+            <Text style={styles.title}>Settings</Text>
+          </View>
+
+          <View style={styles.panel}>
+            <Text style={styles.description}>설정 화면을 준비 중입니다.</Text>
+          </View>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
   container: {
     flex: 1,
-    backgroundColor: "#6D5DFB",
+    backgroundColor: "#ffffff",
   },
   headerArea: {
-    height: 148,
+    position: "relative",
+    minHeight: 64,
+    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 56,
   },
   backButton: {
     position: "absolute",
-    left: 20,
-    top: 34,
+    left: 12,
+    top: 11,
     alignItems: "center",
     justifyContent: "center",
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-  },
-  backButtonText: {
-    color: "#ffffff",
-    fontFamily: FONT.pretendard,
-    fontSize: 34,
-    fontWeight: "500",
-    lineHeight: 36,
   },
   title: {
-    color: "#ffffff",
+    color: "#111827",
     fontFamily: FONT.pretendard,
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
   },
   panel: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: "#F3F3F3",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 24,
   },
   description: {

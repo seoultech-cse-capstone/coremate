@@ -1,24 +1,43 @@
 import { router } from "expo-router";
+import { BlurView } from "expo-blur";
+import { Settings } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 import { MyProfile } from "../../src/features/mypage/components/MyProfile";
 
 export default function MyPageScreen() {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.container}>
-      <View style={styles.headerArea}>
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={[
+          styles.titleArea,
+          {
+            minHeight: 60 + insets.top,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <View style={styles.headerOverlay} />
+        <Text style={styles.title}>My Page</Text>
+
         <Pressable
           accessibilityLabel="설정"
           accessibilityRole="button"
           hitSlop={10}
-          style={styles.settingsButton}
-          onPress={() => router.navigate("../settings")}
+          style={[styles.settingsButton, { top: 9 + insets.top }]}
+          onPress={() => router.navigate("/settings")}
         >
-          <Text style={styles.settingsIcon}>⚙</Text>
+          <Settings color="#ffffff" size={25} strokeWidth={2.2} />
         </Pressable>
+      </BlurView>
 
-        <Text style={styles.title}>마이페이지</Text>
+      <View style={styles.profileArea}>
         <MyProfile />
       </View>
 
@@ -34,42 +53,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#6D5DFB",
   },
-  headerArea: {
+  titleArea: {
     position: "relative",
-    minHeight: 304,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 28,
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    paddingHorizontal: 16,
+    paddingTop: 0,
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   title: {
+    flexShrink: 1,
     color: "#ffffff",
     fontFamily: FONT.pretendard,
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: 24,
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  profileArea: {
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
   settingsButton: {
     position: "absolute",
     top: 24,
-    right: 24,
+    right: 16,
     alignItems: "center",
     justifyContent: "center",
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.22)",
     zIndex: 10,
     elevation: 10,
-  },
-  settingsIcon: {
-    color: "#ffffff",
-    fontFamily: FONT.pretendard,
-    fontSize: 22,
-    fontWeight: "700",
-    lineHeight: 24,
   },
   panel: {
     flex: 1,
@@ -80,6 +99,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     backgroundColor: "#F3F3F3",
     paddingHorizontal: 24,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
   },
   description: {
     color: "#64748b",

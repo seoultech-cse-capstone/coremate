@@ -1,13 +1,28 @@
+import { BlurView } from "expo-blur";
 import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 
 export default function FriendScreen() {
+  const insets = useSafeAreaInsets();
+
   return (
     <View style={styles.container}>
-      <View style={styles.titleArea}>
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={[
+          styles.titleArea,
+          {
+            minHeight: 60 + insets.top,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <View style={styles.headerOverlay} />
         <Text style={styles.title}>Friend</Text>
-      </View>
+      </BlurView>
 
       <View style={styles.panel}>
         <Text style={styles.description}>친구 화면을 준비 중입니다.</Text>
@@ -22,12 +37,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
   },
   titleArea: {
-    minHeight: 82,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(109, 93, 251, 0.8)",
+    overflow: "hidden",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 0,
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   title: {
     flexShrink: 1,
@@ -45,6 +64,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 18,
     backgroundColor: "#F3F3F3",
     paddingHorizontal: 24,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
   },
   description: {
     color: "#64748b",

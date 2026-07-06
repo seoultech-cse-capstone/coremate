@@ -1,4 +1,5 @@
 import { useFocusEffect, useNavigation } from "expo-router";
+import { BlurView } from "expo-blur";
 import {
   Book,
   BookOpen,
@@ -20,6 +21,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 import { ConceptCard } from "../../src/features/content/components/ConceptCard";
@@ -48,7 +50,7 @@ type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
 };
 
-const HEADER_HEIGHT = 82;
+const HEADER_HEIGHT = 60;
 const OVERSCROLL_BUFFER = 96;
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -245,13 +247,15 @@ const thumbnailByDepth: Record<
   },
 };
 
-const countUnitByDepth: Record<ContentDepth, "chapter" | "concept" | "question"> =
-  {
-    subject: "chapter",
-    category1: "chapter",
-    category2: "concept",
-    concept: "question",
-  };
+const countUnitByDepth: Record<
+  ContentDepth,
+  "chapter" | "concept" | "question"
+> = {
+  subject: "chapter",
+  category1: "chapter",
+  category2: "concept",
+  concept: "question",
+};
 
 const startButtonLabelByDepth: Record<ContentDepth, string> = {
   subject: "과목 모의고사 풀기",
@@ -269,6 +273,7 @@ export default function ContentScreen() {
   const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [trail, setTrail] = useState<TrailItem[]>([{ depth: "subject" }]);
   const [activeSetTitle, setActiveSetTitle] = useState<string | null>(null);
@@ -280,6 +285,7 @@ export default function ContentScreen() {
   const currentThumbnail = thumbnailByDepth[currentDepth];
   const currentCountUnit = countUnitByDepth[currentDepth];
   const currentStartButtonLabel = startButtonLabelByDepth[currentDepth];
+  const headerHeight = HEADER_HEIGHT + insets.top;
 
   const resetContent = useCallback(() => {
     setTrail([{ depth: "subject" }]);
@@ -374,10 +380,15 @@ export default function ContentScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.purpleArea} />
+        <View
+          style={[
+            styles.purpleArea,
+            { height: headerHeight + OVERSCROLL_BUFFER },
+          ]}
+        />
 
         <View
-          style={[styles.grayBackground, { minHeight: height - HEADER_HEIGHT }]}
+          style={[styles.grayBackground, { minHeight: height - headerHeight }]}
         >
           {activeSetTitle ? (
             <ProblemSetQuestion title={activeSetTitle} onExit={goBack} />
@@ -423,7 +434,18 @@ export default function ContentScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.fixedHeader}>
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={[
+          styles.fixedHeader,
+          {
+            minHeight: headerHeight,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <View style={styles.headerOverlay} />
         {(trail.length > 1 || activeSetTitle) && (
           <Pressable
             accessibilityLabel="Back"
@@ -437,7 +459,7 @@ export default function ContentScreen() {
         )}
 
         <Text style={styles.title}>{screenTitle}</Text>
-      </View>
+      </BlurView>
     </View>
   );
 }
@@ -466,9 +488,13 @@ const styles = StyleSheet.create({
     minHeight: HEADER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(109, 93, 251, 0.8)",
+    overflow: "hidden",
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   backButton: {
     alignItems: "center",
@@ -497,6 +523,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     backgroundColor: PANEL_GRAY,
+    shadowColor: "#111827",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
   },
   listContent: {
     paddingHorizontal: 31,
