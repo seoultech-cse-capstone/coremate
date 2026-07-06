@@ -13,7 +13,7 @@ export default function MyPageScreen() {
           accessibilityRole="button"
           hitSlop={10}
           style={styles.settingsButton}
-          onPress={() => router.navigate("/settings")}
+          onPress={() => router.navigate("../settings")}
         >
           <Text style={styles.settingsIcon}>⚙</Text>
         </Pressable>

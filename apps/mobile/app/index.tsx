@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 
@@ -12,7 +13,7 @@ export default function StartScreen() {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      <View style={styles.content}>
+      <SafeAreaView edges={["top"]} style={styles.content}>
         <Image
           source={require("../assets/images/splash-icon-white.png")}
           style={styles.logo}
@@ -31,7 +32,7 @@ export default function StartScreen() {
             <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
           </Pressable>
         </View>
-      </View>
+      </SafeAreaView>
     </LinearGradient>
   );
 }

@@ -1,11 +1,12 @@
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 
 export default function RegisterScreen() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView edges={["top"]} style={styles.container}>
       <Text style={styles.title}>회원가입</Text>
       <Text style={styles.description}>
         회원가입 화면은 다음 단계에서 연결할 예정입니다.
@@ -14,7 +15,7 @@ export default function RegisterScreen() {
       <Pressable style={styles.button} onPress={() => router.back()}>
         <Text style={styles.buttonText}>돌아가기</Text>
       </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -23,7 +24,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
   },
   title: {
     color: "#6D5DFB",
