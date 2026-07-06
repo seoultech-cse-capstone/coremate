@@ -1,12 +1,14 @@
 package com.coremate.backend.reward.controller;
 
+import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.reward.dto.response.UserRewardSummaryResponse;
 import com.coremate.backend.reward.dto.response.XpLogResponse;
-import com.coremate.backend.reward.dto.type.XpReasonType;
+import com.coremate.backend.reward.service.RewardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.LocalDateTime;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,26 +16,20 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "XP")
 @RestController
 @RequestMapping("/api/xp")
+@RequiredArgsConstructor
 public class XpController {
+
+    private final RewardService rewardService;
 
     @Operation(summary = "경험치 요약 조회")
     @GetMapping("/summary")
-    public UserRewardSummaryResponse getSummary() {
-        return new UserRewardSummaryResponse(42L, 1200, 5, 350);
+    public UserRewardSummaryResponse getSummary(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return rewardService.getSummary(userDetails.getUserId());
     }
 
     @Operation(summary = "경험치 로그 조회")
     @GetMapping("/logs")
-    public List<XpLogResponse> getLogs() {
-        return List.of(new XpLogResponse(
-                1L,
-                42L,
-                10,
-                1200,
-                XpReasonType.SOLVE_QUESTION,
-                "QUESTION",
-                101L,
-                LocalDateTime.now().minusHours(2)
-        ));
+    public List<XpLogResponse> getLogs(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return rewardService.getXpLogs(userDetails.getUserId());
     }
 }

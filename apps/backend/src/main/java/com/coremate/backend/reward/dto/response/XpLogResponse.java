@@ -1,6 +1,6 @@
 package com.coremate.backend.reward.dto.response;
 
-import com.coremate.backend.reward.dto.type.XpReasonType;
+import com.coremate.backend.reward.entity.type.XpReason;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDateTime;
 
@@ -10,7 +10,7 @@ public record XpLogResponse(
         @Schema(example = "42") Long userId,
         @Schema(example = "10") Integer amount,
         @Schema(example = "1200") Integer totalXpAfter,
-        @Schema(example = "SOLVE_QUESTION") XpReasonType reason,
+        @Schema(example = "CONCEPT_PRACTICE_XP") XpReason reason,
         @Schema(example = "QUESTION") String referenceType,
         @Schema(example = "101") Long referenceId,
         @Schema(example = "2026-05-12T09:10:11") LocalDateTime createdAt
