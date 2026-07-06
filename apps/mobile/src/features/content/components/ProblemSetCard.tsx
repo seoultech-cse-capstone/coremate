@@ -11,6 +11,7 @@ type ProblemSetCardProps = {
   iconColor: string;
   Icon: LucideIcon;
   progress: number;
+  startButtonLabel: string;
   thumbnailColor: string;
   title: string;
   onOpen: () => void;
@@ -25,6 +26,7 @@ export function ProblemSetCard({
   iconColor,
   Icon,
   progress,
+  startButtonLabel,
   thumbnailColor,
   title,
   onOpen,
@@ -95,7 +97,7 @@ export function ProblemSetCard({
               onStart();
             }}
           >
-            <Text style={styles.primaryButtonText}>과목 모의고사 풀기</Text>
+            <Text style={styles.primaryButtonText}>{startButtonLabel}</Text>
           </Pressable>
         )}
       </View>

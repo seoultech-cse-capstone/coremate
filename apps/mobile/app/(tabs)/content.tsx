@@ -253,6 +253,13 @@ const countUnitByDepth: Record<ContentDepth, "chapter" | "concept" | "question">
     concept: "question",
   };
 
+const startButtonLabelByDepth: Record<ContentDepth, string> = {
+  subject: "과목 모의고사 풀기",
+  category1: "챕터 모의고사 풀기",
+  category2: "챕터 모의고사 풀기",
+  concept: "개념 문제집 풀기",
+};
+
 const getNextDepth = (depth: ContentDepth) => {
   const currentIndex = depthOrder.indexOf(depth);
   return depthOrder[currentIndex + 1] ?? null;
@@ -272,6 +279,7 @@ export default function ContentScreen() {
   const isConceptDepth = currentDepth === "concept";
   const currentThumbnail = thumbnailByDepth[currentDepth];
   const currentCountUnit = countUnitByDepth[currentDepth];
+  const currentStartButtonLabel = startButtonLabelByDepth[currentDepth];
 
   const resetContent = useCallback(() => {
     setTrail([{ depth: "subject" }]);
@@ -399,6 +407,7 @@ export default function ContentScreen() {
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
+                    startButtonLabel={currentStartButtonLabel}
                     thumbnailColor={
                       item.thumbnailColor ?? currentThumbnail.thumbnailColor
                     }
