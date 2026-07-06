@@ -41,12 +41,18 @@ public class InventoryService {
     // 상점/랜덤박스/레벨업 보상에서 공통으로 호출할 아이템 지급 진입점.
     @Transactional
     public UserItemResponse grantItem(Long userId, Long itemId, int quantity, String acquiredSource, Long sourceId) {
+        return toUserItemResponse(grantItemEntity(userId, itemId, quantity, acquiredSource, sourceId));
+    }
+
+    // 지급 후 로그 테이블과 직접 연결해야 하는 흐름에서 엔티티를 그대로 반환한다.
+    @Transactional
+    public UserItem grantItemEntity(Long userId, Long itemId, int quantity, String acquiredSource, Long sourceId) {
         validateGrantRequest(quantity, acquiredSource);
         User user = findUser(userId);
         AvatarItem item = avatarItemRepository.findByItemIdAndActiveTrue(itemId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.AVATAR_ITEM_NOT_FOUND));
 
-        UserItem userItem = userItemRepository.findByUser_UserIdAndItem_ItemId(userId, itemId)
+        return userItemRepository.findByUser_UserIdAndItem_ItemId(userId, itemId)
                 .map(existing -> {
                     existing.addQuantity(quantity);
                     return existing;
@@ -58,8 +64,6 @@ public class InventoryService {
                         acquiredSource,
                         sourceId
                 )));
-
-        return toUserItemResponse(userItem);
     }
 
     private UserItemResponse toUserItemResponse(UserItem userItem) {

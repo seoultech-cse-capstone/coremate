@@ -1,13 +1,16 @@
 package com.coremate.backend.shop.controller;
 
+import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.shop.dto.request.PurchaseShopProductRequest;
 import com.coremate.backend.shop.dto.response.ShopProductResponse;
 import com.coremate.backend.shop.dto.response.ShopPurchaseResponse;
-import com.coremate.backend.shop.dto.type.ShopProductType;
+import com.coremate.backend.shop.service.ShopService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.LocalDateTime;
+import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,33 +20,23 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Shop")
 @RestController
 @RequestMapping("/api/shop")
+@RequiredArgsConstructor
 public class ShopController {
+
+    private final ShopService shopService;
 
     @Operation(summary = "상점 상품 조회")
     @GetMapping("/products")
     public List<ShopProductResponse> getProducts() {
-        return List.of(new ShopProductResponse(
-                10L,
-                ShopProductType.ITEM,
-                1L,
-                null,
-                "Blue Hat",
-                100,
-                1,
-                true,
-                LocalDateTime.now().minusDays(1)
-        ));
+        return shopService.getProducts();
     }
 
     @Operation(summary = "상점 상품 구매")
     @PostMapping("/purchase")
-    public ShopPurchaseResponse purchase(@RequestBody PurchaseShopProductRequest request) {
-        return new ShopPurchaseResponse(
-                100L,
-                42L,
-                request.getShopProductId(),
-                250,
-                LocalDateTime.now()
-        );
+    public ShopPurchaseResponse purchase(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody PurchaseShopProductRequest request
+    ) {
+        return shopService.purchase(userDetails.getUserId(), request);
     }
 }
