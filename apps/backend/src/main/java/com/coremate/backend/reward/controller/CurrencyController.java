@@ -2,8 +2,10 @@ package com.coremate.backend.reward.controller;
 
 import com.coremate.backend.reward.dto.response.CurrencyLogResponse;
 import com.coremate.backend.reward.dto.response.UserCurrencyResponse;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.reward.dto.type.CurrencyType;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Currency")
 @RestController
 @RequestMapping("/api/currency")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class CurrencyController {
 
     @Operation(summary = "내 재화 조회")

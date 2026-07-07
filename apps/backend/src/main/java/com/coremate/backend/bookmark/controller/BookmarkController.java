@@ -4,7 +4,9 @@ import com.coremate.backend.bookmark.dto.request.CreateBookmarkRequest;
 import com.coremate.backend.bookmark.dto.request.UpdateBookmarkMemoRequest;
 import com.coremate.backend.bookmark.dto.response.BookmarkResponse;
 import com.coremate.backend.bookmark.dto.response.BookmarkedQuestionResponse;
+import com.coremate.backend.global.config.OpenApiConfig;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Bookmark")
 @RestController
 @RequestMapping("/api/bookmarks")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class BookmarkController {
 
     @Operation(summary = "내 북마크 조회")

@@ -8,7 +8,9 @@ import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import com.coremate.backend.avatar.dto.response.UserAvatarResponse;
 import com.coremate.backend.avatar.dto.type.AvatarGenderType;
 import com.coremate.backend.avatar.dto.type.AvatarItemType;
+import com.coremate.backend.global.config.OpenApiConfig;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Avatar")
 @RestController
 @RequestMapping("/api/avatar")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class AvatarController {
 
     @Operation(summary = "내 아바타 조회")

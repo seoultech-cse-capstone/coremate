@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -39,4 +40,19 @@ public class UserConceptProgress {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Builder
+    private UserConceptProgress(Long userId, Long conceptId) {
+        this.userId = userId;
+        this.conceptId = conceptId;
+        this.completed = false;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void markCompleted(Long solveSessionId) {
+        this.completed = true;
+        this.completedSolveSessionId = solveSessionId;
+        this.completedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
 }

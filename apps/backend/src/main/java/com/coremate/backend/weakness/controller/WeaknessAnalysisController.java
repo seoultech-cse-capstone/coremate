@@ -1,5 +1,6 @@
 package com.coremate.backend.weakness.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
 import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportRequest;
@@ -13,6 +14,7 @@ import com.coremate.backend.weakness.dto.type.AnalysisReportStatus;
 import com.coremate.backend.weakness.dto.type.AnalysisScopeType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,6 +32,7 @@ import java.util.List;
 @Tag(name = "Weakness", description = "사용자 약점 분석 대상 조회, 분석표 생성, 목록/상세/파일 조회 API")
 @RestController
 @RequestMapping("/api/v1/weakness")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class WeaknessAnalysisController {
 
     // 약점 분석 대상 완료 문제집 후보 조회
