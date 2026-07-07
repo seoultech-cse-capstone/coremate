@@ -24,6 +24,8 @@ export default function FriendScreen() {
         <Text style={styles.title}>Friend</Text>
       </BlurView>
 
+      <View style={{ height: 60 + insets.top }} />
+
       <View style={styles.panel}>
         <Text style={styles.description}>친구 화면을 준비 중입니다.</Text>
       </View>
@@ -37,6 +39,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
   },
   titleArea: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
@@ -64,10 +71,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 18,
     backgroundColor: "#F3F3F3",
     paddingHorizontal: 24,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
   },
   description: {
     color: "#64748b",

@@ -2,6 +2,10 @@ import { Image, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
 
+const currentXp = 11111;
+const maxXp = 50000;
+const xpPercent = Math.round((currentXp / maxXp) * 1000) / 10;
+
 const stats = [
   { label: "Level", value: "Lv.1" },
   { label: "Day Streak", value: "7" },
@@ -21,6 +25,19 @@ export function MyProfile() {
         <View style={styles.userText}>
           <Text style={styles.nickname}>코어메이트</Text>
           <Text style={styles.school}>서울과학기술대학교</Text>
+
+          <View style={styles.xpArea}>
+            <View style={styles.xpTextRow}>
+              <Text style={styles.xpText}>
+                {currentXp.toLocaleString()} / {maxXp.toLocaleString()}
+              </Text>
+              <Text style={styles.xpText}>{xpPercent}%</Text>
+            </View>
+
+            <View style={styles.xpTrack}>
+              <View style={[styles.xpFill, { width: `${xpPercent}%` }]} />
+            </View>
+          </View>
         </View>
       </View>
 
@@ -66,6 +83,31 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 14,
     fontWeight: "500",
+  },
+  xpArea: {
+    marginTop: 2,
+    gap: 5,
+  },
+  xpTextRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  xpText: {
+    color: "rgba(255, 255, 255, 0.82)",
+    fontFamily: FONT.kufam,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  xpTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.24)",
+    overflow: "hidden",
+  },
+  xpFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: "#2EE6A6",
   },
   statsRow: {
     flexDirection: "row",

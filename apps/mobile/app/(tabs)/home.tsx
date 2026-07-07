@@ -130,10 +130,6 @@ const styles = StyleSheet.create({
     backgroundColor: PANEL_GRAY,
     paddingHorizontal: 24,
     paddingTop: 32,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
   },
   panelContent: {
     paddingBottom: 28 + OVERSCROLL_BUFFER,
@@ -176,6 +172,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 14,
+    marginBottom: 28,
   },
   secondaryButton: {
     flex: 1,

@@ -68,6 +68,8 @@ export default function LogWeakScreen() {
         <Text style={styles.title}>{title}</Text>
       </BlurView>
 
+      <View style={{ height: 60 + insets.top }} />
+
       <View style={styles.panel}>
         <View style={styles.toggle}>
           <Pressable
@@ -115,6 +117,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
   },
   titleArea: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
     minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
@@ -142,10 +149,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F3F3",
     paddingHorizontal: 24,
     paddingTop: 32,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
   },
   toggle: {
     flexDirection: "row",

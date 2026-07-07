@@ -317,7 +317,7 @@ export default function ContentScreen() {
       return activeSetTitle;
     }
 
-    return selectedTitle ?? "Problem Set";
+    return selectedTitle ?? "Practice Notes";
   }, [activeSetTitle, selectedTitle]);
 
   const openChildTree = (item: ProblemSetItem) => {
@@ -523,10 +523,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     backgroundColor: PANEL_GRAY,
-    shadowColor: "#111827",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
   },
   listContent: {
     paddingHorizontal: 31,
