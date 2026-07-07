@@ -9,38 +9,86 @@ import {
   Shield,
   UserCog,
   UserX,
+  type LucideIcon,
 } from "lucide-react-native";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 
-const settingSections = [
+type SettingRoute =
+  | "/edit-profile"
+  | "/edit-nickname"
+  | "/notification-settings"
+  | "/terms-policies"
+  | "/privacy-policy"
+  | "/delete-account";
+
+type SettingItem = {
+  label: string;
+  Icon: LucideIcon;
+  danger?: boolean;
+} & (
+  | {
+      route: SettingRoute;
+      action?: never;
+    }
+  | {
+      action: "logout";
+      route?: never;
+    }
+);
+
+type SettingSection = {
+  title: string;
+  items: SettingItem[];
+};
+
+const settingSections: SettingSection[] = [
   {
     title: "계정",
     items: [
-      { label: "회원정보 수정", Icon: UserCog },
-      { label: "닉네임 수정", Icon: Pencil },
+      { label: "회원정보 수정", Icon: UserCog, route: "/edit-profile" },
+      { label: "닉네임 수정", Icon: Pencil, route: "/edit-nickname" },
     ],
   },
   {
     title: "서비스",
     items: [
-      { label: "알림 설정", Icon: Bell },
-      { label: "약관 및 정책", Icon: FileText },
-      { label: "개인정보 처리방침", Icon: Shield },
+      { label: "알림 설정", Icon: Bell, route: "/notification-settings" },
+      { label: "약관 및 정책", Icon: FileText, route: "/terms-policies" },
+      { label: "개인정보 처리방침", Icon: Shield, route: "/privacy-policy" },
     ],
   },
   {
     title: "계정 관리",
     items: [
-      { label: "로그아웃", Icon: LogOut },
-      { label: "회원탈퇴", Icon: UserX, danger: true },
+      { label: "로그아웃", Icon: LogOut, action: "logout" },
+      { label: "회원탈퇴", Icon: UserX, danger: true, route: "/delete-account" },
     ],
   },
 ];
 
 export default function SettingsScreen() {
+  const [logoutVisible, setLogoutVisible] = useState(false);
+
+  const handlePress = (item: SettingItem) => {
+    if (item.action === "logout") {
+      setLogoutVisible(true);
+      return;
+    }
+
+    router.push(item.route);
+  };
+
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -68,49 +116,87 @@ export default function SettingsScreen() {
                 <Text style={styles.sectionTitle}>{section.title}</Text>
 
                 <View style={styles.card}>
-                  {section.items.map(({ Icon, danger, label }, index) => (
-                    <Pressable
-                      key={label}
-                      style={[
-                        styles.settingRow,
-                        index < section.items.length - 1 && styles.rowDivider,
-                      ]}
-                    >
-                      <View
+                  {section.items.map((item, index) => {
+                    const Icon = item.Icon;
+                    const isDanger = Boolean(item.danger);
+
+                    return (
+                      <Pressable
+                        key={item.label}
                         style={[
-                          styles.iconBox,
-                          danger && styles.dangerIconBox,
+                          styles.settingRow,
+                          index < section.items.length - 1 && styles.rowDivider,
                         ]}
+                        onPress={() => handlePress(item)}
                       >
-                        <Icon
-                          color={danger ? "#EF4444" : "#6D5DFB"}
+                        <View
+                          style={[
+                            styles.iconBox,
+                            isDanger && styles.dangerIconBox,
+                          ]}
+                        >
+                          <Icon
+                            color={isDanger ? "#EF4444" : "#6D5DFB"}
+                            size={21}
+                            strokeWidth={2.2}
+                          />
+                        </View>
+
+                        <Text
+                          style={[
+                            styles.settingText,
+                            isDanger && styles.dangerText,
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+
+                        <ChevronRight
+                          color={isDanger ? "#FCA5A5" : "#94a3b8"}
                           size={21}
                           strokeWidth={2.2}
                         />
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.settingText,
-                          danger && styles.dangerText,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-
-                      <ChevronRight
-                        color={danger ? "#FCA5A5" : "#94a3b8"}
-                        size={21}
-                        strokeWidth={2.2}
-                      />
-                    </Pressable>
-                  ))}
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             ))}
           </ScrollView>
         </View>
       </SafeAreaView>
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={logoutVisible}
+        onRequestClose={() => setLogoutVisible(false)}
+      >
+        <View style={styles.modalDim}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>로그아웃할까요?</Text>
+            <Text style={styles.modalDescription}>
+              다시 이용하려면 로그인 화면에서 계정 정보를 입력해야 합니다.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.cancelButton}
+                onPress={() => setLogoutVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.logoutButton}
+                onPress={() => setLogoutVisible(false)}
+              >
+                <Text style={styles.logoutButtonText}>로그아웃</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -205,5 +291,64 @@ const styles = StyleSheet.create({
   },
   dangerText: {
     color: "#EF4444",
+  },
+  modalDim: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    padding: 20,
+  },
+  modalTitle: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  modalDescription: {
+    marginTop: 8,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "#F1F5F9",
+  },
+  cancelButtonText: {
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  logoutButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "#6D5DFB",
+  },
+  logoutButtonText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
