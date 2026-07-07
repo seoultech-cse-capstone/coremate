@@ -46,13 +46,17 @@ public class SolveSessionService {
     private final ObjectMapper objectMapper;
 
     public StartSolveSessionResponse startSolveSession(Long userId, CreateSolveSessionRequest request) {
+        if (request.sessionType() != SolveSessionType.CONCEPT_PRACTICE) {
+            throw new CoreMateException(ErrorCode.UNSUPPORTED_SESSION_TYPE);
+        }
+
         Long conceptId = request.targetId();
 
         Concept concept = conceptRepository.findByConceptIdAndActiveTrue(conceptId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.CONCEPT_NOT_FOUND));
 
         List<Question> questions =
-                questionRepository.findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(conceptId);
+                questionRepository.findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(conceptId);
 
         if (questions.isEmpty()) {
             throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
@@ -98,9 +102,12 @@ public class SolveSessionService {
 
     @Transactional(readOnly = true)
     public List<GuestAnswerResultResponse> checkGuestAnswers(GuestAnswerRequest request) {
+        Long conceptId = request.conceptId();
         return request.answers().stream()
                 .map(item -> {
-                    Question question = questionRepository.findById(item.questionId())
+                    Question question = questionRepository
+                            .findByQuestionIdAndConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(
+                                    item.questionId(), conceptId)
                             .orElseThrow(() -> new CoreMateException(ErrorCode.QUESTION_NOT_FOUND));
                     boolean isCorrect = question.getCorrectAnswer().equals(item.selectedAnswer());
                     return new GuestAnswerResultResponse(
@@ -121,7 +128,7 @@ public class SolveSessionService {
         try {
             return objectMapper.readValue(choicesJson, new TypeReference<>() {});
         } catch (Exception e) {
-            return Collections.emptyList();
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
         }
     }
 
@@ -138,13 +145,28 @@ public class SolveSessionService {
             throw new CoreMateException(ErrorCode.ANSWER_ALREADY_SUBMITTED);
         }
 
-        Question question = questionRepository.findById(request.questionId())
-                .orElseThrow(() -> new CoreMateException(ErrorCode.QUESTION_NOT_FOUND));
+        if (session.getConcept() == null) {
+            throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
+        }
+
+        List<Question> conceptQuestions = questionRepository
+                .findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(
+                        session.getConcept().getConceptId());
+
+        Question question = null;
+        int order = -1;
+        for (int i = 0; i < conceptQuestions.size(); i++) {
+            if (conceptQuestions.get(i).getQuestionId().equals(request.questionId())) {
+                question = conceptQuestions.get(i);
+                order = i + 1;
+                break;
+            }
+        }
+        if (question == null) {
+            throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
+        }
 
         boolean isCorrect = question.getCorrectAnswer().equals(request.selectedAnswer());
-
-        long submittedCount = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session).size();
-        int order = (int) submittedCount + 1;
 
         SolveLog log = SolveLog.builder()
                 .solveSession(session)
@@ -158,10 +180,12 @@ public class SolveSessionService {
 
         solveLogRepository.save(log);
 
-        long totalSubmitted = submittedCount + 1;
+        long totalSubmitted = solveLogRepository.countBySolveSession(session);
         boolean isSessionAnswerCompleted = totalSubmitted >= session.getTotalQuestionCount();
 
-        Integer nextQuestionOrder = isSessionAnswerCompleted ? null : order + 1;
+        Integer nextQuestionOrder = isSessionAnswerCompleted || order >= session.getTotalQuestionCount()
+                ? null
+                : order + 1;
 
         return new SubmitAnswerResponse(
                 log.getSolveLogId(),
@@ -221,7 +245,7 @@ public class SolveSessionService {
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
         List<Question> questions =
-                questionRepository.findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(conceptId);
+                questionRepository.findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(conceptId);
 
         List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
 
