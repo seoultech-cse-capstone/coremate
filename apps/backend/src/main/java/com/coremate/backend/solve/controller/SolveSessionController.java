@@ -22,7 +22,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -79,7 +78,7 @@ public class SolveSessionController {
 
     @Operation(summary = "풀이 세션 완료 (회원 전용)", description = "모든 문제를 제출한 뒤 세션을 완료 처리하고 결과를 반환한다.")
     @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
-    @PatchMapping("/{solveSessionId}/complete")
+    @PostMapping("/{solveSessionId}/complete")
     public ApiResponse<CompleteSolveSessionResponse> completeSolveSession(
             @Parameter(description = "풀이 세션 ID", example = "9001")
             @PathVariable Long solveSessionId,
