@@ -49,7 +49,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/v1/solve-sessions",
+                                "/api/v1/solve-sessions/concept",
                                 "/api/v1/solve-sessions/guest/complete"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,

@@ -38,10 +38,10 @@ public class SolveSessionController {
     private final SolveSessionService solveSessionService;
 
     @Operation(
-            summary = "풀이 세션 시작",
+            summary = "개념 문제집 풀이 세션 시작",
             description = "개념 문제집을 시작한다. 비회원은 세션 없이 문제 목록만 반환, 회원은 세션 생성 후 문제 목록 반환."
     )
-    @PostMapping
+    @PostMapping("/concept")
     public ApiResponse<StartSolveSessionResponse> startSolveSession(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody CreateSolveSessionRequest request
