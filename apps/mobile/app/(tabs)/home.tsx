@@ -1,6 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,13 +15,52 @@ import {
 import { FONT } from "../../constants/fonts";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 
+const BRAND_PURPLE = "#6D5DFB";
+const PANEL_GRAY = "#F3F3F3";
+const OVERSCROLL_BUFFER = 96;
+
+type TabPressNavigation = {
+  addListener: (eventName: "tabPress", callback: () => void) => () => void;
+};
+
 export default function HomeScreen() {
+  const navigation = useNavigation();
+  const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
-  const panelTopOffset = Math.round(height * 0.42);
+  const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
+  const panelTopOffset = Math.round(height * 0.46);
+
+  useEffect(() => {
+    const tabNavigation = navigation as unknown as TabPressNavigation;
+    const unsubscribe = tabNavigation.addListener("tabPress", () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const maxScrollY = Math.max(
+      0,
+      contentSize.height - layoutMeasurement.height,
+    );
+    const isNearBottom =
+      maxScrollY > 0 && contentOffset.y > maxScrollY - OVERSCROLL_BUFFER;
+    const nextBackground = isNearBottom ? PANEL_GRAY : BRAND_PURPLE;
+
+    setBounceBackground((currentBackground) =>
+      currentBackground === nextBackground ? currentBackground : nextBackground,
+    );
+  };
 
   return (
     <ScrollView
-      style={styles.container}
+      bounces
+      onScroll={handleScroll}
+      ref={scrollRef}
+      scrollEventThrottle={16}
+      style={[styles.container, { backgroundColor: bounceBackground }]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         styles.scrollContent,
@@ -60,10 +102,7 @@ export default function HomeScreen() {
               }
             >
               <Text
-                style={[
-                  styles.secondaryButtonText,
-                  styles.weaknessButtonText,
-                ]}
+                style={[styles.secondaryButtonText, styles.weaknessButtonText]}
               >
                 약점 분석하기
               </Text>
@@ -80,21 +119,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#6D5DFB",
   },
   scrollContent: {
-    backgroundColor: "#6D5DFB",
+    backgroundColor: BRAND_PURPLE,
   },
   bottomPanel: {
     width: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: "#F3F3F3",
+    backgroundColor: PANEL_GRAY,
     paddingHorizontal: 24,
     paddingTop: 32,
   },
   panelContent: {
-    paddingBottom: 28,
+    paddingBottom: 28 + OVERSCROLL_BUFFER,
   },
   levelBarTrack: {
     width: "100%",
@@ -122,7 +160,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 64,
     borderRadius: 18,
-    backgroundColor: "#6D5DFB",
+    backgroundColor: BRAND_PURPLE,
   },
   primaryButtonText: {
     color: "#ffffff",
