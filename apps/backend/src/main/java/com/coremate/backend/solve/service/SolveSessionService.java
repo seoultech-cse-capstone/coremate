@@ -176,6 +176,13 @@ public class SolveSessionService {
                 .selectedAnswer(request.selectedAnswer())
                 .correctAnswerSnapshot(question.getCorrectAnswer())
                 .correct(isCorrect)
+                .timeSpentSec(request.timeSpentSec())
+                .expectedSolveSecSnapshot(question.getExpectedSolveSec())
+                .hintUsed(request.hintUsed())
+                .hintCount(request.hintCount())
+                .optionChangeCount(request.optionChangeCount())
+                .answerChanged(request.isAnswerChanged())
+                .bookmarked(request.isBookmarked())
                 .build();
 
         solveLogRepository.save(log);
@@ -216,8 +223,9 @@ public class SolveSessionService {
 
         int correctCount = (int) logs.stream().filter(SolveLog::isCorrect).count();
         int wrongCount = logs.size() - correctCount;
+        int totalTimeSpentSec = request.totalTimeSpentSec() == null ? 0 : request.totalTimeSpentSec();
 
-        session.complete(correctCount, wrongCount);
+        session.complete(correctCount, wrongCount, totalTimeSpentSec);
 
         if (session.getSessionType() == SolveSessionType.CONCEPT_PRACTICE && session.getConcept() != null) {
             updateConceptProgress(userId, session.getConcept().getConceptId(), session.getSolveSessionId());
@@ -230,7 +238,7 @@ public class SolveSessionService {
                 session.getTotalQuestionCount(),
                 correctCount,
                 wrongCount,
-                request.totalTimeSpentSec() == null ? 0 : request.totalTimeSpentSec(),
+                session.getTotalTimeSpentSec(),
                 session.getStatus(),
                 session.getCompletedAt(),
                 0,

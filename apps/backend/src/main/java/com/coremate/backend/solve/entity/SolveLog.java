@@ -87,7 +87,9 @@ public class SolveLog {
     @Builder
     private SolveLog(SolveSession solveSession, Long userId, Question question,
             int questionOrder, String selectedAnswer, String correctAnswerSnapshot,
-            boolean correct) {
+            boolean correct, Integer timeSpentSec, Integer expectedSolveSecSnapshot,
+            Boolean hintUsed, Integer hintCount, Integer optionChangeCount,
+            Boolean answerChanged, Boolean bookmarked) {
         this.solveSession = solveSession;
         this.userId = userId;
         this.question = question;
@@ -95,12 +97,13 @@ public class SolveLog {
         this.selectedAnswer = selectedAnswer;
         this.correctAnswerSnapshot = correctAnswerSnapshot;
         this.correct = correct;
-        this.timeSpentSec = 0;
-        this.hintUsed = false;
-        this.hintCount = 0;
-        this.optionChangeCount = 0;
-        this.answerChanged = false;
-        this.bookmarked = false;
+        this.timeSpentSec = timeSpentSec == null ? 0 : timeSpentSec;
+        this.expectedSolveSecSnapshot = expectedSolveSecSnapshot;
+        this.hintUsed = hintUsed != null && hintUsed;
+        this.hintCount = hintCount == null ? 0 : hintCount;
+        this.optionChangeCount = optionChangeCount == null ? 0 : optionChangeCount;
+        this.answerChanged = answerChanged != null && answerChanged;
+        this.bookmarked = bookmarked != null && bookmarked;
         this.solvedAt = LocalDateTime.now();
         this.createdAt = LocalDateTime.now();
     }

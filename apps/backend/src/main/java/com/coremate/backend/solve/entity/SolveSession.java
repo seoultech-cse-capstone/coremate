@@ -114,13 +114,14 @@ public class SolveSession {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void complete(int correctCount, int wrongCount) {
+    public void complete(int correctCount, int wrongCount, int totalTimeSpentSec) {
         this.correctCount = correctCount;
         this.wrongCount = wrongCount;
         this.correctRate = totalQuestionCount > 0
                 ? BigDecimal.valueOf(correctCount * 100.0 / totalQuestionCount)
                         .setScale(2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
+        this.totalTimeSpentSec = totalTimeSpentSec;
         this.status = SolveSessionStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
