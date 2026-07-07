@@ -2,13 +2,18 @@ package com.coremate.backend.content.repository;
 
 import com.coremate.backend.content.entity.Question;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 
-    List<Question> findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(Long conceptId);
+    List<Question> findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(
+            Long conceptId);
+
+    Optional<Question> findByQuestionIdAndConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(
+            Long questionId, Long conceptId);
 
     @Query(value = """
             SELECT * FROM question

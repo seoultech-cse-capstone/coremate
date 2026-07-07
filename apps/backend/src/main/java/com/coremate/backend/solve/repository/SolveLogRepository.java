@@ -12,4 +12,6 @@ public interface SolveLogRepository extends JpaRepository<SolveLog, Long> {
     boolean existsBySolveSessionAndQuestion_QuestionId(SolveSession solveSession, Long questionId);
 
     long countBySolveSessionAndCorrectTrue(SolveSession solveSession);
+
+    long countBySolveSession(SolveSession solveSession);
 }
