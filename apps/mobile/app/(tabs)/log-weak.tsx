@@ -1,6 +1,8 @@
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { BlurView } from "expo-blur";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 
@@ -12,6 +14,7 @@ type TabPressNavigation = {
 
 export default function LogWeakScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<LogWeakMode>("wrongNote");
   const isWrongNote = mode === "wrongNote";
@@ -50,9 +53,22 @@ export default function LogWeakScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.titleArea}>
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={[
+          styles.titleArea,
+          {
+            minHeight: 60 + insets.top,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <View style={styles.headerOverlay} />
         <Text style={styles.title}>{title}</Text>
-      </View>
+      </BlurView>
+
+      <View style={{ height: 60 + insets.top }} />
 
       <View style={styles.panel}>
         <View style={styles.toggle}>
@@ -101,12 +117,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
   },
   titleArea: {
-    minHeight: 82,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(109, 93, 251, 0.8)",
+    overflow: "hidden",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 0,
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   title: {
     flexShrink: 1,

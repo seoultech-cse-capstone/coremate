@@ -172,6 +172,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 14,
+    marginBottom: 28,
   },
   secondaryButton: {
     flex: 1,

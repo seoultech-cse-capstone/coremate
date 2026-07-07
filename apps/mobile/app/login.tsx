@@ -11,73 +11,76 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={styles.container}>
-      <View style={styles.form}>
-        <Text style={styles.brand}>CoreMate</Text>
+    <View style={styles.screen}>
+      <SafeAreaView edges={["top"]} style={styles.container}>
+        <View style={styles.form}>
+          <Text style={styles.brand}>CoreMate</Text>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Email</Text>
-          <TextInput
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholder="Email"
-            placeholderTextColor="#94a3b8"
-            style={styles.input}
-          />
-        </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Email</Text>
+            <TextInput
+              autoCapitalize="none"
+              keyboardType="email-address"
+              placeholder="Email"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+            />
+          </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Password</Text>
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="#94a3b8"
-            secureTextEntry
-            style={styles.input}
-          />
-        </View>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Password</Text>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="#94a3b8"
+              secureTextEntry
+              style={styles.input}
+            />
+          </View>
 
-        <Pressable
-          style={styles.loginButton}
-          onPress={handleLogin}
-        >
-          <Text style={styles.loginButtonText}>Login</Text>
-        </Pressable>
-
-        <View style={styles.inlineLinksRow}>
-          <Pressable onPress={() => router.push("/register")}>
-            <Text style={styles.inlineLinkText}>Register</Text>
+          <Pressable style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Login</Text>
           </Pressable>
 
-          <Pressable onPress={() => {}}>
-            <Text style={styles.inlineLinkText}>Forgot ID/PW</Text>
+          <View style={styles.inlineLinksRow}>
+            <Pressable onPress={() => router.push("/register")}>
+              <Text style={styles.inlineLinkText}>Register</Text>
+            </Pressable>
+
+            <Pressable onPress={() => {}}>
+              <Text style={styles.inlineLinkText}>Forgot ID/PW</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.separatorRow}>
+            <View style={styles.separatorLine} />
+          </View>
+
+          <Pressable
+            style={styles.guestButton}
+            onPress={() => router.replace("/(tabs)/home")}
+          >
+            <Text style={styles.guestButtonText}>Guest</Text>
           </Pressable>
+
+          <Text style={styles.guestNotice}>
+            게스트로 로그인할 시 기능이 제한될 수 있습니다.
+          </Text>
         </View>
-
-        <View style={styles.separatorRow}>
-          <View style={styles.separatorLine} />
-        </View>
-
-        <Pressable
-          style={styles.guestButton}
-          onPress={() => router.replace("/(tabs)/home")}
-        >
-          <Text style={styles.guestButtonText}>Guest</Text>
-        </Pressable>
-
-        <Text style={styles.guestNotice}>
-          게스트로 로그인할 시, 기능이 제한될 수 있습니다.
-        </Text>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
   container: {
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#ffffff",
+    backgroundColor: "transparent",
   },
   form: {
     gap: 14,
