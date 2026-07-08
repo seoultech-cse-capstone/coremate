@@ -36,6 +36,9 @@ public enum ErrorCode {
     PROBLEM_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "문제집을 찾을 수 없습니다"),
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "문제를 찾을 수 없습니다"),
 
+    // Bookmark
+    BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "북마크를 찾을 수 없습니다"),
+
     // Solve
     SOLVE_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "풀이 세션을 찾을 수 없습니다"),
     SOLVE_SESSION_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 풀이 세션입니다"),
