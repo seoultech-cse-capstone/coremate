@@ -50,6 +50,14 @@ public enum ErrorCode {
     AVATAR_ITEM_NOT_EQUIPPABLE(HttpStatus.BAD_REQUEST, "장착할 수 없는 아이템입니다"),
     INVALID_AVATAR_SLOT(HttpStatus.BAD_REQUEST, "아바타 장착 슬롯이 올바르지 않습니다"),
 
+    // Shop / RandomBox
+    SHOP_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상점 상품을 찾을 수 없습니다"),
+    SHOP_LEVEL_REQUIRED(HttpStatus.FORBIDDEN, "상품 구매에 필요한 레벨이 부족합니다"),
+    UNSUPPORTED_SHOP_PRODUCT(HttpStatus.BAD_REQUEST, "아직 지원하지 않는 상점 상품입니다"),
+    RANDOM_BOX_NOT_FOUND(HttpStatus.NOT_FOUND, "랜덤박스를 찾을 수 없습니다"),
+    RANDOM_BOX_REWARD_NOT_FOUND(HttpStatus.NOT_FOUND, "랜덤박스 보상 후보를 찾을 수 없습니다"),
+    INVALID_RANDOM_BOX_POLICY(HttpStatus.INTERNAL_SERVER_ERROR, "랜덤박스 보상 정책이 올바르지 않습니다"),
+
     // Solve
     SOLVE_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "풀이 세션을 찾을 수 없습니다"),
     SOLVE_SESSION_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 풀이 세션입니다"),
