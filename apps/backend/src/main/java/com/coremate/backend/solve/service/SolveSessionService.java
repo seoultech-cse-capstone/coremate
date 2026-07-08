@@ -442,21 +442,13 @@ public class SolveSessionService {
         // 부족한 만큼 반대편에서 보충
         int shortage = total - selected.size();
         if (shortage > 0 && !uncompletedList.isEmpty()) {
-            List<Question> extra = questionRepository
-                    .findRandomMockQuestionsByConceptIdsExcluding(
-                            uncompletedList,
-                            selectedIds.isEmpty() ? List.of(-1L) : new ArrayList<>(selectedIds),
-                            shortage);
+            List<Question> extra = fetchExtraQuestions(uncompletedList, selectedIds, shortage);
             addUnique(selected, selectedIds, extra);
         }
 
         shortage = total - selected.size();
         if (shortage > 0 && !completedList.isEmpty()) {
-            List<Question> extra = questionRepository
-                    .findRandomMockQuestionsByConceptIdsExcluding(
-                            completedList,
-                            selectedIds.isEmpty() ? List.of(-1L) : new ArrayList<>(selectedIds),
-                            shortage);
+            List<Question> extra = fetchExtraQuestions(completedList, selectedIds, shortage);
             addUnique(selected, selectedIds, extra);
         }
 
@@ -464,6 +456,18 @@ public class SolveSessionService {
             throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
         }
         return selected;
+    }
+
+    /**
+     * 특정 pool에서 부족분을 보충한다.
+     * 이미 선택된 문제가 없으면 exclusion 쿼리가 아닌 일반 쿼리를 호출해 의도를 명확히 한다.
+     */
+    private List<Question> fetchExtraQuestions(List<Long> conceptIds, Set<Long> alreadySelectedIds, int limit) {
+        if (alreadySelectedIds.isEmpty()) {
+            return questionRepository.findRandomMockQuestionsByConceptIds(conceptIds, limit);
+        }
+        return questionRepository.findRandomMockQuestionsByConceptIdsExcluding(
+                conceptIds, new ArrayList<>(alreadySelectedIds), limit);
     }
 
     private void addUnique(List<Question> selected, Set<Long> selectedIds, List<Question> candidates) {
