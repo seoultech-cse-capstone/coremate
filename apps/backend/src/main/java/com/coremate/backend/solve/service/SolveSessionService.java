@@ -110,6 +110,7 @@ public class SolveSessionService {
                 .concept(concept)
                 .title(title)
                 .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
                 .build();
 
         solveSessionRepository.save(session);
@@ -152,6 +153,32 @@ public class SolveSessionService {
         }
     }
 
+    /**
+     * 세션 시작 시 결정된 questionId 목록을 JSON 문자열로 직렬화한다.
+     */
+    private String writeQuestionIds(List<Question> questions) {
+        List<Long> ids = questions.stream().map(Question::getQuestionId).toList();
+        try {
+            return objectMapper.writeValueAsString(ids);
+        } catch (Exception e) {
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
+        }
+    }
+
+    /**
+     * SolveSession.questionIdsJson을 List로 파싱한다.
+     */
+    private List<Long> parseQuestionIds(String questionIdsJson) {
+        if (questionIdsJson == null || questionIdsJson.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(questionIdsJson, new TypeReference<>() {});
+        } catch (Exception e) {
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
+        }
+    }
+
 
     public SubmitAnswerResponse submitAnswer(Long solveSessionId, Long userId, SubmitAnswerRequest request) {
         SolveSession session = solveSessionRepository.findBySolveSessionIdAndUserId(solveSessionId, userId)
@@ -165,26 +192,16 @@ public class SolveSessionService {
             throw new CoreMateException(ErrorCode.ANSWER_ALREADY_SUBMITTED);
         }
 
-        if (session.getConcept() == null) {
+        // 세션 시작 시 결정된 questionId 목록에서 순서(order)를 결정론적으로 계산한다.
+        // 개념 문제집 / 모의고사 모두 동일한 방식으로 처리 (concept 유무와 무관).
+        List<Long> sessionQuestionIds = parseQuestionIds(session.getQuestionIdsJson());
+        int order = sessionQuestionIds.indexOf(request.questionId()) + 1;
+        if (order <= 0) {
             throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
         }
 
-        List<Question> conceptQuestions = questionRepository
-                .findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(
-                        session.getConcept().getConceptId());
-
-        Question question = null;
-        int order = -1;
-        for (int i = 0; i < conceptQuestions.size(); i++) {
-            if (conceptQuestions.get(i).getQuestionId().equals(request.questionId())) {
-                question = conceptQuestions.get(i);
-                order = i + 1;
-                break;
-            }
-        }
-        if (question == null) {
-            throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
-        }
+        Question question = questionRepository.findById(request.questionId())
+                .orElseThrow(() -> new CoreMateException(ErrorCode.QUESTION_NOT_FOUND));
 
         boolean isCorrect = question.getCorrectAnswer().equals(request.selectedAnswer());
 
@@ -284,8 +301,7 @@ public class SolveSessionService {
                 .findByUserIdAndConcept_ConceptIdAndStatus(userId, conceptId, SolveSessionStatus.IN_PROGRESS)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
-        List<Question> questions =
-                questionRepository.findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(conceptId);
+        List<Long> sessionQuestionIds = parseQuestionIds(session.getQuestionIdsJson());
 
         List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
 
@@ -303,7 +319,7 @@ public class SolveSessionService {
                 session.getSessionType(),
                 session.getTotalQuestionCount(),
                 session.getStartedAt(),
-                questions.stream().map(Question::getQuestionId).toList(),
+                sessionQuestionIds,
                 answeredLogs
         );
     }
@@ -328,6 +344,7 @@ public class SolveSessionService {
                 .categoryLv1(categoryLv1)
                 .title(title)
                 .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
                 .build();
         solveSessionRepository.save(session);
 
@@ -355,6 +372,7 @@ public class SolveSessionService {
                 .categoryLv2(categoryLv2)
                 .title(title)
                 .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
                 .build();
         solveSessionRepository.save(session);
 
@@ -380,6 +398,7 @@ public class SolveSessionService {
                 .subject(subject)
                 .title(title)
                 .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
                 .build();
         solveSessionRepository.save(session);
 
