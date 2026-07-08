@@ -40,3 +40,5 @@ yarn-error.*
 
 # macOS
 .DS_Store
+
+CoreMate_Notion/

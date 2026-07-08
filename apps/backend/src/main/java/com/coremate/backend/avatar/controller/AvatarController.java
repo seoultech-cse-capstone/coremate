@@ -5,8 +5,10 @@ import com.coremate.backend.avatar.dto.request.UpdateEquippedItemsRequest;
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import com.coremate.backend.avatar.dto.response.UserAvatarResponse;
 import com.coremate.backend.avatar.service.AvatarService;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/avatar")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class AvatarController {
 
     private final AvatarService avatarService;

@@ -1,4 +1,4 @@
 export const FONT = {
-  pretendard: "Pretendard",
+  pretendard: "Pretendard Variable",
   kufam: "Kufam",
 } as const;

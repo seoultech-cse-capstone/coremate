@@ -1,11 +1,13 @@
 package com.coremate.backend.shop.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.shop.dto.request.PurchaseShopProductRequest;
 import com.coremate.backend.shop.dto.response.ShopProductResponse;
 import com.coremate.backend.shop.dto.response.ShopPurchaseResponse;
 import com.coremate.backend.shop.service.ShopService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/shop")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class ShopController {
 
     private final ShopService shopService;
