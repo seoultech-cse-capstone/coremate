@@ -5,12 +5,14 @@ import com.coremate.backend.dailyquiz.dto.response.DailyQuizQuestionResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizRewardResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizSetResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizSubmitResponse;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.problemset.dto.type.QuestionFormat;
 import com.coremate.backend.problemset.dto.type.QuestionType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +29,7 @@ import java.util.List;
 @Tag(name = "DailyQuiz", description = "오늘의 CS 퀴즈 조회, 제출, 보상 결과 API")
 @RestController
 @RequestMapping("/api/v1/daily-quizzes")
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class DailyQuizController {
 
     // 오늘 날짜 기준 공통 CS 퀴즈 세트 조회
