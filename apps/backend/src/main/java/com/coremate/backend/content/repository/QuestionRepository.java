@@ -41,4 +41,32 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             @Param("userId") Long userId,
             @Param("limit") int limit
     );
+
+    @Query(value = """
+            SELECT * FROM question
+            WHERE concept_id IN (:conceptIds)
+              AND is_active = true
+              AND is_mock_eligible = true
+            ORDER BY RAND()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Question> findRandomMockQuestionsByConceptIds(
+            @Param("conceptIds") List<Long> conceptIds,
+            @Param("limit") int limit
+    );
+
+    @Query(value = """
+            SELECT * FROM question
+            WHERE concept_id IN (:conceptIds)
+              AND is_active = true
+              AND is_mock_eligible = true
+              AND question_id NOT IN (:excludeQuestionIds)
+            ORDER BY RAND()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Question> findRandomMockQuestionsByConceptIdsExcluding(
+            @Param("conceptIds") List<Long> conceptIds,
+            @Param("excludeQuestionIds") List<Long> excludeQuestionIds,
+            @Param("limit") int limit
+    );
 }
