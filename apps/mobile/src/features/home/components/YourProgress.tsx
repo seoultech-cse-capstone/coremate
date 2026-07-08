@@ -2,15 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
-
-const progressItems = [
-  { title: "Data Structure", percent: 85 },
-  { title: "Algorithm", percent: 100 },
-  { title: "Network", percent: 62 },
-  { title: "Database", percent: 34 },
-  { title: "Operating System", percent: 8 },
-  { title: "Computer Architecture", percent: 76 },
-];
+import { progressItems } from "../../progress/progressData";
 
 function getProgressColor(percent: number) {
   if (percent <= 10) {
