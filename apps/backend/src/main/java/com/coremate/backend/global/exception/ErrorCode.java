@@ -29,6 +29,8 @@ public enum ErrorCode {
 
     // Content
     SUBJECT_NOT_FOUND(HttpStatus.NOT_FOUND, "과목을 찾을 수 없습니다"),
+    CATEGORY_LV1_NOT_FOUND(HttpStatus.NOT_FOUND, "대분류를 찾을 수 없습니다"),
+    CATEGORY_LV2_NOT_FOUND(HttpStatus.NOT_FOUND, "중분류를 찾을 수 없습니다"),
     CONCEPT_NOT_FOUND(HttpStatus.NOT_FOUND, "개념을 찾을 수 없습니다"),
     INVALID_CONTENT_DATA(HttpStatus.INTERNAL_SERVER_ERROR, "콘텐츠 데이터가 손상되었습니다"),
 
