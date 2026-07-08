@@ -36,7 +36,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -251,10 +250,15 @@ public class SolveSessionService {
         if (session.getSessionType() == SolveSessionType.CONCEPT_PRACTICE && session.getConcept() != null) {
             updateConceptProgress(userId, session.getConcept().getConceptId(), session.getSolveSessionId());
         } else if (isMockSession(session.getSessionType())) {
-            Set<Long> conceptIds = logs.stream()
+            // 모의고사는 이미 완료된 개념만 progress를 최신 회차로 갱신한다.
+            // 미완료 개념은 모의고사 참여만으로 완료 처리하지 않고 그대로 둔다.
+            List<Long> conceptIdsInSession = logs.stream()
                     .map(log -> log.getQuestion().getConcept().getConceptId())
-                    .collect(Collectors.toSet());
-            for (Long cid : conceptIds) {
+                    .distinct()
+                    .toList();
+            Set<Long> alreadyCompletedConceptIds = userConceptProgressRepository
+                    .findCompletedConceptIds(userId, conceptIdsInSession);
+            for (Long cid : alreadyCompletedConceptIds) {
                 updateConceptProgress(userId, cid, session.getSolveSessionId());
             }
         }
