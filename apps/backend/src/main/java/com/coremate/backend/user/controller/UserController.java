@@ -1,5 +1,6 @@
 package com.coremate.backend.user.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
@@ -9,6 +10,7 @@ import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
 import com.coremate.backend.user.dto.response.UserSummaryResponse;
 import com.coremate.backend.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class UserController {
 
     private final UserService userService;

@@ -1,22 +1,34 @@
-import { useEffect, useState } from "react";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { BlurView } from "expo-blur";
+import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 
 type LogWeakMode = "wrongNote" | "weakness";
 
+type TabPressNavigation = {
+  addListener: (eventName: "tabPress", callback: () => void) => () => void;
+};
+
 export default function LogWeakScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<LogWeakMode>("wrongNote");
   const isWrongNote = mode === "wrongNote";
-  const title = isWrongNote ? "오답노트" : "약점분석";
+  const title = isWrongNote ? "Mistake Notes" : "Weakness Analysis";
 
   const updateMode = (nextMode: LogWeakMode) => {
     setMode(nextMode);
     router.setParams({ mode: nextMode });
   };
+
+  const resetLogWeak = useCallback(() => {
+    setMode("wrongNote");
+    router.setParams({ mode: "wrongNote" });
+  }, []);
 
   useEffect(() => {
     if (modeParam === "weakness") {
@@ -32,11 +44,31 @@ export default function LogWeakScreen() {
     navigation.setOptions({ title, tabBarLabel: title });
   }, [navigation, title]);
 
+  useEffect(() => {
+    const tabNavigation = navigation as unknown as TabPressNavigation;
+    const unsubscribe = tabNavigation.addListener("tabPress", resetLogWeak);
+
+    return unsubscribe;
+  }, [navigation, resetLogWeak]);
+
   return (
     <View style={styles.container}>
-      <View style={styles.titleArea}>
+      <BlurView
+        intensity={28}
+        tint="dark"
+        style={[
+          styles.titleArea,
+          {
+            minHeight: 60 + insets.top,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        <View style={styles.headerOverlay} />
         <Text style={styles.title}>{title}</Text>
-      </View>
+      </BlurView>
+
+      <View style={{ height: 60 + insets.top }} />
 
       <View style={styles.panel}>
         <View style={styles.toggle}>
@@ -85,22 +117,35 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
   },
   titleArea: {
-    height: 148,
-    justifyContent: "center",
-    paddingHorizontal: 24,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+    paddingHorizontal: 16,
+    paddingTop: 0,
+  },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   title: {
+    flexShrink: 1,
     color: "#ffffff",
     fontFamily: FONT.pretendard,
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "700",
   },
   panel: {
     flex: 1,
     alignItems: "center",
     width: "100%",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     backgroundColor: "#F3F3F3",
     paddingHorizontal: 24,
     paddingTop: 32,

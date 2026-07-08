@@ -1,3 +1,30 @@
+# ================================================================
+# CoreMate 로컬 개발 환경 (MySQL + Redis + Backend)
+# 모든 명령어는 coremate/infra/ 디렉터리에서 실행
+#
+# [자주 쓰는 명령어]
+# 코드 변경 후 백엔드 재빌드 + 재시작:
+#   docker compose -f docker-compose.local.yml up --build -d backend
+#
+# .env 파일 변경 후 재시작 (빌드 불필요):
+#   docker compose -f docker-compose.local.yml up -d backend
+#
+# 로그 확인 (실시간):
+#   docker compose -f docker-compose.local.yml logs -f backend
+#
+# 로그 확인 (최근 50줄):
+#   docker compose -f docker-compose.local.yml logs backend --tail=50
+#
+# 전체 컨테이너 내리기:
+#   docker compose -f docker-compose.local.yml down
+#
+# 전체 컨테이너 올리기 (최초 실행 또는 down 후):
+#   docker compose -f docker-compose.local.yml up --build -d
+#
+# 실행 중인 컨테이너 상태 확인:
+#   docker compose -f docker-compose.local.yml ps
+# ================================================================
+
 name: coremate-local
 
 services:
