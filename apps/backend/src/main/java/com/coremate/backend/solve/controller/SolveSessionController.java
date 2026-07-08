@@ -4,6 +4,7 @@ import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.solve.dto.request.CompleteSolveSessionRequest;
+import com.coremate.backend.solve.dto.request.CreateMockSessionRequest;
 import com.coremate.backend.solve.dto.request.CreateSolveSessionRequest;
 import com.coremate.backend.solve.dto.request.GuestAnswerRequest;
 import com.coremate.backend.solve.dto.request.SubmitAnswerRequest;
@@ -49,6 +50,48 @@ public class SolveSessionController {
         Long userId = userDetails != null ? userDetails.getUserId() : null;
         return ApiResponse.success("풀이 세션 시작 성공",
                 solveSessionService.startSolveSession(userId, request));
+    }
+
+    @Operation(
+            summary = "대분류 챕터 모의고사 풀이 세션 시작 (회원 전용)",
+            description = "대분류 범위의 챕터 모의고사를 시작한다. 사용자가 완료한 개념 15문제 + 미완료 개념 5문제로 총 20문제를 제공한다. 부족 시 반대편에서 보충."
+    )
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    @PostMapping("/mocks/category-lv1")
+    public ApiResponse<StartSolveSessionResponse> startCategoryLv1MockSession(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody CreateMockSessionRequest request
+    ) {
+        return ApiResponse.success("대분류 챕터 모의고사 시작 성공",
+                solveSessionService.startCategoryLv1MockSession(userDetails.getUserId(), request.targetId()));
+    }
+
+    @Operation(
+            summary = "중분류 챕터 모의고사 풀이 세션 시작 (회원 전용)",
+            description = "중분류 범위의 챕터 모의고사를 시작한다. 사용자가 완료한 개념 15문제 + 미완료 개념 5문제로 총 20문제를 제공한다. 부족 시 반대편에서 보충."
+    )
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    @PostMapping("/mocks/category-lv2")
+    public ApiResponse<StartSolveSessionResponse> startCategoryLv2MockSession(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody CreateMockSessionRequest request
+    ) {
+        return ApiResponse.success("중분류 챕터 모의고사 시작 성공",
+                solveSessionService.startCategoryLv2MockSession(userDetails.getUserId(), request.targetId()));
+    }
+
+    @Operation(
+            summary = "과목 모의고사 풀이 세션 시작 (회원 전용)",
+            description = "과목 범위의 모의고사를 시작한다. 사용자가 완료한 개념 30문제 + 미완료 개념 20문제로 총 50문제를 제공한다. 부족 시 반대편에서 보충."
+    )
+    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
+    @PostMapping("/mocks/subject")
+    public ApiResponse<StartSolveSessionResponse> startSubjectMockSession(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody CreateMockSessionRequest request
+    ) {
+        return ApiResponse.success("과목 모의고사 시작 성공",
+                solveSessionService.startSubjectMockSession(userDetails.getUserId(), request.targetId()));
     }
 
     @Operation(summary = "진행 중인 세션 재진입 (회원 전용)", description = "중단한 풀이 세션으로 재진입한다. 전체 문제 목록과 이미 제출한 답안을 반환한다.")
