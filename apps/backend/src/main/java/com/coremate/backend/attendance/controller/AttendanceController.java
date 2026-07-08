@@ -4,8 +4,10 @@ import com.coremate.backend.attendance.dto.response.AttendanceCalendarResponse;
 import com.coremate.backend.attendance.dto.response.AttendanceResponse;
 import com.coremate.backend.attendance.dto.response.AttendanceRewardResponse;
 import com.coremate.backend.attendance.service.AttendanceService;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/attendance")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class AttendanceController {
 
     private final AttendanceService attendanceService;
