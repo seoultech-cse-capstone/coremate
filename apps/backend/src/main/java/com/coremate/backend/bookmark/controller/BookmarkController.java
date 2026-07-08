@@ -5,8 +5,10 @@ import com.coremate.backend.bookmark.dto.request.UpdateBookmarkMemoRequest;
 import com.coremate.backend.bookmark.dto.response.BookmarkResponse;
 import com.coremate.backend.bookmark.dto.response.BookmarkedQuestionResponse;
 import com.coremate.backend.bookmark.service.BookmarkService;
+import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -27,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/bookmarks")
 @RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class BookmarkController {
 
     private final BookmarkService bookmarkService;
