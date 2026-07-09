@@ -1,4 +1,4 @@
-package com.coremate.backend.problemset.dto.response;
+package com.coremate.backend.solve.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

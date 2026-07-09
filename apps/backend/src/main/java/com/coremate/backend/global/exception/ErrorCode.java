@@ -37,6 +37,7 @@ public enum ErrorCode {
     // ProblemSet
     PROBLEM_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "문제집을 찾을 수 없습니다"),
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "문제를 찾을 수 없습니다"),
+    QUESTION_HINT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 문제에 사용 가능한 힌트가 없습니다"),
 
     // Solve
     SOLVE_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "풀이 세션을 찾을 수 없습니다"),

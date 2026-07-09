@@ -53,7 +53,8 @@ public class SecurityConfig {
                                 "/api/v1/solve-sessions/guest/complete"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/content/**"
+                                "/api/v1/content/**",
+                                "/api/v1/solve/questions/*/hint"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

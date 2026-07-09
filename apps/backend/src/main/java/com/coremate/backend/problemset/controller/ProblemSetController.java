@@ -9,7 +9,6 @@ import com.coremate.backend.problemset.dto.response.ProblemSetDetailResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetQuestionResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetSummaryResponse;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
-import com.coremate.backend.problemset.dto.response.QuestionHintResponse;
 import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.problemset.dto.type.QuestionFormat;
 import com.coremate.backend.problemset.dto.type.QuestionType;
@@ -186,23 +185,6 @@ public class ProblemSetController {
         ));
     }
 
-    // 문제 풀이 중 물음표 힌트 조회
-    @Operation(summary = "문제 힌트 조회", description = "문제 풀이 중 물음표 버튼을 눌렀을 때 common_mistake.correction_text 기반 힌트를 조회한다.")
-    @GetMapping("/questions/{questionId}/hint")
-    public ApiResponse<QuestionHintResponse> getQuestionHint(
-            @Parameter(description = "문제 ID", example = "5001")
-            @PathVariable Long questionId
-    ) {
-
-        // common_mistake.correction_text 기반 힌트 응답 더미 데이터
-        QuestionHintResponse response = new QuestionHintResponse(
-                questionId,
-                3001L,
-                "완전 이진 트리는 모든 레벨이 꽉 차야 하는 것이 아니라 마지막 레벨은 왼쪽부터 연속적으로 채워지면 됩니다."
-        );
-
-        return ApiResponse.success("문제 힌트 조회 성공", response);
-    }
 
     // 문제집/모의고사 공통 문제 목록 더미 데이터
     private List<ProblemSetQuestionResponse> sampleQuestions() {
