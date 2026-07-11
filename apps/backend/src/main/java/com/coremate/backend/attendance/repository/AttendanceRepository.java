@@ -11,6 +11,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     boolean existsByUser_UserIdAndAttendanceDate(Long userId, LocalDate attendanceDate);
 
+    long countByUser_UserId(Long userId);
+
     @EntityGraph(attributePaths = "user")
     Optional<Attendance> findByUser_UserIdAndAttendanceDate(Long userId, LocalDate attendanceDate);
 
