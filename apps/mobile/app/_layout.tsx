@@ -51,6 +51,11 @@ export default function RootLayout() {
           name="avatar-inventory"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="mistake-exam-review"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="dark" />
