@@ -17,7 +17,11 @@ type ReviewQuestion = {
 type MistakeExamReviewProps = {
   category: string;
   examType: string;
-  sessionType?: "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE";
+  sessionType?:
+    | "SUBJECT_MOCK"
+    | "CHAPTER_MOCK"
+    | "CONCEPT_PRACTICE"
+    | "DAILY_QUIZ";
   subject: string;
   onBack: () => void;
 };
@@ -26,6 +30,7 @@ const sessionTypeLabel = {
   SUBJECT_MOCK: "과목 모의고사",
   CHAPTER_MOCK: "챕터 모의고사",
   CONCEPT_PRACTICE: "개념 문제집",
+  DAILY_QUIZ: "오늘의 CS 퀴즈",
 } as const;
 
 const questions: ReviewQuestion[] = [

@@ -6,7 +6,11 @@ export default function MistakeExamReviewScreen() {
   const { category, examType, sessionType, subject } = useLocalSearchParams<{
     category?: string;
     examType?: string;
-    sessionType?: "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE";
+    sessionType?:
+      | "SUBJECT_MOCK"
+      | "CHAPTER_MOCK"
+      | "CONCEPT_PRACTICE"
+      | "DAILY_QUIZ";
     subject?: string;
   }>();
 

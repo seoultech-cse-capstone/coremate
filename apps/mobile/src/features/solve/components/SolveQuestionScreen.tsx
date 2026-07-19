@@ -14,7 +14,8 @@ import { FONT } from "../../../../constants/fonts";
 export type SolveSessionType =
   | "SUBJECT_MOCK"
   | "CHAPTER_MOCK"
-  | "CONCEPT_PRACTICE";
+  | "CONCEPT_PRACTICE"
+  | "DAILY_QUIZ";
 
 type SolveQuestion = {
   choices: string[];
@@ -38,6 +39,7 @@ const sessionTypeLabel: Record<SolveSessionType, string> = {
   SUBJECT_MOCK: "과목 모의고사",
   CHAPTER_MOCK: "챕터 모의고사",
   CONCEPT_PRACTICE: "개념 문제집",
+  DAILY_QUIZ: "오늘의 CS 퀴즈",
 };
 
 const questions: SolveQuestion[] = [
@@ -111,7 +113,8 @@ export function SolveQuestionScreen({
   const actionLabel = isLastQuestion ? "제출하기" : "다음 문제";
   const sessionLabel = sessionTypeLabel[sessionType];
   const canContinue = currentAnswer !== null;
-  const isMockExam = sessionType !== "CONCEPT_PRACTICE";
+  const isTimedSession =
+    sessionType === "SUBJECT_MOCK" || sessionType === "CHAPTER_MOCK";
   const elapsedTimeLabel = `${Math.floor(elapsedSeconds / 60)
     .toString()
     .padStart(2, "0")}:${(elapsedSeconds % 60).toString().padStart(2, "0")}`;
@@ -121,7 +124,7 @@ export function SolveQuestionScreen({
   );
 
   useEffect(() => {
-    if (!isMockExam) {
+    if (!isTimedSession) {
       return;
     }
 
@@ -130,7 +133,7 @@ export function SolveQuestionScreen({
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [isMockExam]);
+  }, [isTimedSession]);
 
   const selectAnswer = (answerIndex: number) => {
     setAnswers((currentAnswers) => {
@@ -159,7 +162,7 @@ export function SolveQuestionScreen({
     onComplete(
       correctCount,
       questions.length,
-      isMockExam ? elapsedSeconds : undefined,
+      isTimedSession ? elapsedSeconds : undefined,
     );
   };
 
@@ -208,7 +211,7 @@ export function SolveQuestionScreen({
           </Text>
           <View style={styles.progressMeta}>
             <Text style={styles.answeredText}>답변 {answeredCount}</Text>
-            {isMockExam && <Text style={styles.timerText}>{elapsedTimeLabel}</Text>}
+            {isTimedSession && <Text style={styles.timerText}>{elapsedTimeLabel}</Text>}
           </View>
         </View>
         <View style={styles.progressTrack}>

@@ -57,6 +57,9 @@ export default function RootLayout() {
         />
         <Stack.Screen name="solve" options={{ headerShown: false }} />
         <Stack.Screen name="solve-result" options={{ headerShown: false }} />
+        <Stack.Screen name="daily-quiz" options={{ headerShown: false }} />
+        <Stack.Screen name="daily-quiz-result" options={{ headerShown: false }} />
+        <Stack.Screen name="daily-quiz-review" options={{ headerShown: false }} />
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
