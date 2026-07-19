@@ -2,7 +2,7 @@ import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Flame, Hand, MapPin } from "lucide-react-native";
 import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -59,11 +59,18 @@ export default function FriendProfileScreen() {
             accessibilityLabel={`${friend.nickname}의 방 보기`}
             accessibilityRole="button"
             onPress={() => setIsRoomModalVisible(true)}
+            style={styles.avatarButton}
           >
             <FriendAvatar
               backgroundColor={friend.avatarColor}
               color={friend.avatarAccentColor}
               size={90}
+            />
+            <View
+              style={[
+                styles.onlineIndicator,
+                friend.isOnline ? styles.online : styles.offline,
+              ]}
             />
           </Pressable>
           <Text style={styles.nickname}>{friend.nickname}</Text>
@@ -101,6 +108,16 @@ export default function FriendProfileScreen() {
               <Text style={styles.attendanceTitle}>Attendance</Text>
               <Text style={styles.attendanceText}>{friend.attendance}</Text>
             </View>
+            <View style={styles.learningCard}>
+              <Text style={styles.learningTitle}>Learning History</Text>
+              <View style={styles.learningStats}>
+                <LearningStat label="Study Time" value="36h 20m" />
+                <View style={styles.learningDivider} />
+                <LearningStat label="Questions" value="318" />
+                <View style={styles.learningDivider} />
+                <LearningStat label="Completed" value="27" />
+              </View>
+            </View>
             <Pressable
               accessibilityRole="button"
               onPress={() => setIsPoked((current) => !current)}
@@ -116,6 +133,26 @@ export default function FriendProfileScreen() {
                 {isPoked ? "콕 찌름 완료" : "콕 찌르기"}
               </Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                Alert.alert(
+                  "친구 삭제",
+                  `${friend.nickname} 님을 친구 목록에서 삭제할까요?`,
+                  [
+                    { text: "취소", style: "cancel" },
+                    {
+                      text: "삭제",
+                      style: "destructive",
+                      onPress: () => router.back(),
+                    },
+                  ],
+                );
+              }}
+              style={styles.deleteButton}
+            >
+              <Text style={styles.deleteButtonText}>친구 삭제</Text>
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -124,6 +161,15 @@ export default function FriendProfileScreen() {
         onClose={() => setIsRoomModalVisible(false)}
         visible={isRoomModalVisible}
       />
+    </View>
+  );
+}
+
+function LearningStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.learningStat}>
+      <Text style={styles.learningValue}>{value}</Text>
+      <Text style={styles.learningLabel}>{label}</Text>
     </View>
   );
 }
@@ -168,6 +214,21 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 30,
   },
+  avatarButton: {
+    position: "relative",
+  },
+  onlineIndicator: {
+    position: "absolute",
+    right: 1,
+    bottom: 1,
+    width: 18,
+    height: 18,
+    borderWidth: 3,
+    borderColor: BRAND_PURPLE,
+    borderRadius: 9,
+  },
+  online: { backgroundColor: "#22C55E" },
+  offline: { backgroundColor: "#94A3B8" },
   nickname: {
     marginTop: 4,
     color: "#FFFFFF",
@@ -234,6 +295,45 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 13,
   },
+  learningCard: {
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 15,
+  },
+  learningTitle: {
+    color: "#1F2937",
+    fontFamily: FONT.kufam,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  learningStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  learningStat: {
+    flex: 1,
+    alignItems: "center",
+    gap: 5,
+  },
+  learningValue: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.kufam,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  learningLabel: {
+    color: "#94A3B8",
+    fontFamily: FONT.kufam,
+    fontSize: 10,
+  },
+  learningDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "#E2E8F0",
+  },
   pokeButton: {
     height: 50,
     flexDirection: "row",
@@ -253,4 +353,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   pokeTextActive: { color: "#FFFFFF" },
+  deleteButton: {
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    borderRadius: 8,
+    backgroundColor: "#FFF7F7",
+  },
+  deleteButtonText: {
+    color: "#DC2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
