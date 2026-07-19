@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FONT } from "../constants/fonts";
 import { FriendAvatar } from "../src/features/friend/components/FriendAvatar";
 import { FriendProgressStats } from "../src/features/friend/components/FriendProgressStats";
+import { FriendRoomModal } from "../src/features/friend/components/FriendRoomModal";
 import { getFriend } from "../src/features/friend/friendData";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -20,6 +21,7 @@ export default function FriendProfileScreen() {
   const { friendId } = useLocalSearchParams<{ friendId?: string }>();
   const friend = getFriend(friendId);
   const [isPoked, setIsPoked] = useState(false);
+  const [isRoomModalVisible, setIsRoomModalVisible] = useState(false);
 
   return (
     <View style={styles.container}>
@@ -53,11 +55,17 @@ export default function FriendProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileArea}>
-          <FriendAvatar
-            backgroundColor={friend.avatarColor}
-            color={friend.avatarAccentColor}
-            size={90}
-          />
+          <Pressable
+            accessibilityLabel={`${friend.nickname}의 방 보기`}
+            accessibilityRole="button"
+            onPress={() => setIsRoomModalVisible(true)}
+          >
+            <FriendAvatar
+              backgroundColor={friend.avatarColor}
+              color={friend.avatarAccentColor}
+              size={90}
+            />
+          </Pressable>
           <Text style={styles.nickname}>{friend.nickname}</Text>
           <View style={styles.schoolRow}>
             <MapPin color="#E9E3FF" size={15} strokeWidth={2} />
@@ -111,6 +119,11 @@ export default function FriendProfileScreen() {
           </View>
         </View>
       </ScrollView>
+      <FriendRoomModal
+        friend={friend}
+        onClose={() => setIsRoomModalVisible(false)}
+        visible={isRoomModalVisible}
+      />
     </View>
   );
 }
