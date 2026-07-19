@@ -1,4 +1,4 @@
-import { useFocusEffect, useNavigation } from "expo-router";
+import { router, useFocusEffect, useNavigation } from "expo-router";
 import { BlurView } from "expo-blur";
 import {
   Book,
@@ -26,7 +26,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FONT } from "../../constants/fonts";
 import { ConceptCard } from "../../src/features/content/components/ConceptCard";
 import { ProblemSetCard } from "../../src/features/content/components/ProblemSetCard";
-import { ProblemSetQuestion } from "../../src/features/content/components/ProblemSetQuestion";
 
 type ContentDepth = "subject" | "category1" | "category2" | "concept";
 
@@ -264,6 +263,16 @@ const startButtonLabelByDepth: Record<ContentDepth, string> = {
   concept: "개념 문제집 풀기",
 };
 
+const sessionTypeByDepth: Record<
+  ContentDepth,
+  "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE"
+> = {
+  subject: "SUBJECT_MOCK",
+  category1: "CHAPTER_MOCK",
+  category2: "CHAPTER_MOCK",
+  concept: "CONCEPT_PRACTICE",
+};
+
 const getNextDepth = (depth: ContentDepth) => {
   const currentIndex = depthOrder.indexOf(depth);
   return depthOrder[currentIndex + 1] ?? null;
@@ -276,7 +285,6 @@ export default function ContentScreen() {
   const insets = useSafeAreaInsets();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [trail, setTrail] = useState<TrailItem[]>([{ depth: "subject" }]);
-  const [activeSetTitle, setActiveSetTitle] = useState<string | null>(null);
   const currentTrail = trail[trail.length - 1];
   const currentDepth = currentTrail.depth;
   const selectedTitle = currentTrail.title;
@@ -289,7 +297,6 @@ export default function ContentScreen() {
 
   const resetContent = useCallback(() => {
     setTrail([{ depth: "subject" }]);
-    setActiveSetTitle(null);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, []);
 
@@ -313,19 +320,14 @@ export default function ContentScreen() {
   }, [navigation, resetContent]);
 
   const screenTitle = useMemo(() => {
-    if (activeSetTitle) {
-      return activeSetTitle;
-    }
-
     return selectedTitle ?? "Practice Notes";
-  }, [activeSetTitle, selectedTitle]);
+  }, [selectedTitle]);
 
   const openChildTree = (item: ProblemSetItem) => {
     const nextDepth = getNextDepth(currentDepth);
 
     if (!nextDepth) {
-      setActiveSetTitle(item.title);
-      scrollToTop();
+      startProblemSet(item);
       return;
     }
 
@@ -337,17 +339,27 @@ export default function ContentScreen() {
   };
 
   const startProblemSet = (item: ProblemSetItem) => {
-    setActiveSetTitle(item.title);
-    scrollToTop();
+    router.push({
+      pathname: "/solve",
+      params: {
+        title: item.title,
+        sessionType: sessionTypeByDepth[currentDepth],
+      },
+    });
+  };
+
+  const openRecentReview = (item: ProblemSetItem) => {
+    router.push({
+      pathname: "/mistake-exam-review",
+      params: {
+        subject: "Data Structure",
+        category: item.title,
+        sessionType: sessionTypeByDepth[currentDepth],
+      },
+    });
   };
 
   const goBack = () => {
-    if (activeSetTitle) {
-      setActiveSetTitle(null);
-      scrollToTop();
-      return;
-    }
-
     setTrail((prevTrail) =>
       prevTrail.length > 1 ? prevTrail.slice(0, -1) : prevTrail,
     );
@@ -390,10 +402,7 @@ export default function ContentScreen() {
         <View
           style={[styles.grayBackground, { minHeight: height - headerHeight }]}
         >
-          {activeSetTitle ? (
-            <ProblemSetQuestion title={activeSetTitle} onExit={goBack} />
-          ) : (
-            <View style={styles.listContent}>
+          <View style={styles.listContent}>
               {currentItems.map((item) =>
                 isConceptDepth ? (
                   <ConceptCard
@@ -424,13 +433,12 @@ export default function ContentScreen() {
                     }
                     title={item.title}
                     onOpen={() => openChildTree(item)}
-                    onReview={() => startProblemSet(item)}
+                    onReview={() => openRecentReview(item)}
                     onStart={() => startProblemSet(item)}
                   />
                 ),
               )}
-            </View>
-          )}
+          </View>
         </View>
       </ScrollView>
 
@@ -446,7 +454,7 @@ export default function ContentScreen() {
         ]}
       >
         <View style={styles.headerOverlay} />
-        {(trail.length > 1 || activeSetTitle) && (
+        {trail.length > 1 && (
           <Pressable
             accessibilityLabel="Back"
             accessibilityRole="button"
