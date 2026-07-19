@@ -12,8 +12,9 @@ const sessionTypes: SolveSessionType[] = [
 ];
 
 export default function SolveResultRoute() {
-  const { correctCount, sessionType, title, totalCount } = useLocalSearchParams<{
+  const { correctCount, elapsedSeconds, sessionType, title, totalCount } = useLocalSearchParams<{
     correctCount?: string;
+    elapsedSeconds?: string;
     sessionType?: string;
     title?: string;
     totalCount?: string;
@@ -31,6 +32,7 @@ export default function SolveResultRoute() {
   return (
     <SolveResultScreen
       correctCount={resolvedCorrectCount}
+      elapsedSeconds={Number(elapsedSeconds) || 0}
       sessionType={resolvedSessionType}
       title={resolvedTitle}
       totalCount={resolvedTotalCount}

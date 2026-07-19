@@ -26,7 +26,7 @@ export default function SolveScreen() {
       sessionType={resolvedSessionType}
       title={resolvedTitle}
       onBack={() => router.back()}
-      onComplete={(correctCount, totalCount) =>
+      onComplete={(correctCount, totalCount, elapsedSeconds) =>
         router.replace({
           pathname: "/solve-result",
           params: {
@@ -34,6 +34,7 @@ export default function SolveScreen() {
             sessionType: resolvedSessionType,
             correctCount: correctCount.toString(),
             totalCount: totalCount.toString(),
+            elapsedSeconds: elapsedSeconds?.toString(),
           },
         })
       }

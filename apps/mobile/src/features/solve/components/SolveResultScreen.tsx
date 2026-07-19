@@ -14,6 +14,7 @@ import type { SolveSessionType } from "./SolveQuestionScreen";
 
 type SolveResultScreenProps = {
   correctCount: number;
+  elapsedSeconds?: number;
   sessionType: SolveSessionType;
   title: string;
   totalCount: number;
@@ -30,6 +31,7 @@ const sessionTypeLabel: Record<SolveSessionType, string> = {
 
 export function SolveResultScreen({
   correctCount,
+  elapsedSeconds,
   sessionType,
   title,
   totalCount,
@@ -40,6 +42,12 @@ export function SolveResultScreen({
   const insets = useSafeAreaInsets();
   const wrongCount = totalCount - correctCount;
   const correctRate = Math.round((correctCount / totalCount) * 100);
+  const isMockExam = sessionType !== "CONCEPT_PRACTICE";
+  const elapsedTimeLabel = `${Math.floor((elapsedSeconds ?? 0) / 60)
+    .toString()
+    .padStart(2, "0")}:${((elapsedSeconds ?? 0) % 60)
+    .toString()
+    .padStart(2, "0")}`;
 
   return (
     <View style={styles.screen}>
@@ -64,6 +72,9 @@ export function SolveResultScreen({
           <Text style={styles.scoreLabel}>정답률</Text>
           <Text style={styles.scoreValue}>{correctRate}%</Text>
           <Text style={styles.scoreDetail}>{correctCount} / {totalCount} 문제 정답</Text>
+          {isMockExam && (
+            <Text style={styles.elapsedTime}>소요 시간 {elapsedTimeLabel}</Text>
+          )}
         </View>
 
         <View style={styles.statsRow}>
@@ -116,6 +127,7 @@ const styles = StyleSheet.create({
   scoreLabel: { color: "#64748b", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "600" },
   scoreValue: { color: "#6D5DFB", fontFamily: FONT.kufam, fontSize: 44, fontWeight: "700", marginTop: 5 },
   scoreDetail: { color: "#475569", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "600", marginTop: 5 },
+  elapsedTime: { color: "#6D5DFB", fontFamily: FONT.kufam, fontSize: 13, fontWeight: "700", marginTop: 8 },
   statsRow: { flexDirection: "row", gap: 12, marginTop: 12 },
   statCard: { flex: 1, alignItems: "center", borderRadius: 8, backgroundColor: "#ffffff", paddingVertical: 18 },
   statValue: { color: "#1f2937", fontFamily: FONT.kufam, fontSize: 22, fontWeight: "700", marginTop: 7 },

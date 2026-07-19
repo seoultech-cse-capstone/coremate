@@ -5,7 +5,7 @@ import {
   CircleHelp,
   X,
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,7 +27,11 @@ type SolveQuestionScreenProps = {
   sessionType: SolveSessionType;
   title: string;
   onBack: () => void;
-  onComplete: (correctCount: number, totalCount: number) => void;
+  onComplete: (
+    correctCount: number,
+    totalCount: number,
+    elapsedSeconds?: number,
+  ) => void;
 };
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
@@ -99,6 +103,7 @@ export function SolveQuestionScreen({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isHintVisible, setIsHintVisible] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const currentQuestion = questions[currentIndex];
   const currentAnswer = answers[currentIndex];
   const progress = ((currentIndex + 1) / questions.length) * 100;
@@ -106,10 +111,26 @@ export function SolveQuestionScreen({
   const actionLabel = isLastQuestion ? "제출하기" : "다음 문제";
   const sessionLabel = sessionTypeLabel[sessionType];
   const canContinue = currentAnswer !== null;
+  const isMockExam = sessionType !== "CONCEPT_PRACTICE";
+  const elapsedTimeLabel = `${Math.floor(elapsedSeconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(elapsedSeconds % 60).toString().padStart(2, "0")}`;
   const answeredCount = useMemo(
     () => answers.filter((answer) => answer !== null).length,
     [answers],
   );
+
+  useEffect(() => {
+    if (!isMockExam) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setElapsedSeconds((seconds) => seconds + 1);
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isMockExam]);
 
   const selectAnswer = (answerIndex: number) => {
     setAnswers((currentAnswers) => {
@@ -135,7 +156,11 @@ export function SolveQuestionScreen({
         answer === questions[index].correctIndex ? count + 1 : count,
       0,
     );
-    onComplete(correctCount, questions.length);
+    onComplete(
+      correctCount,
+      questions.length,
+      isMockExam ? elapsedSeconds : undefined,
+    );
   };
 
   return (
@@ -181,7 +206,10 @@ export function SolveQuestionScreen({
           <Text style={styles.progressText}>
             문제 {currentIndex + 1} / {questions.length}
           </Text>
-          <Text style={styles.answeredText}>답변 {answeredCount}</Text>
+          <View style={styles.progressMeta}>
+            <Text style={styles.answeredText}>답변 {answeredCount}</Text>
+            {isMockExam && <Text style={styles.timerText}>{elapsedTimeLabel}</Text>}
+          </View>
         </View>
         <View style={styles.progressTrack}>
           <View style={[styles.progressValue, { width: `${progress}%` }]} />
@@ -325,6 +353,13 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 13,
     fontWeight: "500",
+  },
+  progressMeta: { flexDirection: "row", alignItems: "center", gap: 10 },
+  timerText: {
+    color: "#5144cf",
+    fontFamily: FONT.kufam,
+    fontSize: 13,
+    fontWeight: "700",
   },
   progressTrack: {
     height: 7,
