@@ -42,7 +42,8 @@ type WeaknessReportItem = {
   depth: DepthFilter;
   date: string;
   examNames: string[];
-  completed: boolean;
+  // 분석표를 끝까지 읽었는지 여부. 읽은 분석표만 초록 체크로 표시한다.
+  isRead: boolean;
 };
 
 const HEADER_HEIGHT = 60;
@@ -66,10 +67,10 @@ const depthFilters: DepthFilter[] = [
   "concept",
 ];
 
+// 총 개념 수는 DB 전체 하위 개념 수, 완료 수는 문제를 푼 하위 개념 수를 의미한다.
 const conceptStats = {
-  total: 500,
-  completed: 100,
-  incomplete: 400,
+  totalCount: 500,
+  solvedConceptCount: 100,
 };
 
 const examHistoryItems: ExamHistoryItem[] = [
@@ -152,7 +153,7 @@ const weaknessReports: WeaknessReportItem[] = [
     depth: "Chapter1",
     date: "26-04-25",
     examNames: ["Linear Structure", "Array", "Linked List"],
-    completed: true,
+    isRead: true,
   },
   {
     id: 2,
@@ -160,7 +161,7 @@ const weaknessReports: WeaknessReportItem[] = [
     depth: "Chapter1",
     date: "26-04-25",
     examNames: ["Linear Structure", "Stack", "Queue"],
-    completed: true,
+    isRead: true,
   },
   {
     id: 3,
@@ -174,9 +175,15 @@ const weaknessReports: WeaknessReportItem[] = [
       "Indexing",
       "Linked List",
     ],
-    completed: false,
+    isRead: false,
   },
 ];
+
+// 약점 분석표 통계는 분석표를 정독한 횟수(isRead)를 기준으로 계산한다.
+const weaknessReportStats = {
+  totalCount: weaknessReports.length,
+  readCount: weaknessReports.filter((report) => report.isRead).length,
+};
 
 export default function LogWeakScreen() {
   const navigation = useNavigation();
@@ -532,14 +539,30 @@ function StatsSummary({
 }) {
   const stats = isWrongNote
     ? [
-        { value: conceptStats.total.toString(), label: "총 개념" },
-        { value: conceptStats.completed.toString(), label: "풀었어요" },
-        { value: conceptStats.incomplete.toString(), label: "아직 못풀었어요" },
+        { value: conceptStats.totalCount.toString(), label: "총 개념" },
+        {
+          value: conceptStats.solvedConceptCount.toString(),
+          label: "풀었어요",
+        },
+        {
+          value: (
+            conceptStats.totalCount - conceptStats.solvedConceptCount
+          ).toString(),
+          label: "아직 못풀었어요",
+        },
       ]
     : [
-        { value: "15", label: "내 약점 분석표" },
-        { value: "2", label: "완벽해요" },
-        { value: "13", label: "아직 모자라요" },
+        {
+          value: weaknessReportStats.totalCount.toString(),
+          label: "내 약점 분석표",
+        },
+        { value: weaknessReportStats.readCount.toString(), label: "완벽해요" },
+        {
+          value: (
+            weaknessReportStats.totalCount - weaknessReportStats.readCount
+          ).toString(),
+          label: "아직 모자라요",
+        },
       ];
 
   return (
@@ -664,7 +687,7 @@ function WeaknessReportCard({
           </View>
         )}
         <Check
-          color={item.completed ? "#20D63A" : "#9ca3af"}
+          color={item.isRead ? "#20D63A" : "#9ca3af"}
           size={24}
           strokeWidth={3}
         />
