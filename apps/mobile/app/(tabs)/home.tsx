@@ -83,9 +83,12 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/daily-quiz")}
-            style={styles.primaryButton}
+            style={[styles.primaryButton, styles.dailyQuizCompletedButton]}
           >
-            <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
+            <View style={styles.dailyQuizButtonContent}>
+              <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
+              <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+            </View>
           </Pressable>
 
           <View style={styles.secondaryRow}>
@@ -166,10 +169,23 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: BRAND_PURPLE,
   },
+  dailyQuizCompletedButton: {
+    backgroundColor: "#94A3B8",
+  },
   primaryButtonText: {
     color: "#ffffff",
     fontFamily: FONT.pretendard,
     fontSize: 18,
+    fontWeight: "500",
+  },
+  dailyQuizButtonContent: {
+    alignItems: "center",
+    gap: 3,
+  },
+  dailyQuizStatus: {
+    color: "rgba(255, 255, 255, 0.76)",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
     fontWeight: "500",
   },
   secondaryRow: {
