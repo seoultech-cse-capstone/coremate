@@ -40,9 +40,8 @@ type WeaknessReportItem = {
   id: number;
   subject: string;
   depth: DepthFilter;
-  category: string;
   date: string;
-  wrong: string;
+  examNames: string[];
   completed: boolean;
 };
 
@@ -151,27 +150,30 @@ const weaknessReports: WeaknessReportItem[] = [
     id: 1,
     subject: "Data Structure",
     depth: "Chapter1",
-    category: "Arrays",
     date: "26-04-25",
-    wrong: "6/10",
+    examNames: ["Linear Structure", "Array", "Linked List"],
     completed: true,
   },
   {
     id: 2,
     subject: "Data Structure",
     depth: "Chapter1",
-    category: "Stacks",
     date: "26-04-25",
-    wrong: "6/10",
+    examNames: ["Linear Structure", "Stack", "Queue"],
     completed: true,
   },
   {
     id: 3,
     subject: "Data Structure",
     depth: "Chapter2",
-    category: "Queues",
     date: "26-04-24",
-    wrong: "4/10",
+    examNames: [
+      "Array",
+      "Dynamic Array",
+      "Static Array",
+      "Indexing",
+      "Linked List",
+    ],
     completed: false,
   },
 ];
@@ -468,7 +470,16 @@ export default function LogWeakScreen() {
                   />
                 ))
               : filteredWeaknessReports.map((item) => (
-                  <WeaknessReportCard item={item} key={item.id} />
+                  <WeaknessReportCard
+                    item={item}
+                    key={item.id}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/weakness-report",
+                        params: { reportId: item.id.toString() },
+                      })
+                    }
+                  />
                 ))}
           </View>
         </View>
@@ -600,15 +611,20 @@ function ExamHistoryCard({
   );
 }
 
-function WeaknessReportCard({ item }: { item: WeaknessReportItem }) {
+function WeaknessReportCard({
+  item,
+  onPress,
+}: {
+  item: WeaknessReportItem;
+  onPress: () => void;
+}) {
+  const primaryExamNames = item.examNames.slice(0, 3);
+  const secondaryExamNames = item.examNames.slice(3, 5);
+
   return (
-    <Pressable style={styles.card}>
+    <Pressable style={styles.weaknessCard} onPress={onPress}>
       <View style={styles.cardHeader}>
-        <View style={styles.cardTitleRow}>
-          <Text style={styles.subjectBadge}>{item.subject}</Text>
-          <Text style={styles.dot}>·</Text>
-          <Text style={styles.categoryText}>{item.category}</Text>
-        </View>
+        <Text style={styles.reportNumber}>#{item.id}</Text>
 
         <ChevronRight color="#6b7280" size={22} strokeWidth={2.2} />
       </View>
@@ -618,12 +634,35 @@ function WeaknessReportCard({ item }: { item: WeaknessReportItem }) {
         <Text style={styles.dateText}>{item.date}</Text>
       </View>
 
-      <View style={styles.resultRow}>
-        <View>
-          <Text style={styles.wrongLabel}>Wrong</Text>
-          <Text style={styles.wrongValue}>{item.wrong}</Text>
+      <View style={styles.reportExamRow}>
+        <View style={styles.reportExamColumn}>
+          {primaryExamNames.map((examName) => (
+            <Text
+              adjustsFontSizeToFit
+              key={`primary-${examName}`}
+              minimumFontScale={0.82}
+              numberOfLines={1}
+              style={styles.reportExamName}
+            >
+              {examName}
+            </Text>
+          ))}
         </View>
-
+        {secondaryExamNames.length > 0 && (
+          <View style={styles.reportExamColumn}>
+            {secondaryExamNames.map((examName) => (
+              <Text
+                adjustsFontSizeToFit
+                key={`secondary-${examName}`}
+                minimumFontScale={0.82}
+                numberOfLines={1}
+                style={styles.reportExamName}
+              >
+                {examName}
+              </Text>
+            ))}
+          </View>
+        )}
         <Check
           color={item.completed ? "#20D63A" : "#9ca3af"}
           size={24}
@@ -805,6 +844,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
+  weaknessCard: {
+    minHeight: 152,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -838,6 +884,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
+  reportNumber: {
+    color: "#6D5DFB",
+    fontFamily: FONT.kufam,
+    fontSize: 17,
+    fontWeight: "700",
+  },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -856,6 +908,24 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
     marginTop: 18,
+  },
+  reportExamRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 12,
+    marginTop: 14,
+  },
+  reportExamColumn: {
+    flex: 1,
+    gap: 4,
+  },
+  reportExamName: {
+    alignSelf: "flex-start",
+    color: "#475569",
+    fontFamily: FONT.kufam,
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 19,
   },
   wrongLabel: {
     color: "#6b7280",
