@@ -18,7 +18,7 @@ import { FONT } from "../../constants/fonts";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
 
 type LogWeakMode = "wrongNote" | "weakness";
-type DepthFilter = "Category1" | "Category2" | "concept";
+type DepthFilter = "subject" | "Chapter1" | "Chapter2" | "concept";
 
 type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
@@ -29,7 +29,9 @@ type ExamHistoryItem = {
   subject: string;
   depth: DepthFilter;
   category: string;
-  examType: "과목 모의고사" | "챕터 모의고사";
+  examType: "과목 모의고사" | "챕터 모의고사" | "개념 문제집";
+  sessionType: "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE";
+  scopePath: string[];
   date: string;
   wrong: string;
 };
@@ -58,7 +60,12 @@ const subjects = [
   "Operating System",
   "Computer Architecture",
 ];
-const depthFilters: DepthFilter[] = ["Category1", "Category2", "concept"];
+const depthFilters: DepthFilter[] = [
+  "subject",
+  "Chapter1",
+  "Chapter2",
+  "concept",
+];
 
 const conceptStats = {
   total: 500,
@@ -68,40 +75,74 @@ const conceptStats = {
 
 const examHistoryItems: ExamHistoryItem[] = [
   {
+    id: 0,
+    subject: "Data Structure",
+    depth: "subject",
+    category: "All chapters",
+    examType: "과목 모의고사",
+    sessionType: "SUBJECT_MOCK",
+    scopePath: ["Data Structure"],
+    date: "26-04-26",
+    wrong: "3/20",
+  },
+  {
     id: 1,
     subject: "Data Structure",
-    depth: "Category1",
+    depth: "Chapter1",
     category: "Arrays",
-    examType: "과목 모의고사",
+    examType: "챕터 모의고사",
+    sessionType: "CHAPTER_MOCK",
+    scopePath: ["Array"],
     date: "26-04-25",
     wrong: "6/10",
   },
   {
     id: 2,
     subject: "Data Structure",
-    depth: "Category1",
+    depth: "Chapter1",
     category: "Stacks",
     examType: "챕터 모의고사",
+    sessionType: "CHAPTER_MOCK",
+    scopePath: ["Linear Structure"],
     date: "26-04-25",
     wrong: "6/10",
   },
   {
     id: 3,
     subject: "Data Structure",
-    depth: "Category2",
+    depth: "Chapter2",
     category: "Queues",
     examType: "챕터 모의고사",
+    sessionType: "CHAPTER_MOCK",
+    scopePath: ["Linear Structure", "Queue"],
     date: "26-04-24",
     wrong: "4/10",
   },
   {
     id: 4,
     subject: "Algorithm",
-    depth: "Category1",
+    depth: "Chapter1",
     category: "Sorting",
-    examType: "과목 모의고사",
+    examType: "챕터 모의고사",
+    sessionType: "CHAPTER_MOCK",
+    scopePath: ["Sorting"],
     date: "26-04-23",
     wrong: "7/10",
+  },
+  {
+    id: 5,
+    subject: "Data Structure",
+    depth: "concept",
+    category: "Dynamic Array",
+    examType: "개념 문제집",
+    sessionType: "CONCEPT_PRACTICE",
+    scopePath: [
+      "Linear Structure",
+      "Array",
+      "Dynamic Array",
+    ],
+    date: "26-04-22",
+    wrong: "2/12",
   },
 ];
 
@@ -109,7 +150,7 @@ const weaknessReports: WeaknessReportItem[] = [
   {
     id: 1,
     subject: "Data Structure",
-    depth: "Category1",
+    depth: "Chapter1",
     category: "Arrays",
     date: "26-04-25",
     wrong: "6/10",
@@ -118,7 +159,7 @@ const weaknessReports: WeaknessReportItem[] = [
   {
     id: 2,
     subject: "Data Structure",
-    depth: "Category1",
+    depth: "Chapter1",
     category: "Stacks",
     date: "26-04-25",
     wrong: "6/10",
@@ -127,7 +168,7 @@ const weaknessReports: WeaknessReportItem[] = [
   {
     id: 3,
     subject: "Data Structure",
-    depth: "Category2",
+    depth: "Chapter2",
     category: "Queues",
     date: "26-04-24",
     wrong: "4/10",
@@ -205,6 +246,23 @@ export default function LogWeakScreen() {
         ? currentIds.filter((currentId) => currentId !== id)
         : [...currentIds, id],
     );
+  };
+
+  const openExamReview = (item: ExamHistoryItem) => {
+    if (isSelecting) {
+      toggleSelectedExam(item.id);
+      return;
+    }
+
+    router.push({
+      pathname: "/mistake-exam-review",
+      params: {
+        subject: item.subject,
+        category: item.category,
+        examType: item.examType,
+        sessionType: item.sessionType,
+      },
+    });
   };
 
   const handleAiButtonPress = () => {
@@ -374,7 +432,7 @@ export default function LogWeakScreen() {
                       isActive && { color: activePurple },
                     ]}
                   >
-                    {depth}
+                    {depth === "subject" ? "Subject" : depth}
                   </Text>
                 </Pressable>
               );
@@ -406,7 +464,7 @@ export default function LogWeakScreen() {
                     isSelected={selectedExamIds.includes(item.id)}
                     item={item}
                     key={item.id}
-                    onPress={() => toggleSelectedExam(item.id)}
+                    onPress={() => openExamReview(item)}
                   />
                 ))
               : filteredWeaknessReports.map((item) => (
@@ -529,13 +587,13 @@ function ExamHistoryCard({
       <View style={styles.dateRow}>
         <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
         <Text style={styles.dateText}>{item.date}</Text>
-        <Text style={styles.examTypeText}>{item.examType}</Text>
       </View>
 
       <View style={styles.resultRow}>
         <View>
           <Text style={styles.wrongLabel}>Wrong</Text>
           <Text style={styles.wrongValue}>{item.wrong}</Text>
+          <Text style={styles.scopePathText}>{item.scopePath.join("  >  ")}</Text>
         </View>
       </View>
     </Pressable>
@@ -739,7 +797,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   card: {
-    minHeight: 136,
+    minHeight: 158,
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: "transparent",
@@ -792,12 +850,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  examTypeText: {
-    color: "#94a3b8",
-    fontFamily: FONT.pretendard,
-    fontSize: 12,
-    fontWeight: "700",
-  },
   resultRow: {
     flex: 1,
     flexDirection: "row",
@@ -817,6 +869,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT.kufam,
     fontSize: 15,
     fontWeight: "600",
+  },
+  scopePathText: {
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "500",
+    lineHeight: 17,
+    marginTop: 8,
   },
   selectCircle: {
     alignItems: "center",
