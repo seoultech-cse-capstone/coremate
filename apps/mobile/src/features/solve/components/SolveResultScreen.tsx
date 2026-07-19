@@ -21,12 +21,15 @@ type SolveResultScreenProps = {
   onBackToContent: () => void;
   onReview: () => void;
   onRetry: () => void;
+  isDailyQuiz?: boolean;
+  onGoHome?: () => void;
 };
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
   SUBJECT_MOCK: "과목 모의고사",
   CHAPTER_MOCK: "챕터 모의고사",
   CONCEPT_PRACTICE: "개념 문제집",
+  DAILY_QUIZ: "오늘의 CS 퀴즈",
 };
 
 export function SolveResultScreen({
@@ -38,11 +41,14 @@ export function SolveResultScreen({
   onBackToContent,
   onReview,
   onRetry,
+  isDailyQuiz = false,
+  onGoHome,
 }: SolveResultScreenProps) {
   const insets = useSafeAreaInsets();
   const wrongCount = totalCount - correctCount;
   const correctRate = Math.round((correctCount / totalCount) * 100);
-  const isMockExam = sessionType !== "CONCEPT_PRACTICE";
+  const isMockExam =
+    sessionType === "SUBJECT_MOCK" || sessionType === "CHAPTER_MOCK";
   const elapsedTimeLabel = `${Math.floor((elapsedSeconds ?? 0) / 60)
     .toString()
     .padStart(2, "0")}:${((elapsedSeconds ?? 0) % 60)
@@ -90,6 +96,19 @@ export function SolveResultScreen({
           </View>
         </View>
 
+        {isDailyQuiz && (
+          <View style={styles.dailyRewardCard}>
+            <CheckCircle2 color="#16a34a" size={22} strokeWidth={2.3} />
+            <View style={styles.dailyRewardTextArea}>
+              <Text style={styles.dailyRewardTitle}>출석 완료</Text>
+              <Text style={styles.dailyRewardText}>
+                오늘의 퀴즈 보상이 지급되었습니다.
+              </Text>
+            </View>
+            <Text style={styles.rewardValue}>+20 XP</Text>
+          </View>
+        )}
+
         <View style={styles.notice}>
           <Text style={styles.noticeTitle}>문제별 해설을 확인해보세요.</Text>
           <Text style={styles.noticeText}>선택한 답과 정답, 각 문제의 해설을 다시 볼 수 있어요.</Text>
@@ -100,9 +119,14 @@ export function SolveResultScreen({
           <Text style={styles.reviewButtonText}>해설 보기</Text>
         </Pressable>
         <View style={styles.secondaryActionRow}>
-          <Pressable style={styles.retryButton} onPress={onRetry}>
+          <Pressable
+            style={styles.retryButton}
+            onPress={isDailyQuiz ? onGoHome : onRetry}
+          >
             <RotateCcw color="#5b4de8" size={19} strokeWidth={2.2} />
-            <Text style={styles.retryButtonText}>다시 풀기</Text>
+            <Text style={styles.retryButtonText}>
+              {isDailyQuiz ? "홈으로" : "다시 풀기"}
+            </Text>
           </Pressable>
           <Pressable style={styles.retryButton} onPress={onBackToContent}>
             <BookOpen color="#5b4de8" size={19} strokeWidth={2.2} />
@@ -135,6 +159,11 @@ const styles = StyleSheet.create({
   notice: { borderRadius: 8, backgroundColor: "#F1EFFF", marginTop: 22, padding: 16 },
   noticeTitle: { color: "#5144cf", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "700" },
   noticeText: { color: "#5f587d", fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "500", lineHeight: 20, marginTop: 6 },
+  dailyRewardCard: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 8, backgroundColor: "#ECFDF5", marginTop: 12, padding: 16 },
+  dailyRewardTextArea: { flex: 1, gap: 3 },
+  dailyRewardTitle: { color: "#166534", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
+  dailyRewardText: { color: "#4B7A5A", fontFamily: FONT.pretendard, fontSize: 12 },
+  rewardValue: { color: "#16A34A", fontFamily: FONT.kufam, fontSize: 13, fontWeight: "700" },
   reviewButton: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 8, backgroundColor: "#6D5DFB", marginTop: 26 },
   reviewButtonText: { color: "#ffffff", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "700" },
   secondaryActionRow: { flexDirection: "row", gap: 10, marginTop: 10 },

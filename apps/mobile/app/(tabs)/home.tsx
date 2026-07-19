@@ -80,7 +80,11 @@ export default function HomeScreen() {
             </LinearGradient>
           </View>
 
-          <Pressable style={styles.primaryButton}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/daily-quiz")}
+            style={styles.primaryButton}
+          >
             <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
           </Pressable>
 

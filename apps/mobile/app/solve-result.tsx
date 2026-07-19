@@ -9,6 +9,7 @@ const sessionTypes: SolveSessionType[] = [
   "SUBJECT_MOCK",
   "CHAPTER_MOCK",
   "CONCEPT_PRACTICE",
+  "DAILY_QUIZ",
 ];
 
 export default function SolveResultRoute() {
