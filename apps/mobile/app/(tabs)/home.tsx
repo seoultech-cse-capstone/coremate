@@ -1,5 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useNavigation } from "expo-router";
+import { ListChecks } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
@@ -80,16 +81,30 @@ export default function HomeScreen() {
             </LinearGradient>
           </View>
 
+          <View style={styles.dailyQuizRow}>
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/daily-quiz")}
-            style={[styles.primaryButton, styles.dailyQuizCompletedButton]}
+            style={[
+              styles.primaryButton,
+              styles.dailyQuizButton,
+              styles.dailyQuizCompletedButton,
+            ]}
           >
             <View style={styles.dailyQuizButtonContent}>
               <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
               <Text style={styles.dailyQuizStatus}>출석 완료</Text>
             </View>
           </Pressable>
+          <Pressable
+            accessibilityLabel="오늘의 퀴즈 다시보기"
+            accessibilityRole="button"
+            onPress={() => router.push("/daily-quiz-review")}
+            style={styles.dailyQuizReviewButton}
+          >
+            <ListChecks color="#475569" size={22} strokeWidth={2.1} />
+          </Pressable>
+          </View>
 
           <View style={styles.secondaryRow}>
             <Pressable
@@ -169,8 +184,22 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: BRAND_PURPLE,
   },
+  dailyQuizRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  dailyQuizButton: {
+    flex: 1,
+  },
   dailyQuizCompletedButton: {
     backgroundColor: "#94A3B8",
+  },
+  dailyQuizReviewButton: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
   },
   primaryButtonText: {
     color: "#ffffff",

@@ -21,10 +21,7 @@ export default function DailyQuizResultScreen() {
       onGoHome={() => router.replace("/(tabs)/home")}
       onRetry={() => router.replace("/daily-quiz")}
       onReview={() =>
-        router.push({
-          pathname: "/mistake-exam-review",
-          params: { sessionType: "DAILY_QUIZ", subject: "Daily Quiz" },
-        })
+        router.push("/daily-quiz-review")
       }
       sessionType="DAILY_QUIZ"
       title="오늘의 CS 퀴즈"
