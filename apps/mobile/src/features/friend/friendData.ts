@@ -21,6 +21,8 @@ export type Friend = {
   progress: FriendProgress;
 };
 
+export const MAX_FRIEND_REQUESTS = 30;
+
 export const FRIENDS: Friend[] = [
   {
     id: "minji",
@@ -146,3 +148,89 @@ export const FRIENDS: Friend[] = [
 
 export const getFriend = (friendId?: string) =>
   FRIENDS.find((friend) => friend.id === friendId) ?? FRIENDS[0];
+
+export const FRIEND_REQUESTS: Friend[] = [
+  {
+    id: "dohyun",
+    nickname: "도현",
+    school: "서울과학기술대학교",
+    department: "컴퓨터공학과",
+    level: 12,
+    streak: 9,
+    attendance: "오늘 출석 완료",
+    isOnline: true,
+    avatarColor: "#E7EEFF",
+    avatarAccentColor: "#4F77E8",
+    progress: {
+      dataStructure: 42,
+      algorithm: 64,
+      operatingSystem: 51,
+      database: 37,
+      computerArchitecture: 58,
+      network: 45,
+    },
+  },
+  {
+    id: "sumin",
+    nickname: "수민",
+    school: "서울과학기술대학교",
+    department: "컴퓨터공학과",
+    level: 11,
+    streak: 6,
+    attendance: "오늘 출석 완료",
+    isOnline: false,
+    avatarColor: "#FFE7F0",
+    avatarAccentColor: "#E85A8E",
+    progress: {
+      dataStructure: 51,
+      algorithm: 39,
+      operatingSystem: 66,
+      database: 44,
+      computerArchitecture: 35,
+      network: 59,
+    },
+  },
+];
+
+export const FRIEND_SEARCH_RESULTS: Friend[] = [
+  {
+    id: "taeyoung",
+    nickname: "태영",
+    school: "서울과학기술대학교",
+    department: "컴퓨터공학과",
+    level: 16,
+    streak: 21,
+    attendance: "오늘 출석 완료",
+    isOnline: true,
+    avatarColor: "#E3F7F0",
+    avatarAccentColor: "#1BAA7A",
+    progress: {
+      dataStructure: 76,
+      algorithm: 68,
+      operatingSystem: 62,
+      database: 55,
+      computerArchitecture: 49,
+      network: 73,
+    },
+  },
+  {
+    id: "eunji",
+    nickname: "은지",
+    school: "서울과학기술대학교",
+    department: "컴퓨터공학과",
+    level: 10,
+    streak: 4,
+    attendance: "어제 출석 완료",
+    isOnline: false,
+    avatarColor: "#FFF3D7",
+    avatarAccentColor: "#D18A13",
+    progress: {
+      dataStructure: 34,
+      algorithm: 47,
+      operatingSystem: 39,
+      database: 65,
+      computerArchitecture: 43,
+      network: 51,
+    },
+  },
+];

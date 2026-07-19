@@ -1,6 +1,6 @@
 import { BlurView } from "expo-blur";
 import { router, useNavigation } from "expo-router";
-import { UserPlus } from "lucide-react-native";
+import { Search, UserPlus } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
@@ -15,8 +15,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import {
+  AddFriendModal,
+  FriendSearchModal,
+  ReceivedRequestsModal,
+} from "../../src/features/friend/components/FriendActionModals";
 import { FriendListCard } from "../../src/features/friend/components/FriendListCard";
-import { FRIENDS } from "../../src/features/friend/friendData";
+import {
+  FRIEND_REQUESTS,
+  FRIEND_SEARCH_RESULTS,
+  FRIENDS,
+  MAX_FRIEND_REQUESTS,
+  type Friend,
+} from "../../src/features/friend/friendData";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -32,10 +43,25 @@ export default function FriendScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
+  const [friends, setFriends] = useState(FRIENDS);
+  const [receivedRequests, setReceivedRequests] = useState(FRIEND_REQUESTS);
   const [pokedFriendIds, setPokedFriendIds] = useState<string[]>([]);
+  const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
+  const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [isReceivedModalVisible, setIsReceivedModalVisible] = useState(false);
+  const [friendQuery, setFriendQuery] = useState("");
+  const [addQuery, setAddQuery] = useState("");
+  const [sentRequestIds, setSentRequestIds] = useState<string[]>([]);
   const panelMinHeight = Math.max(0, height - (60 + insets.top));
-  const onlineFriends = FRIENDS.filter((friend) => friend.isOnline);
-  const offlineFriends = FRIENDS.filter((friend) => !friend.isOnline);
+  const onlineFriends = friends.filter((friend) => friend.isOnline);
+  const offlineFriends = friends.filter((friend) => !friend.isOnline);
+  const searchedFriends = friends.filter((friend) =>
+    friend.nickname.toLowerCase().includes(friendQuery.trim().toLowerCase()),
+  );
+  const addCandidates = FRIEND_SEARCH_RESULTS.filter((friend) =>
+    friend.nickname.toLowerCase().includes(addQuery.trim().toLowerCase()),
+  );
+  const isRequestLimitReached = sentRequestIds.length >= MAX_FRIEND_REQUESTS;
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
@@ -69,6 +95,15 @@ export default function FriendScreen() {
     );
   };
 
+  const acceptRequest = (friend: Friend) => {
+    setReceivedRequests((current) => current.filter(({ id }) => id !== friend.id));
+    setFriends((current) => [...current, friend]);
+  };
+
+  const declineRequest = (friendId: string) => {
+    setReceivedRequests((current) => current.filter(({ id }) => id !== friendId));
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: bounceBackground }]}>
       <BlurView
@@ -82,9 +117,19 @@ export default function FriendScreen() {
         <View style={styles.headerOverlay} />
         <Text style={styles.title}>Friends</Text>
         <Pressable
+          accessibilityLabel="Search friends"
+          accessibilityRole="button"
+          hitSlop={10}
+          onPress={() => setIsSearchModalVisible(true)}
+          style={[styles.searchButton, { top: 9 + insets.top }]}
+        >
+          <Search color="#FFFFFF" size={22} strokeWidth={2.1} />
+        </Pressable>
+        <Pressable
           accessibilityLabel="친구 추가"
           accessibilityRole="button"
           hitSlop={10}
+          onPress={() => setIsAddModalVisible(true)}
           style={[styles.addButton, { top: 9 + insets.top }]}
         >
           <UserPlus color="#FFFFFF" size={22} strokeWidth={2.1} />
@@ -106,6 +151,17 @@ export default function FriendScreen() {
         <View style={styles.purpleSpacer} />
         <View style={[styles.panel, { minHeight: panelMinHeight }]}>
           <View style={styles.panelContent}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsReceivedModalVisible(true)}
+              style={styles.receivedButton}
+            >
+              <View style={[styles.statusDot, styles.requestDot]} />
+              <Text style={styles.receivedButtonText}>요청 온 친구</Text>
+              <View style={styles.requestCount}>
+                <Text style={styles.requestCountText}>{receivedRequests.length}</Text>
+              </View>
+            </Pressable>
             <FriendSection
               friends={onlineFriends}
               isPoked={(friendId) => pokedFriendIds.includes(friendId)}
@@ -129,12 +185,51 @@ export default function FriendScreen() {
           </View>
         </View>
       </ScrollView>
+      <FriendSearchModal
+        friends={searchedFriends}
+        onClose={() => {
+          setIsSearchModalVisible(false);
+          setFriendQuery("");
+        }}
+        onOpenProfile={(friendId) => {
+          setIsSearchModalVisible(false);
+          setFriendQuery("");
+          router.push({ pathname: "/friend-profile", params: { friendId } });
+        }}
+        onQueryChange={setFriendQuery}
+        query={friendQuery}
+        visible={isSearchModalVisible}
+      />
+      <AddFriendModal
+        friends={addCandidates}
+        onClose={() => {
+          setIsAddModalVisible(false);
+          setAddQuery("");
+        }}
+        onQueryChange={setAddQuery}
+        isRequestLimitReached={isRequestLimitReached}
+        onSendRequest={(friendId) => {
+          if (!isRequestLimitReached) {
+            setSentRequestIds((current) => [...current, friendId]);
+          }
+        }}
+        query={addQuery}
+        sentRequestIds={sentRequestIds}
+        visible={isAddModalVisible}
+      />
+      <ReceivedRequestsModal
+        friends={receivedRequests}
+        onAccept={acceptRequest}
+        onClose={() => setIsReceivedModalVisible(false)}
+        onDecline={declineRequest}
+        visible={isReceivedModalVisible}
+      />
     </View>
   );
 }
 
 type FriendSectionProps = {
-  friends: typeof FRIENDS;
+  friends: Friend[];
   title: string;
   statusColor: string;
   isPoked: (friendId: string) => boolean;
@@ -203,6 +298,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  searchButton: {
+    position: "absolute",
+    right: 56,
+    width: 42,
+    height: 42,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   scroller: { flex: 1 },
   scrollContent: { backgroundColor: BRAND_PURPLE },
   purpleSpacer: { height: 12 },
@@ -234,4 +337,41 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   cardList: { gap: 10 },
+  receivedButton: {
+    height: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  receivedButtonText: {
+    flex: 1,
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  requestDot: { backgroundColor: "#F59E0B" },
+  requestCount: {
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 9,
+    backgroundColor: "#FFF0D2",
+    paddingHorizontal: 5,
+  },
+  requestCountText: {
+    color: "#B45309",
+    fontFamily: FONT.kufam,
+    fontSize: 10,
+    fontWeight: "600",
+  },
 });
