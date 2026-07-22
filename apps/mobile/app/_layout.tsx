@@ -1,9 +1,12 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
+import { AuthProvider } from "../src/features/auth";
+import { queryClient } from "../src/shared/api/queryClient";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -16,8 +19,10 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <Stack
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <Stack
         screenOptions={{
           gestureEnabled: false,
           headerStyle: { backgroundColor: "#ffffff" },
@@ -63,8 +68,10 @@ export default function RootLayout() {
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+          </Stack>
+          <StatusBar style="dark" />
+        </SafeAreaProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

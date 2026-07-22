@@ -23,6 +23,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
+import { useLogoutMutation } from "../src/features/auth";
 
 type SettingRoute =
   | "/edit-profile"
@@ -79,6 +80,19 @@ const settingSections: SettingSection[] = [
 
 export default function SettingsScreen() {
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const logoutMutation = useLogoutMutation();
+
+  const handleLogout = () => {
+    if (logoutMutation.isPending) {
+      return;
+    }
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        setLogoutVisible(false);
+        router.replace("/login");
+      },
+    });
+  };
 
   const handlePress = (item: SettingItem) => {
     if (item.action === "logout") {
@@ -189,9 +203,12 @@ export default function SettingsScreen() {
 
               <Pressable
                 style={styles.logoutButton}
-                onPress={() => setLogoutVisible(false)}
+                onPress={handleLogout}
+                disabled={logoutMutation.isPending}
               >
-                <Text style={styles.logoutButtonText}>로그아웃</Text>
+                <Text style={styles.logoutButtonText}>
+                  {logoutMutation.isPending ? "로그아웃 중…" : "로그아웃"}
+                </Text>
               </Pressable>
             </View>
           </View>

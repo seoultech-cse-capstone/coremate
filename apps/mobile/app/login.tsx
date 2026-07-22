@@ -1,14 +1,39 @@
 import { router } from "expo-router";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
+import { useAuth, useLoginMutation } from "../src/features/auth";
+import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const { continueAsGuest } = useAuth();
+  const loginMutation = useLoginMutation();
+
   const handleLogin = () => {
-    // TODO: Connect email login API.
+    if (loginMutation.isPending) {
+      return;
+    }
+    loginMutation.mutate(
+      { email: email.trim(), password },
+      {
+        onSuccess: () => {
+          router.replace("/(tabs)/home");
+        },
+      },
+    );
+  };
+
+  const handleGuest = () => {
+    continueAsGuest();
     router.replace("/(tabs)/home");
   };
+
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !loginMutation.isPending;
 
   return (
     <View style={styles.screen}>
@@ -20,10 +45,14 @@ export default function LoginScreen() {
             <Text style={styles.fieldLabel}>Email</Text>
             <TextInput
               autoCapitalize="none"
+              autoComplete="email"
               keyboardType="email-address"
               placeholder="Email"
               placeholderTextColor="#94a3b8"
               style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              editable={!loginMutation.isPending}
             />
           </View>
 
@@ -34,11 +63,26 @@ export default function LoginScreen() {
               placeholderTextColor="#94a3b8"
               secureTextEntry
               style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              editable={!loginMutation.isPending}
+              onSubmitEditing={handleLogin}
+              returnKeyType="go"
             />
           </View>
 
-          <Pressable style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Login</Text>
+          {loginMutation.isError ? (
+            <Text style={styles.errorText}>{getApiErrorMessage(loginMutation.error)}</Text>
+          ) : null}
+
+          <Pressable
+            style={[styles.loginButton, !canSubmit && styles.loginButtonDisabled]}
+            onPress={handleLogin}
+            disabled={!canSubmit}
+          >
+            <Text style={styles.loginButtonText}>
+              {loginMutation.isPending ? "로그인 중…" : "Login"}
+            </Text>
           </Pressable>
 
           <View style={styles.inlineLinksRow}>
@@ -55,10 +99,7 @@ export default function LoginScreen() {
             <View style={styles.separatorLine} />
           </View>
 
-          <Pressable
-            style={styles.guestButton}
-            onPress={() => router.replace("/(tabs)/home")}
-          >
+          <Pressable style={styles.guestButton} onPress={handleGuest}>
             <Text style={styles.guestButtonText}>Guest</Text>
           </Pressable>
 
@@ -121,6 +162,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
     paddingVertical: 16,
     marginTop: 4,
+  },
+  loginButtonDisabled: {
+    opacity: 0.5,
+  },
+  errorText: {
+    color: "#dc2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    lineHeight: 18,
   },
   loginButtonText: {
     color: "#ffffff",
