@@ -31,9 +31,7 @@ import com.coremate.backend.solve.entity.SolveLog;
 import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -48,11 +46,7 @@ import tools.jackson.databind.ObjectMapper;
 public class SolveSessionService {
 
     // 문제 수 정책 (추후 조정 가능)
-    private static final int CHAPTER_MOCK_COMPLETED_TARGET = 15;
-    private static final int CHAPTER_MOCK_UNCOMPLETED_TARGET = 5;
     private static final int CHAPTER_MOCK_TOTAL = 20;
-    private static final int SUBJECT_MOCK_COMPLETED_TARGET = 30;
-    private static final int SUBJECT_MOCK_UNCOMPLETED_TARGET = 20;
     private static final int SUBJECT_MOCK_TOTAL = 50;
 
     private final SubjectRepository subjectRepository;
@@ -332,8 +326,7 @@ public class SolveSessionService {
                 .findAllByCategoryLv2_CategoryLv1_CategoryLv1IdAndActiveTrue(categoryLv1Id);
 
         List<Long> conceptIds = concepts.stream().map(Concept::getConceptId).toList();
-        List<Question> questions = selectMockQuestions(userId, conceptIds,
-                CHAPTER_MOCK_COMPLETED_TARGET, CHAPTER_MOCK_UNCOMPLETED_TARGET, CHAPTER_MOCK_TOTAL);
+        List<Question> questions = selectMockQuestions(conceptIds, CHAPTER_MOCK_TOTAL);
 
         String title = categoryLv1.getCategoryLv1Name() + " 챕터 모의고사";
 
@@ -359,8 +352,7 @@ public class SolveSessionService {
                 .findAllByCategoryLv2_CategoryLv2IdAndActiveTrueOrderBySortOrderAsc(categoryLv2Id);
 
         List<Long> conceptIds = concepts.stream().map(Concept::getConceptId).toList();
-        List<Question> questions = selectMockQuestions(userId, conceptIds,
-                CHAPTER_MOCK_COMPLETED_TARGET, CHAPTER_MOCK_UNCOMPLETED_TARGET, CHAPTER_MOCK_TOTAL);
+        List<Question> questions = selectMockQuestions(conceptIds, CHAPTER_MOCK_TOTAL);
 
         String title = categoryLv2.getCategoryLv2Name() + " 챕터 모의고사";
 
@@ -387,8 +379,7 @@ public class SolveSessionService {
                 .findAllByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(subjectId);
 
         List<Long> conceptIds = concepts.stream().map(Concept::getConceptId).toList();
-        List<Question> questions = selectMockQuestions(userId, conceptIds,
-                SUBJECT_MOCK_COMPLETED_TARGET, SUBJECT_MOCK_UNCOMPLETED_TARGET, SUBJECT_MOCK_TOTAL);
+        List<Question> questions = selectMockQuestions(conceptIds, SUBJECT_MOCK_TOTAL);
 
         String title = subject.getSubjectName() + " 과목 모의고사";
 
@@ -407,75 +398,20 @@ public class SolveSessionService {
 
     /**
      * 모의고사 문제 선정.
-     * completedTarget/uncompletedTarget 만큼 각각 뽑고, 부족하면 반대 풀에서 보충하여 total 문제 수 확보.
-     * 지정한 conceptIds 범위 밖의 문제는 절대 포함되지 않는다.
+     * 완료/미완료 개념 구분 없이, 지정한 conceptIds 범위 내에서 total 문제 수만큼 랜덤하게 선정한다.
+     * 이미 푼 문제 여부와 무관하게 전부 랜덤이다.
      */
-    private List<Question> selectMockQuestions(Long userId, List<Long> conceptIds,
-            int completedTarget, int uncompletedTarget, int total) {
+    private List<Question> selectMockQuestions(List<Long> conceptIds, int total) {
         if (conceptIds.isEmpty()) {
             throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
         }
 
-        Set<Long> completedConceptIds = userConceptProgressRepository.findCompletedConceptIds(userId, conceptIds);
-        List<Long> completedList = completedConceptIds.stream().toList();
-        List<Long> uncompletedList = conceptIds.stream()
-                .filter(cid -> !completedConceptIds.contains(cid))
-                .toList();
-
-        List<Question> selected = new ArrayList<>();
-        Set<Long> selectedIds = new HashSet<>();
-
-        // 완료 개념 문제 먼저
-        if (!completedList.isEmpty() && completedTarget > 0) {
-            List<Question> fromCompleted = questionRepository
-                    .findRandomMockQuestionsByConceptIds(completedList, completedTarget);
-            addUnique(selected, selectedIds, fromCompleted);
-        }
-
-        // 미완료 개념 문제
-        if (!uncompletedList.isEmpty() && uncompletedTarget > 0) {
-            List<Question> fromUncompleted = questionRepository
-                    .findRandomMockQuestionsByConceptIds(uncompletedList, uncompletedTarget);
-            addUnique(selected, selectedIds, fromUncompleted);
-        }
-
-        // 부족한 만큼 반대편에서 보충
-        int shortage = total - selected.size();
-        if (shortage > 0 && !uncompletedList.isEmpty()) {
-            List<Question> extra = fetchExtraQuestions(uncompletedList, selectedIds, shortage);
-            addUnique(selected, selectedIds, extra);
-        }
-
-        shortage = total - selected.size();
-        if (shortage > 0 && !completedList.isEmpty()) {
-            List<Question> extra = fetchExtraQuestions(completedList, selectedIds, shortage);
-            addUnique(selected, selectedIds, extra);
-        }
+        List<Question> selected = questionRepository.findRandomMockQuestionsByConceptIds(conceptIds, total);
 
         if (selected.isEmpty()) {
             throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
         }
         return selected;
-    }
-
-    /**
-     * 특정 pool에서 부족분을 보충한다.
-     * 이미 선택된 문제가 없으면 exclusion 쿼리가 아닌 일반 쿼리를 호출해 의도를 명확히 한다.
-     */
-    private List<Question> fetchExtraQuestions(List<Long> conceptIds, Set<Long> alreadySelectedIds, int limit) {
-        if (alreadySelectedIds.isEmpty()) {
-            return questionRepository.findRandomMockQuestionsByConceptIds(conceptIds, limit);
-        }
-        return questionRepository.findRandomMockQuestionsByConceptIdsExcluding(
-                conceptIds, new ArrayList<>(alreadySelectedIds), limit);
-    }
-
-    private void addUnique(List<Question> selected, Set<Long> selectedIds, List<Question> candidates) {
-        for (Question q : candidates) {
-            if (selectedIds.add(q.getQuestionId())) {
-                selected.add(q);
-            }
-        }
     }
 
     private StartSolveSessionResponse buildStartResponse(SolveSession session, String title,
