@@ -15,6 +15,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import {
+  categoryTree,
+  type FilterNode,
+} from "../../src/features/logWeak/categoryTree";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
 
 type LogWeakMode = "wrongNote" | "weakness";
@@ -51,21 +55,6 @@ const OVERSCROLL_BUFFER = 96;
 const BRAND_PURPLE = "#6D5DFB";
 const WEAKNESS_PURPLE = "#4E44A4";
 const PANEL_GRAY = "#F3F3F3";
-
-const subjects = [
-  "Data Structure",
-  "Algorithm",
-  "Database",
-  "Network",
-  "Operating System",
-  "Computer Architecture",
-];
-const depthFilters: DepthFilter[] = [
-  "subject",
-  "Chapter1",
-  "Chapter2",
-  "concept",
-];
 
 // 총 개념 수는 DB 전체 하위 개념 수, 완료 수는 문제를 푼 하위 개념 수를 의미한다.
 const conceptStats = {
@@ -193,8 +182,7 @@ export default function LogWeakScreen() {
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const { setIsLogWeakSelecting } = useLogWeakSelection();
   const [mode, setMode] = useState<LogWeakMode>("wrongNote");
-  const [activeSubject, setActiveSubject] = useState(subjects[0]);
-  const [activeDepth, setActiveDepth] = useState<DepthFilter>(depthFilters[0]);
+  const [selectedPath, setSelectedPath] = useState<FilterNode[]>([]);
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
@@ -204,20 +192,79 @@ export default function LogWeakScreen() {
   const headerHeight = HEADER_HEIGHT + insets.top;
   const activePurple = isWrongNote ? BRAND_PURPLE : WEAKNESS_PURPLE;
 
+  // Row1(선택된 필터 목록)은 All + selectedPath. Row2(다음 단계 후보)는 selectedPath 깊이에 따라 달라진다.
+  const [selectedSubject, selectedChapter1, selectedChapter2] = selectedPath;
+  const subjectNode = selectedSubject
+    ? categoryTree.find((subject) => subject.id === selectedSubject.id)
+    : undefined;
+  const chapter1Node =
+    subjectNode && selectedChapter1
+      ? subjectNode.chapter1.find((chapter) => chapter.id === selectedChapter1.id)
+      : undefined;
+
+  const row1Items: FilterNode[] = [{ id: "all", label: "All" }, ...selectedPath];
+  const row2Level: "subject" | "chapter1" | "chapter2" = !subjectNode
+    ? "subject"
+    : !chapter1Node
+      ? "chapter1"
+      : "chapter2";
+  const row2Items: FilterNode[] = !subjectNode
+    ? categoryTree.map(({ id, label }) => ({ id, label }))
+    : !chapter1Node
+      ? subjectNode.chapter1.map(({ id, label }) => ({ id, label }))
+      : chapter1Node.chapter2.map(({ id, label }) => ({ id, label }));
+
+  const selectFilterTrail = (index: number) => {
+    if (isSelecting) {
+      return;
+    }
+    setSelectedPath((currentPath) => currentPath.slice(0, index));
+  };
+
+  const selectFilterChoice = (node: FilterNode) => {
+    if (isSelecting) {
+      return;
+    }
+    // chapter2 단계에서는 형제 항목끼리 교체만 하고 더 깊이 들어가지 않는다(concept 제외).
+    setSelectedPath((currentPath) =>
+      row2Level === "chapter2"
+        ? [...currentPath.slice(0, 2), node]
+        : [...currentPath, node],
+    );
+  };
+
   const filteredExamItems = useMemo(
     () =>
-      examHistoryItems.filter(
-        (item) => item.subject === activeSubject && item.depth === activeDepth,
-      ),
-    [activeDepth, activeSubject],
+      examHistoryItems.filter((item) => {
+        if (selectedSubject && item.subject !== selectedSubject.label) {
+          return false;
+        }
+        if (selectedChapter1 && item.scopePath[0] !== selectedChapter1.label) {
+          return false;
+        }
+        if (selectedChapter2 && item.scopePath[1] !== selectedChapter2.label) {
+          return false;
+        }
+        return true;
+      }),
+    [selectedSubject, selectedChapter1, selectedChapter2],
   );
 
   const filteredWeaknessReports = useMemo(
     () =>
-      weaknessReports.filter(
-        (item) => item.subject === activeSubject && item.depth === activeDepth,
-      ),
-    [activeDepth, activeSubject],
+      weaknessReports.filter((item) => {
+        if (selectedSubject && item.subject !== selectedSubject.label) {
+          return false;
+        }
+        if (selectedPath.length === 2 && item.depth !== "Chapter1") {
+          return false;
+        }
+        if (selectedPath.length === 3 && item.depth !== "Chapter2") {
+          return false;
+        }
+        return true;
+      }),
+    [selectedSubject, selectedPath.length],
   );
 
   const updateMode = (nextMode: LogWeakMode) => {
@@ -392,48 +439,45 @@ export default function LogWeakScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectTabs}
+            contentContainerStyle={styles.trailRow}
           >
-            {subjects.map((subject, index) => {
-              const isActive = activeSubject === subject;
-              const isFirst = index === 0;
-              const isLast = index === subjects.length - 1;
+            {row1Items.map((node, index) => {
+              const isAllChip = index === 0;
+              const isDimmedAll = isAllChip && selectedPath.length > 0;
 
               return (
                 <Pressable
                   disabled={isSelecting}
-                  key={subject}
+                  key={`${node.id}-${index}`}
                   style={[
-                    styles.subjectTab,
-                    isFirst && styles.subjectTabFirst,
-                    isLast && styles.subjectTabLast,
-                    isActive && styles.activeWhiteTab,
+                    styles.trailChip,
+                    isDimmedAll ? styles.trailChipAllDimmed : styles.trailChipActive,
                   ]}
-                  onPress={() => setActiveSubject(subject)}
+                  onPress={() => selectFilterTrail(index)}
                 >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      isActive && { color: activePurple },
-                    ]}
-                  >
-                    {subject}
+                  <Text style={[styles.filterText, { color: activePurple }]}>
+                    {node.label}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
 
-          <View style={styles.categoryTabs}>
-            {depthFilters.map((depth) => {
-              const isActive = activeDepth === depth;
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.choiceRow}
+          >
+            {row2Items.map((node) => {
+              const isActive =
+                row2Level === "chapter2" && selectedChapter2?.id === node.id;
 
               return (
                 <Pressable
                   disabled={isSelecting}
-                  key={depth}
-                  style={[styles.categoryTab, isActive && styles.activeWhiteTab]}
-                  onPress={() => setActiveDepth(depth)}
+                  key={node.id}
+                  style={[styles.choiceChip, isActive && styles.activeWhiteTab]}
+                  onPress={() => selectFilterChoice(node)}
                 >
                   <Text
                     style={[
@@ -441,12 +485,12 @@ export default function LogWeakScreen() {
                       isActive && { color: activePurple },
                     ]}
                   >
-                    {depth === "subject" ? "Subject" : depth}
+                    {node.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
 
           {isSelecting && <View style={styles.selectionPurpleDim} />}
         </View>
@@ -762,25 +806,22 @@ const styles = StyleSheet.create({
     position: "relative",
     paddingBottom: 18,
   },
-  subjectTabs: {
+  trailRow: {
     paddingHorizontal: 12,
+    gap: 8,
   },
-  subjectTab: {
-    minWidth: 112,
-    height: 40,
+  trailChip: {
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.75)",
+    borderRadius: 999,
     paddingHorizontal: 16,
   },
-  subjectTabFirst: {
-    borderTopLeftRadius: 999,
-    borderBottomLeftRadius: 999,
+  trailChipActive: {
+    backgroundColor: "#ffffff",
   },
-  subjectTabLast: {
-    borderTopRightRadius: 999,
-    borderBottomRightRadius: 999,
+  trailChipAllDimmed: {
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
   },
   activeWhiteTab: {
     backgroundColor: "#ffffff",
@@ -792,23 +833,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  categoryTabs: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    overflow: "hidden",
-    marginTop: 18,
-    marginHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#ffffff",
-    borderRadius: 999,
+  choiceRow: {
+    paddingHorizontal: 12,
+    marginTop: 12,
+    gap: 8,
   },
-  categoryTab: {
-    minWidth: 106,
+  choiceChip: {
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.65)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.75)",
+    paddingHorizontal: 16,
   },
   grayPanel: {
     position: "relative",
