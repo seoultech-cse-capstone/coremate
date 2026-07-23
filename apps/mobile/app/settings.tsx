@@ -89,7 +89,7 @@ export default function SettingsScreen() {
     logoutMutation.mutate(undefined, {
       onSettled: () => {
         setLogoutVisible(false);
-        router.replace("/login");
+        router.replace("/");
       },
     });
   };

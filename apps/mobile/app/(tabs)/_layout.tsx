@@ -7,10 +7,11 @@ import {
   UserRound,
   Users,
 } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth } from "../../src/features/auth";
 import {
   LogWeakSelectionProvider,
   useLogWeakSelection,
@@ -30,11 +31,23 @@ export default function TabsLayout() {
 function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const { isLogWeakSelecting } = useLogWeakSelection();
+  const { status } = useAuth();
+  const isGuest = status === "guest";
 
-  const tabBarButton = (props: BottomTabBarButtonProps) => {
-    const { ref: _ref, ...buttonProps } = props;
+  // 게스트에게 잠긴 탭(친구/오답노트/마이페이지)은 흐리게 표시하고 탭 자체를 비활성화한다.
+  const createTabBarButton = (isGuestLocked: boolean) => {
+    return (props: BottomTabBarButtonProps) => {
+      const { ref: _ref, style, ...buttonProps } = props;
+      const locked = isGuest && isGuestLocked;
 
-    return <Pressable {...buttonProps} disabled={isLogWeakSelecting} />;
+      return (
+        <Pressable
+          {...buttonProps}
+          disabled={isLogWeakSelecting || locked}
+          style={[style, locked && styles.lockedTabButton]}
+        />
+      );
+    };
   };
 
   return (
@@ -43,7 +56,6 @@ function TabsNavigator() {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: BRAND_PURPLE,
-          tabBarButton,
           tabBarInactiveTintColor: TAB_GRAY,
           tabBarStyle: {
             height: 58 + insets.bottom,
@@ -66,6 +78,7 @@ function TabsNavigator() {
           name="home"
           options={{
             title: "홈",
+            tabBarButton: createTabBarButton(false),
             tabBarIcon: ({ color }) => (
               <Home color={color} size={22} strokeWidth={2.1} />
             ),
@@ -75,6 +88,7 @@ function TabsNavigator() {
           name="friend"
           options={{
             title: "친구",
+            tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <Users color={color} size={22} strokeWidth={2.1} />
             ),
@@ -84,6 +98,7 @@ function TabsNavigator() {
           name="content"
           options={{
             title: "연습노트",
+            tabBarButton: createTabBarButton(false),
             tabBarIcon: ({ color }) => (
               <BookOpenCheck color={color} size={22} strokeWidth={2.1} />
             ),
@@ -93,6 +108,7 @@ function TabsNavigator() {
           name="log-weak"
           options={{
             title: "오답노트",
+            tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <ChartNoAxesCombined color={color} size={22} strokeWidth={2.1} />
             ),
@@ -102,6 +118,7 @@ function TabsNavigator() {
           name="mypage"
           options={{
             title: "마이페이지",
+            tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <UserRound color={color} size={22} strokeWidth={2.1} />
             ),
@@ -111,3 +128,9 @@ function TabsNavigator() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  lockedTabButton: {
+    opacity: 0.35,
+  },
+});

@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth } from "../../src/features/auth";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -29,6 +30,8 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
+  const { status } = useAuth();
+  const isGuest = status === "guest";
   const panelTopOffset = Math.round(height * 0.46);
 
   useEffect(() => {
@@ -39,6 +42,15 @@ export default function HomeScreen() {
 
     return unsubscribe;
   }, [navigation]);
+
+  // FR-GUEST-02: 게스트가 회원 전용 기능을 선택하면 로그인 필요 안내로 보낸다.
+  const goToMemberFeature = (memberHref: Parameters<typeof router.push>[0]) => {
+    if (isGuest) {
+      router.push("/login-required");
+      return;
+    }
+    router.push(memberHref);
+  };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -84,7 +96,7 @@ export default function HomeScreen() {
           <View style={styles.dailyQuizRow}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push("/daily-quiz")}
+            onPress={() => goToMemberFeature("/daily-quiz")}
             style={[
               styles.primaryButton,
               styles.dailyQuizButton,
@@ -99,7 +111,7 @@ export default function HomeScreen() {
           <Pressable
             accessibilityLabel="오늘의 퀴즈 다시보기"
             accessibilityRole="button"
-            onPress={() => router.push("/daily-quiz-review")}
+            onPress={() => goToMemberFeature("/daily-quiz-review")}
             style={styles.dailyQuizReviewButton}
           >
             <ListChecks color="#475569" size={22} strokeWidth={2.1} />
@@ -117,7 +129,7 @@ export default function HomeScreen() {
             <Pressable
               style={[styles.secondaryButton, styles.weaknessButton]}
               onPress={() =>
-                router.push({
+                goToMemberFeature({
                   pathname: "/(tabs)/log-weak",
                   params: { mode: "weakness", entry: Date.now().toString() },
                 })
