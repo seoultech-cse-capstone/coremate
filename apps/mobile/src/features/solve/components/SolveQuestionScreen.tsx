@@ -328,6 +328,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255, 255, 255, 0.18)",
     backgroundColor: "#6D5DFB",
     paddingHorizontal: 14,
+    paddingBottom: 7,
   },
   headerButton: {
     alignItems: "center",
