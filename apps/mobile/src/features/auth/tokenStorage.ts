@@ -7,16 +7,30 @@ const ACCESS_TOKEN_KEY = "coremate.accessToken";
 const REFRESH_TOKEN_KEY = "coremate.refreshToken";
 const USER_KEY = "coremate.user";
 
+// SecureStore가 예외를 던지면(기기 키스토어 손상 등) 호출부가 매번 방어하지 않도록
+// 여기서 흡수하고 "저장 실패/값 없음"으로 취급한다.
 async function setItem(key: string, value: string): Promise<void> {
-  await SecureStore.setItemAsync(key, value);
+  try {
+    await SecureStore.setItemAsync(key, value);
+  } catch {
+    // no-op: 이번 세션은 메모리 상태로 계속 진행하고, 재시작 시 재로그인으로 자연 복구된다.
+  }
 }
 
 async function getItem(key: string): Promise<string | null> {
-  return SecureStore.getItemAsync(key);
+  try {
+    return await SecureStore.getItemAsync(key);
+  } catch {
+    return null;
+  }
 }
 
 async function deleteItem(key: string): Promise<void> {
-  await SecureStore.deleteItemAsync(key);
+  try {
+    await SecureStore.deleteItemAsync(key);
+  } catch {
+    // no-op
+  }
 }
 
 /**
