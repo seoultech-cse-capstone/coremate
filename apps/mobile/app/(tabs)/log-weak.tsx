@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#ffffff",
     fontFamily: FONT.pretendard,
-    fontSize: 17,
+    fontSize: 24,
     fontWeight: "700",
   },
   modeSwitchArea: {
