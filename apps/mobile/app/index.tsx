@@ -71,7 +71,7 @@ export default function StartScreen() {
 
           <Pressable
             style={styles.emailButton}
-            onPress={() => router.push("/login")}
+            onPress={() => router.push("/email-login")}
           >
             <Mail color="#0f172a" size={20} strokeWidth={2.3} />
             <Text style={styles.emailButtonText}>이메일로 로그인</Text>

@@ -169,7 +169,7 @@ export default function RegisterScreen() {
 
             <Pressable
               style={[styles.button, styles.successButton]}
-              onPress={() => router.replace("/login")}
+              onPress={() => router.replace("/email-login")}
             >
               <Text style={styles.buttonText}>로그인 하러가기</Text>
             </Pressable>
