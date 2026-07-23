@@ -1,5 +1,4 @@
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
 
 import type { AuthSession, AuthUser } from "./types";
 
@@ -8,34 +7,15 @@ const ACCESS_TOKEN_KEY = "coremate.accessToken";
 const REFRESH_TOKEN_KEY = "coremate.refreshToken";
 const USER_KEY = "coremate.user";
 
-const isWeb = Platform.OS === "web";
-
-// 웹(expo web)에서는 SecureStore를 쓸 수 없어 localStorage로 대체한다.
-const webStorage: Pick<Storage, "getItem" | "setItem" | "removeItem"> | null =
-  isWeb && typeof globalThis !== "undefined" && (globalThis as { localStorage?: Storage }).localStorage
-    ? (globalThis as unknown as { localStorage: Storage }).localStorage
-    : null;
-
 async function setItem(key: string, value: string): Promise<void> {
-  if (isWeb) {
-    webStorage?.setItem(key, value);
-    return;
-  }
   await SecureStore.setItemAsync(key, value);
 }
 
 async function getItem(key: string): Promise<string | null> {
-  if (isWeb) {
-    return webStorage?.getItem(key) ?? null;
-  }
   return SecureStore.getItemAsync(key);
 }
 
 async function deleteItem(key: string): Promise<void> {
-  if (isWeb) {
-    webStorage?.removeItem(key);
-    return;
-  }
   await SecureStore.deleteItemAsync(key);
 }
 
