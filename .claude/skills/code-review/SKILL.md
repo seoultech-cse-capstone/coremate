@@ -1,7 +1,7 @@
 ---
 name: code-review
 description: "브랜치 간 코드 변경사항을 비교하고 코드리뷰를 수행한다. 코드리뷰, code review, diff 비교, 브랜치 비교, PR 리뷰, 변경사항 검토 요청 시 반드시 사용한다."
-argument-hint: "비교 대상 브랜치명 (기본값: origin/master). 예) origin/dev, origin/staging"
+argument-hint: "비교 대상 브랜치명 (기본값: origin/dev). 예) origin/master, origin/staging"
 ---
 
 # 브랜치 코드 리뷰 스킬
@@ -17,7 +17,7 @@ git branch --show-current && git branch -a
 git fetch origin
 ```
 
-**BASE_BRANCH 우선순위**: ① 인자로 전달된 브랜치 → ② 메시지에 언급된 브랜치 → ③ 기본값 `origin/master`
+**BASE_BRANCH 우선순위**: ① 인자로 전달된 브랜치 → ② 메시지에 언급된 브랜치 → ③ 기본값 `origin/dev`
 
 - `origin/` 없으면 자동으로 `origin/<브랜치명>`으로 변환
 - 원격 브랜치 미존재 시 로컬 브랜치 사용 후 사용자에게 안내
