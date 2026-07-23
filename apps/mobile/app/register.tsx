@@ -1,6 +1,16 @@
 import { router } from "expo-router";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -8,101 +18,345 @@ import { useSignupMutation } from "../src/features/auth";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 const NICKNAME_MAX_LENGTH = 50;
+const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 각각 1개 이상 포함한 8자 이상.
+// 허용 문자는 영문/숫자/이 8개 특수문자로 제한한다.
+// TODO: 백엔드에도 동일 규약이 추가되면 함께 유지보수할 것 (현재 백엔드는 미검증).
+const PASSWORD_RULE =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+const PASSWORD_RULE_MESSAGE =
+  "비밀번호는 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해 8자 이상이어야 합니다.";
+
+const STEPS = ["consent", "nickname", "email", "password", "school"] as const;
+type Step = (typeof STEPS)[number];
+
+type ConsentItem = {
+  id: string;
+  label: string;
+  required: boolean;
+  href: "/terms-policies" | "/privacy-policy" | "/marketing-consent";
+};
+
+const CONSENT_ITEMS: ConsentItem[] = [
+  {
+    id: "terms",
+    label: "서비스 이용약관 동의",
+    required: true,
+    href: "/terms-policies",
+  },
+  {
+    id: "privacy",
+    label: "개인정보 수집 및 이용 동의",
+    required: true,
+    href: "/privacy-policy",
+  },
+  {
+    id: "marketing",
+    label: "마케팅 정보 수신 동의",
+    required: false,
+    href: "/marketing-consent",
+  },
+];
+
+const HEADINGS: Record<Step, string> = {
+  consent: "서비스 이용을 위한\n동의 안내",
+  nickname: "반가워요.\n이름을 알려주세요.",
+  email: "이메일을\n입력해주세요.",
+  password: "비밀번호를\n입력해주세요.",
+  school: "학교를\n입력해주세요.",
+};
 
 export default function RegisterScreen() {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
+  const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [nickname, setNickname] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [school, setSchool] = useState("");
 
   const signupMutation = useSignupMutation();
 
-  const handleSignup = () => {
-    if (signupMutation.isPending) {
+  const step = STEPS[stepIndex];
+  const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
+  const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
+  const passwordsMismatch =
+    confirmPassword.length > 0 && password !== confirmPassword;
+  const allConsentChecked = CONSENT_ITEMS.every((item) =>
+    checkedConsentIds.includes(item.id),
+  );
+  const requiredConsentChecked = CONSENT_ITEMS.filter(
+    (item) => item.required,
+  ).every((item) => checkedConsentIds.includes(item.id));
+
+  const toggleAllConsent = () => {
+    setCheckedConsentIds(
+      allConsentChecked ? [] : CONSENT_ITEMS.map((item) => item.id),
+    );
+  };
+
+  const toggleConsentItem = (id: string) => {
+    setCheckedConsentIds((current) =>
+      current.includes(id) ? current.filter((i) => i !== id) : [...current, id],
+    );
+  };
+
+  const canProceed = (): boolean => {
+    switch (step) {
+      case "consent":
+        return requiredConsentChecked;
+      case "nickname":
+        return nickname.trim().length > 0;
+      case "email":
+        return email.trim().length > 0 && !emailInvalid;
+      case "password":
+        return (
+          password.length > 0 &&
+          !passwordInvalid &&
+          confirmPassword.length > 0 &&
+          !passwordsMismatch
+        );
+      case "school":
+        return !signupMutation.isPending;
+    }
+  };
+
+  const goBack = () => {
+    if (stepIndex === 0) {
+      router.back();
       return;
     }
+    setStepIndex((i) => i - 1);
+  };
+
+  const goNext = () => {
+    if (!canProceed()) {
+      return;
+    }
+
+    if (step !== "school") {
+      setStepIndex((i) => i + 1);
+      return;
+    }
+
+    // school은 백엔드 회원가입 API가 아직 받지 않아 전송하지 않는다.
     signupMutation.mutate(
       { email: email.trim(), password, nickname: nickname.trim() },
       {
         onSuccess: () => {
-          Alert.alert("회원가입 완료", "이제 로그인해 주세요.", [
-            { text: "확인", onPress: () => router.replace("/login") },
-          ]);
+          setIsSuccess(true);
         },
       },
     );
   };
 
-  const canSubmit =
-    email.trim().length > 0 &&
-    password.length > 0 &&
-    nickname.trim().length > 0 &&
-    !signupMutation.isPending;
+  const isLastStep = step === "school";
+  const isBusy = signupMutation.isPending;
+
+  if (isSuccess) {
+    return (
+      <View style={styles.screen}>
+        <SafeAreaView edges={["top"]} style={styles.safeArea}>
+          <View style={styles.successContainer}>
+            <View style={styles.successIconCircle}>
+              <Check color="#ffffff" size={40} strokeWidth={3} />
+            </View>
+            <Text style={styles.successHeading}>회원가입 성공!</Text>
+            <Text style={styles.successSubtext}>
+              이제 로그인하고 CoreMate를 시작해보세요.
+            </Text>
+
+            <Pressable
+              style={[styles.button, styles.successButton]}
+              onPress={() => router.replace("/login")}
+            >
+              <Text style={styles.buttonText}>로그인 하러가기</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={["top"]} style={styles.container}>
-        <View style={styles.form}>
-          <Text style={styles.title}>회원가입</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              placeholder="Email"
-              placeholderTextColor="#94a3b8"
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              editable={!signupMutation.isPending}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Password</Text>
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#94a3b8"
-              secureTextEntry
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              editable={!signupMutation.isPending}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Nickname</Text>
-            <TextInput
-              placeholder="Nickname"
-              placeholderTextColor="#94a3b8"
-              style={styles.input}
-              value={nickname}
-              onChangeText={setNickname}
-              maxLength={NICKNAME_MAX_LENGTH}
-              editable={!signupMutation.isPending}
-            />
-          </View>
-
-          {signupMutation.isError ? (
-            <Text style={styles.errorText}>{getApiErrorMessage(signupMutation.error)}</Text>
-          ) : null}
-
-          <Pressable
-            style={[styles.button, !canSubmit && styles.buttonDisabled]}
-            onPress={handleSignup}
-            disabled={!canSubmit}
+      <SafeAreaView edges={["top"]} style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.flex}
+        >
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.buttonText}>
-              {signupMutation.isPending ? "가입 중…" : "회원가입"}
-            </Text>
-          </Pressable>
+            <Pressable
+              accessibilityLabel="뒤로가기"
+              accessibilityRole="button"
+              hitSlop={10}
+              style={styles.backButton}
+              onPress={goBack}
+            >
+              <ChevronLeft color="#111827" size={28} strokeWidth={2.3} />
+            </Pressable>
 
-          <Pressable style={styles.backLink} onPress={() => router.back()}>
-            <Text style={styles.backLinkText}>돌아가기</Text>
-          </Pressable>
-        </View>
+            <Text style={styles.heading}>{HEADINGS[step]}</Text>
+
+            <View style={styles.body}>
+              {step === "consent" && (
+                <View>
+                  <Pressable
+                    style={styles.consentAllRow}
+                    onPress={toggleAllConsent}
+                  >
+                    <Check
+                      color={allConsentChecked ? "#6D5DFB" : "#cbd5e1"}
+                      size={22}
+                      strokeWidth={3}
+                    />
+                    <Text style={styles.consentAllText}>전체 동의</Text>
+                  </Pressable>
+
+                  <Text style={styles.consentCaption}>
+                    * 표시는 필수 동의입니다.
+                  </Text>
+
+                  <View style={styles.consentDivider} />
+
+                  {CONSENT_ITEMS.map((item) => {
+                    const checked = checkedConsentIds.includes(item.id);
+                    return (
+                      <View key={item.id} style={styles.consentRow}>
+                        <Pressable
+                          style={styles.consentRowMain}
+                          onPress={() => toggleConsentItem(item.id)}
+                        >
+                          <Check
+                            color={checked ? "#6D5DFB" : "#cbd5e1"}
+                            size={20}
+                            strokeWidth={3}
+                          />
+                          <Text style={styles.consentText}>
+                            {item.label}
+                            {item.required ? " *" : ""}
+                          </Text>
+                        </Pressable>
+
+                        <Pressable
+                          accessibilityLabel={`${item.label} 자세히 보기`}
+                          hitSlop={8}
+                          onPress={() => router.push(item.href)}
+                        >
+                          <ChevronRight
+                            color="#9ca3af"
+                            size={20}
+                            strokeWidth={2.2}
+                          />
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {step === "nickname" && (
+                <TextInput
+                  autoFocus
+                  placeholder="이름"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input}
+                  value={nickname}
+                  onChangeText={setNickname}
+                  maxLength={NICKNAME_MAX_LENGTH}
+                />
+              )}
+
+              {step === "email" && (
+                <>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    autoFocus
+                    keyboardType="email-address"
+                    placeholder="Email"
+                    placeholderTextColor="#94a3b8"
+                    style={styles.input}
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                  {emailInvalid ? (
+                    <Text style={styles.errorText}>
+                      올바른 이메일 형식이 아닙니다.
+                    </Text>
+                  ) : null}
+                </>
+              )}
+
+              {step === "password" && (
+                <>
+                  <TextInput
+                    autoFocus
+                    placeholder="Password"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                  {passwordInvalid ? (
+                    <Text style={styles.errorText}>
+                      {PASSWORD_RULE_MESSAGE}
+                    </Text>
+                  ) : null}
+
+                  <TextInput
+                    placeholder="Confirm Password"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry
+                    style={[styles.input, styles.inputSpacing]}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                  />
+                  {passwordsMismatch ? (
+                    <Text style={styles.errorText}>
+                      비밀번호가 일치하지 않습니다.
+                    </Text>
+                  ) : null}
+                </>
+              )}
+
+              {step === "school" && (
+                <TextInput
+                  autoFocus
+                  placeholder="학교명 (선택)"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input}
+                  value={school}
+                  onChangeText={setSchool}
+                />
+              )}
+
+              {isLastStep && signupMutation.isError ? (
+                <Text style={styles.errorText}>
+                  {getApiErrorMessage(signupMutation.error)}
+                </Text>
+              ) : null}
+            </View>
+
+            <Pressable
+              style={[
+                styles.button,
+                (!canProceed() || isBusy) && styles.buttonDisabled,
+              ]}
+              onPress={goNext}
+              disabled={!canProceed() || isBusy}
+            >
+              <Text style={styles.buttonText}>
+                {isLastStep ? (isBusy ? "가입 중…" : "가입하기") : "다음"}
+              </Text>
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -113,31 +367,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
-  container: {
+  safeArea: {
     flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
     backgroundColor: "transparent",
   },
-  form: {
-    gap: 14,
+  flex: {
+    flex: 1,
   },
-  title: {
-    marginBottom: 8,
-    color: "#6D5DFB",
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
+  backButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 42,
+    height: 42,
+    marginLeft: -10,
+  },
+  heading: {
+    marginTop: 24,
+    marginBottom: 32,
+    color: "#111827",
     fontFamily: FONT.pretendard,
-    fontSize: 30,
-    fontWeight: "900",
-    textAlign: "center",
+    fontSize: 26,
+    fontWeight: "800",
+    lineHeight: 34,
   },
-  fieldGroup: {
+  body: {
+    flex: 1,
     gap: 8,
-  },
-  fieldLabel: {
-    color: "#1f2937",
-    fontFamily: FONT.kufam,
-    fontSize: 14,
-    fontWeight: "500",
   },
   input: {
     borderRadius: 14,
@@ -151,18 +412,64 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  inputSpacing: {
+    marginTop: 12,
+  },
   errorText: {
     color: "#dc2626",
     fontFamily: FONT.pretendard,
     fontSize: 13,
     lineHeight: 18,
   },
+  consentAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 4,
+  },
+  consentAllText: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  consentCaption: {
+    marginTop: 8,
+    marginLeft: 4,
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+  },
+  consentDivider: {
+    height: 1,
+    marginVertical: 16,
+    backgroundColor: "#e5e7eb",
+  },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  consentRowMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  consentText: {
+    flex: 1,
+    color: "#1f2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    lineHeight: 21,
+  },
   button: {
     alignItems: "center",
     borderRadius: 16,
     backgroundColor: "#6D5DFB",
     paddingVertical: 16,
-    marginTop: 4,
+    marginTop: 24,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -173,14 +480,38 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
   },
-  backLink: {
+  successContainer: {
+    flex: 1,
     alignItems: "center",
-    paddingVertical: 8,
+    justifyContent: "center",
+    paddingHorizontal: 24,
   },
-  backLinkText: {
-    color: "#6D5DFB",
-    fontFamily: FONT.kufam,
-    fontSize: 14,
-    fontWeight: "500",
+  successButton: {
+    alignSelf: "stretch",
+  },
+  successIconCircle: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 72,
+    height: 72,
+    borderRadius: 999,
+    backgroundColor: "#6D5DFB",
+    marginBottom: 24,
+  },
+  successHeading: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  successSubtext: {
+    marginTop: 12,
+    marginBottom: 40,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
   },
 });

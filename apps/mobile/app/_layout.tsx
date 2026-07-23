@@ -36,7 +36,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ title: "회원가입" }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         <Stack.Screen name="edit-nickname" options={{ headerShown: false }} />
@@ -46,6 +46,10 @@ export default function RootLayout() {
         />
         <Stack.Screen name="terms-policies" options={{ headerShown: false }} />
         <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="marketing-consent"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="delete-account" options={{ headerShown: false }} />
         <Stack.Screen
           name="favorite-problems"
