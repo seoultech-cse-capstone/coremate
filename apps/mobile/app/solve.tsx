@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 
+import { useAuth } from "../src/features/auth";
 import {
   SolveQuestionScreen,
   type SolveSessionType,
@@ -13,6 +14,7 @@ const sessionTypes: SolveSessionType[] = [
 ];
 
 export default function SolveScreen() {
+  const { status } = useAuth();
   const { sessionType, title } = useLocalSearchParams<{
     sessionType?: string;
     title?: string;
@@ -26,6 +28,7 @@ export default function SolveScreen() {
     <SolveQuestionScreen
       sessionType={resolvedSessionType}
       title={resolvedTitle}
+      hideBookmark={status === "guest"}
       onBack={() => router.back()}
       onComplete={(correctCount, totalCount, elapsedSeconds) =>
         router.replace({

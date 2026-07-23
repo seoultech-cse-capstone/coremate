@@ -27,6 +27,7 @@ type SolveQuestion = {
 type SolveQuestionScreenProps = {
   sessionType: SolveSessionType;
   title: string;
+  hideBookmark?: boolean;
   onBack: () => void;
   onComplete: (
     correctCount: number,
@@ -95,6 +96,7 @@ const questions: SolveQuestion[] = [
 export function SolveQuestionScreen({
   sessionType,
   title,
+  hideBookmark = false,
   onBack,
   onComplete,
 }: SolveQuestionScreenProps) {
@@ -186,19 +188,23 @@ export function SolveQuestionScreen({
           <Text style={styles.headerSubtitle}>{sessionLabel}</Text>
         </View>
 
-        <Pressable
-          accessibilityLabel={isBookmarked ? "즐겨찾기 해제" : "즐겨찾기 등록"}
-          accessibilityRole="button"
-          style={styles.headerButton}
-          onPress={() => setIsBookmarked((currentValue) => !currentValue)}
-        >
-          <Bookmark
-            color="#ffffff"
-            fill={isBookmarked ? "#ffffff" : "transparent"}
-            size={22}
-            strokeWidth={2.1}
-          />
-        </Pressable>
+        {hideBookmark ? (
+          <View style={styles.headerButton} />
+        ) : (
+          <Pressable
+            accessibilityLabel={isBookmarked ? "즐겨찾기 해제" : "즐겨찾기 등록"}
+            accessibilityRole="button"
+            style={styles.headerButton}
+            onPress={() => setIsBookmarked((currentValue) => !currentValue)}
+          >
+            <Bookmark
+              color="#ffffff"
+              fill={isBookmarked ? "#ffffff" : "transparent"}
+              size={22}
+              strokeWidth={2.1}
+            />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView

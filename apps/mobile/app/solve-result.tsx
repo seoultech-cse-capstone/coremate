@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 
+import { useAuth } from "../src/features/auth";
 import {
   SolveResultScreen,
 } from "../src/features/solve/components/SolveResultScreen";
@@ -13,6 +14,8 @@ const sessionTypes: SolveSessionType[] = [
 ];
 
 export default function SolveResultRoute() {
+  const { status } = useAuth();
+  const isGuest = status === "guest";
   const { correctCount, elapsedSeconds, sessionType, title, totalCount } = useLocalSearchParams<{
     correctCount?: string;
     elapsedSeconds?: string;
@@ -44,7 +47,12 @@ export default function SolveResultRoute() {
           params: { title: resolvedTitle, sessionType: resolvedSessionType },
         })
       }
-      onReview={() =>
+      onReview={() => {
+        // 해설/기록 확인은 회원 전용이라 게스트는 로그인 필요 안내로 보낸다.
+        if (isGuest) {
+          router.push("/login-required");
+          return;
+        }
         router.push({
           pathname: "/mistake-exam-review",
           params: {
@@ -52,8 +60,8 @@ export default function SolveResultRoute() {
             category: resolvedTitle,
             sessionType: resolvedSessionType,
           },
-        })
-      }
+        });
+      }}
     />
   );
 }

@@ -7,6 +7,7 @@ import { ProgressLine } from "./ProgressLine";
 type ConceptCardProps = {
   chapterCount: number;
   countUnit: "chapter" | "concept" | "question";
+  hideProgress?: boolean;
   iconColor: string;
   Icon: LucideIcon;
   progress: number;
@@ -18,6 +19,7 @@ type ConceptCardProps = {
 export function ConceptCard({
   chapterCount,
   countUnit,
+  hideProgress = false,
   iconColor,
   Icon,
   progress,
@@ -25,7 +27,7 @@ export function ConceptCard({
   title,
   onPress,
 }: ConceptCardProps) {
-  const isCompleted = progress >= 100;
+  const isCompleted = !hideProgress && progress >= 100;
   const ThumbnailIcon = isCompleted ? CircleCheckBig : Icon;
   const resolvedIconColor = isCompleted ? "#16C45B" : iconColor;
   const resolvedThumbnailColor = isCompleted ? "#E5F9ED" : thumbnailColor;
@@ -56,7 +58,7 @@ export function ConceptCard({
         </View>
       </View>
 
-      <ProgressLine progress={progress} />
+      {!hideProgress && <ProgressLine progress={progress} />}
     </Pressable>
   );
 }
