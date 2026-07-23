@@ -39,16 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     (async () => {
-      const session = await tokenStorage.load();
-      if (!mounted) {
-        return;
-      }
-      if (session) {
-        setUser(session.user);
-        setAccessToken(session.accessToken);
-        setStatus("authenticated");
-      } else {
-        setStatus("unauthenticated");
+      try {
+        const session = await tokenStorage.load();
+        if (!mounted) {
+          return;
+        }
+        if (session) {
+          setUser(session.user);
+          setAccessToken(session.accessToken);
+          setStatus("authenticated");
+        } else {
+          setStatus("unauthenticated");
+        }
+      } catch {
+        if (mounted) {
+          setStatus("unauthenticated");
+        }
       }
     })();
 
