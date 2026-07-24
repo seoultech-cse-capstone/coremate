@@ -44,7 +44,9 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .name(request.getName())
                 .nickname(request.getNickname())
+                .phoneNumber(request.getPhoneNumber())
                 .role(UserRole.USER)
                 .build();
 

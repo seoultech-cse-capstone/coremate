@@ -36,8 +36,14 @@ public class User {
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
+    @Column(length = 50)
+    private String name;
+
     @Column(unique = true, nullable = false, length = 50)
     private String nickname;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -74,10 +80,12 @@ public class User {
     private LocalDateTime lastLoginAt;
 
     @Builder
-    public User(String email, String passwordHash, String nickname, UserRole role) {
+    public User(String email, String passwordHash, String name, String nickname, String phoneNumber, UserRole role) {
         this.email = email;
         this.passwordHash = passwordHash;
+        this.name = name;
         this.nickname = nickname;
+        this.phoneNumber = phoneNumber;
         this.role = role;
         this.level = 1;
         this.totalXp = 0;
@@ -99,5 +107,9 @@ public class User {
 
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void updatePhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 }

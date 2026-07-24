@@ -1,12 +1,15 @@
 package com.coremate.backend.auth.controller;
 
+import com.coremate.backend.auth.dto.request.FindEmailRequest;
 import com.coremate.backend.auth.dto.request.LoginRequest;
 import com.coremate.backend.auth.dto.request.LogoutRequest;
 import com.coremate.backend.auth.dto.request.ReissueTokenRequest;
 import com.coremate.backend.auth.dto.request.SignupRequest;
 import com.coremate.backend.auth.dto.response.AuthTokenResponse;
+import com.coremate.backend.auth.dto.response.FindEmailResponse;
 import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
+import com.coremate.backend.auth.service.AccountRecoveryService;
 import com.coremate.backend.auth.service.AuthService;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final AccountRecoveryService accountRecoveryService;
 
     @Operation(summary = "회원가입")
     @PostMapping("/signup")
@@ -54,5 +58,11 @@ public class AuthController {
     @PostMapping("/reissue")
     public AuthTokenResponse reissue(@Valid @RequestBody ReissueTokenRequest request) {
         return authService.reissue(request);
+    }
+
+    @Operation(summary = "아이디(이메일) 찾기", description = "이름과 휴대폰 번호로 가입된 이메일을 마스킹하여 조회한다.")
+    @PostMapping("/find-email")
+    public FindEmailResponse findEmail(@Valid @RequestBody FindEmailRequest request) {
+        return accountRecoveryService.findEmail(request);
     }
 }
