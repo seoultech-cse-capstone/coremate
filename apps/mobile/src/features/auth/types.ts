@@ -10,6 +10,7 @@ export type SignupRequest = {
   email: string;
   password: string;
   nickname: string;
+  phoneNumber: string;
 };
 
 export type ReissueRequest = {

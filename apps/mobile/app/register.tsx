@@ -26,8 +26,31 @@ const PASSWORD_RULE =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
 const PASSWORD_RULE_MESSAGE =
   "비밀번호는 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해 8자 이상이어야 합니다.";
+// phone 상태값은 항상 숫자만 저장한다("01012345678"). 화면 표시용 하이픈은 formatPhoneNumber에서만 붙인다.
+const PHONE_RULE = /^01[016789]\d{7,8}$/;
+const PHONE_RULE_MESSAGE = "올바른 휴대폰 번호 형식이 아닙니다.";
 
-const STEPS = ["consent", "nickname", "email", "password", "school"] as const;
+function formatPhoneNumber(digits: string): string {
+  if (digits.length < 4) {
+    return digits;
+  }
+  if (digits.length < 8) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  }
+  if (digits.length <= 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
+const STEPS = [
+  "consent",
+  "nickname",
+  "phone",
+  "email",
+  "password",
+  "school",
+] as const;
 type Step = (typeof STEPS)[number];
 
 type ConsentItem = {
@@ -61,6 +84,7 @@ const CONSENT_ITEMS: ConsentItem[] = [
 const HEADINGS: Record<Step, string> = {
   consent: "서비스 이용을 위한\n동의 안내",
   nickname: "반가워요.\n이름을 알려주세요.",
+  phone: "휴대폰 번호를\n입력해주세요.",
   email: "이메일을\n입력해주세요.",
   password: "비밀번호를\n입력해주세요.",
   school: "학교를\n입력해주세요.",
@@ -71,6 +95,7 @@ export default function RegisterScreen() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
   const [nickname, setNickname] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -79,6 +104,7 @@ export default function RegisterScreen() {
   const signupMutation = useSignupMutation();
 
   const step = STEPS[stepIndex];
+  const phoneInvalid = phone.length > 0 && !PHONE_RULE.test(phone);
   const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
   const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
   const passwordsMismatch =
@@ -108,6 +134,8 @@ export default function RegisterScreen() {
         return requiredConsentChecked;
       case "nickname":
         return nickname.trim().length > 0;
+      case "phone":
+        return phone.trim().length > 0 && !phoneInvalid;
       case "email":
         return email.trim().length > 0 && !emailInvalid;
       case "password":
@@ -142,7 +170,12 @@ export default function RegisterScreen() {
 
     // school은 백엔드 회원가입 API가 아직 받지 않아 전송하지 않는다.
     signupMutation.mutate(
-      { email: email.trim(), password, nickname: nickname.trim() },
+      {
+        email: email.trim(),
+        password,
+        nickname: nickname.trim(),
+        phoneNumber: phone,
+      },
       {
         onSuccess: () => {
           setIsSuccess(true);
@@ -269,6 +302,25 @@ export default function RegisterScreen() {
                   onChangeText={setNickname}
                   maxLength={NICKNAME_MAX_LENGTH}
                 />
+              )}
+
+              {step === "phone" && (
+                <>
+                  <TextInput
+                    autoFocus
+                    keyboardType="phone-pad"
+                    placeholder="010-0000-0000"
+                    placeholderTextColor="#94a3b8"
+                    style={styles.input}
+                    value={formatPhoneNumber(phone)}
+                    onChangeText={(text) =>
+                      setPhone(text.replace(/\D/g, "").slice(0, 11))
+                    }
+                  />
+                  {phoneInvalid ? (
+                    <Text style={styles.errorText}>{PHONE_RULE_MESSAGE}</Text>
+                  ) : null}
+                </>
               )}
 
               {step === "email" && (
