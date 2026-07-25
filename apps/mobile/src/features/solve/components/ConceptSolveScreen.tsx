@@ -1,4 +1,10 @@
-import { ChevronLeft, ChevronRight, CircleHelp, X } from "lucide-react-native";
+import {
+  Bookmark as BookmarkIcon,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  X,
+} from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
+import { bookmarkApi } from "../../bookmark/bookmarkApi";
 import { getApiErrorMessage } from "../../../shared/utils/apiError";
 import { solveApi } from "../solveApi";
 import type { SolveQuestion, SolveReviewItem } from "../types";
@@ -54,6 +61,8 @@ export function ConceptSolveScreen({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHintVisible, setIsHintVisible] = useState(false);
+  const [bookmarkMap, setBookmarkMap] = useState<Map<number, number>>(new Map());
+  const [isBookmarkPending, setIsBookmarkPending] = useState(false);
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
@@ -92,6 +101,37 @@ export function ConceptSolveScreen({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conceptId]);
+
+  // 게스트는 북마크 기능이 없다. 회원이면 이 세션의 문제들 중 이미
+  // 북마크된 것이 있는지 한 번에 조회해둔다(문제별 개별 조회 API가 없음).
+  useEffect(() => {
+    if (isGuest || !accessToken || session.status !== "ready") {
+      return;
+    }
+
+    let cancelled = false;
+
+    bookmarkApi.getBookmarkedQuestions(accessToken).then(
+      (bookmarkedQuestions) => {
+        if (cancelled) {
+          return;
+        }
+        const nextMap = new Map<number, number>();
+        for (const item of bookmarkedQuestions) {
+          nextMap.set(item.questionId, item.bookmarkId);
+        }
+        setBookmarkMap(nextMap);
+      },
+      () => {
+        // 북마크 조회 실패는 풀이 자체를 막을 이유가 없으므로 조용히 무시한다.
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGuest, accessToken, session.status]);
 
   if (session.status === "loading") {
     return (
@@ -205,6 +245,39 @@ export function ConceptSolveScreen({
     }
   };
 
+  const toggleBookmark = async () => {
+    if (!accessToken || isBookmarkPending) {
+      return;
+    }
+
+    const existingBookmarkId = bookmarkMap.get(currentQuestion.questionId);
+    setIsBookmarkPending(true);
+    try {
+      if (existingBookmarkId !== undefined) {
+        await bookmarkApi.remove(existingBookmarkId, accessToken);
+        setBookmarkMap((current) => {
+          const next = new Map(current);
+          next.delete(currentQuestion.questionId);
+          return next;
+        });
+      } else {
+        const created = await bookmarkApi.create(
+          currentQuestion.questionId,
+          accessToken,
+        );
+        setBookmarkMap((current) => {
+          const next = new Map(current);
+          next.set(currentQuestion.questionId, created.bookmarkId);
+          return next;
+        });
+      }
+    } catch {
+      // 북마크 토글 실패는 풀이 흐름을 막지 않고 조용히 무시한다.
+    } finally {
+      setIsBookmarkPending(false);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -225,7 +298,28 @@ export function ConceptSolveScreen({
           <Text style={styles.headerSubtitle}>개념 문제집</Text>
         </View>
 
-        <View style={styles.headerButton} />
+        {isGuest ? (
+          <View style={styles.headerButton} />
+        ) : (
+          <Pressable
+            accessibilityLabel={
+              bookmarkMap.has(currentQuestion.questionId)
+                ? "즐겨찾기 해제"
+                : "즐겨찾기 등록"
+            }
+            accessibilityRole="button"
+            disabled={isBookmarkPending}
+            style={styles.headerButton}
+            onPress={toggleBookmark}
+          >
+            <BookmarkIcon
+              color="#ffffff"
+              fill={bookmarkMap.has(currentQuestion.questionId) ? "#ffffff" : "transparent"}
+              size={22}
+              strokeWidth={2.1}
+            />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
