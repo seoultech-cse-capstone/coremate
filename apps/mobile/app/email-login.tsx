@@ -14,13 +14,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { useLoginMutation } from "../src/features/auth";
+import { useAuth, useLoginMutation } from "../src/features/auth";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const { continueAsGuest } = useAuth();
   const loginMutation = useLoginMutation();
 
   const handleLogin = () => {
@@ -38,6 +39,11 @@ export default function LoginScreen() {
   };
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !loginMutation.isPending;
+
+  const handleGuest = async () => {
+    await continueAsGuest();
+    router.replace("/(tabs)/home");
+  };
 
   return (
     <View style={styles.screen}>
@@ -118,6 +124,18 @@ export default function LoginScreen() {
                   <Text style={styles.inlineLinkText}>Forgot ID/PW</Text>
                 </Pressable>
               </View>
+
+              <View style={styles.separatorRow}>
+                <View style={styles.separatorLine} />
+              </View>
+
+              <Pressable style={styles.guestButton} onPress={handleGuest}>
+                <Text style={styles.guestButtonText}>비로그인으로 체험하기</Text>
+              </Pressable>
+
+              <Text style={styles.guestNotice}>
+                게스트로 로그인할 시 기능이 제한될 수 있습니다.
+              </Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -218,5 +236,32 @@ const styles = StyleSheet.create({
     fontFamily: FONT.kufam,
     fontSize: 14,
     fontWeight: "500",
+  },
+  separatorRow: {
+    marginTop: 12,
+    paddingHorizontal: 8,
+  },
+  separatorLine: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+  },
+  guestButton: {
+    alignSelf: "center",
+    paddingVertical: 4,
+    marginTop: 6,
+  },
+  guestButtonText: {
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  guestNotice: {
+    marginTop: 0,
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
   },
 });

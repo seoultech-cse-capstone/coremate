@@ -179,8 +179,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   guestButton: {
-    alignItems: "center",
-    paddingVertical: 14,
+    alignSelf: "center",
+    paddingVertical: 4,
   },
   guestButtonText: {
     color: "#ffffff",
