@@ -345,7 +345,7 @@ export default function ContentScreen() {
   }, [navigation, resetContent]);
 
   const screenTitle = useMemo(() => {
-    return selectedTitle ?? "Practice Notes";
+    return selectedTitle ?? "문제집";
   }, [selectedTitle]);
 
   const openChildTree = (item: ProblemSetItem) => {

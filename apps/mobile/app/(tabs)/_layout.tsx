@@ -99,7 +99,7 @@ function TabsNavigator() {
         <Tabs.Screen
           name="content"
           options={{
-            title: "연습노트",
+            title: "문제집",
             tabBarButton: createTabBarButton(false),
             tabBarIcon: ({ color }) => (
               <BookOpenCheck color={color} size={22} strokeWidth={2.1} />
