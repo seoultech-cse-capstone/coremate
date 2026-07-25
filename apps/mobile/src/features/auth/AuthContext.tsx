@@ -4,10 +4,12 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
+import { setAuthHandlers } from "../../shared/api/httpClient";
 import { tokenStorage } from "./tokenStorage";
 import type { AuthSession, AuthUser } from "./types";
 
@@ -33,6 +35,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const userRef = useRef<AuthUser | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // 앱 시작 시 저장소에서 세션을 복원한다.
   useEffect(() => {
@@ -77,6 +84,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
     setStatus("unauthenticated");
   }, []);
+
+  // 액세스 토큰 만료(401) 시 httpClient가 재발급받은 토큰을 반영한다.
+  const updateTokens = useCallback(
+    async (nextAccessToken: string, nextRefreshToken: string) => {
+      if (userRef.current) {
+        await tokenStorage.save({
+          accessToken: nextAccessToken,
+          refreshToken: nextRefreshToken,
+          user: userRef.current,
+        });
+      }
+      setAccessToken(nextAccessToken);
+    },
+    [],
+  );
+
+  // httpClient는 features/auth를 직접 참조할 수 없으므로(순환 참조 방지),
+  // 실제 재발급/로그아웃 구현을 여기서 주입한다.
+  useEffect(() => {
+    setAuthHandlers({
+      getRefreshToken: () => tokenStorage.getRefreshToken(),
+      onTokensRefreshed: updateTokens,
+      onRefreshFailed: signOut,
+    });
+
+    return () => {
+      setAuthHandlers(null);
+    };
+  }, [updateTokens, signOut]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

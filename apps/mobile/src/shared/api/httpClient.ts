@@ -23,10 +23,71 @@ export class HttpError extends Error {
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
+/**
+ * 액세스 토큰 만료(401) 시 자동 재발급을 위해 auth 기능이 등록하는 훅.
+ * httpClient는 features/auth를 직접 import하지 않고(순환 참조 방지),
+ * AuthProvider가 앱 시작 시 setAuthHandlers로 실제 구현을 주입한다.
+ */
+type AuthHandlers = {
+  getRefreshToken: () => Promise<string | null>;
+  onTokensRefreshed: (accessToken: string, refreshToken: string) => Promise<void> | void;
+  onRefreshFailed: () => Promise<void> | void;
+};
+
+let authHandlers: AuthHandlers | null = null;
+
+export function setAuthHandlers(handlers: AuthHandlers | null): void {
+  authHandlers = handlers;
+}
+
+// 401이 동시에 여러 건 발생해도 재발급 요청은 한 번만 나가도록 공유한다.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!authHandlers) {
+    return null;
+  }
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshToken = await authHandlers!.getRefreshToken();
+        if (!refreshToken) {
+          return null;
+        }
+
+        const response = await fetch(`${API_BASE_URL ?? ''}/api/auth/reissue`, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const data = await parseJson(response);
+
+        if (!response.ok) {
+          await authHandlers!.onRefreshFailed();
+          return null;
+        }
+
+        const tokens = data as { accessToken: string; refreshToken: string };
+        await authHandlers!.onTokensRefreshed(tokens.accessToken, tokens.refreshToken);
+        return tokens.accessToken;
+      } catch {
+        await authHandlers!.onRefreshFailed();
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+}
+
 async function request<TResponse>(
   method: HttpMethod,
   path: string,
   options: BodyRequestOptions = {},
+  isRetry = false,
 ): Promise<TResponse> {
   const url = `${API_BASE_URL ?? ''}${path}`;
   const headers: Record<string, string> = {
@@ -49,6 +110,13 @@ async function request<TResponse>(
   });
 
   const data = await parseJson(response);
+
+  if (response.status === 401 && options.accessToken && !isRetry) {
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      return request<TResponse>(method, path, { ...options, accessToken: newAccessToken }, true);
+    }
+  }
 
   if (!response.ok) {
     throw new HttpError(response.status, data);
