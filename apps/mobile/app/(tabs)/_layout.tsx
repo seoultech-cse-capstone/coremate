@@ -109,7 +109,7 @@ function TabsNavigator() {
         <Tabs.Screen
           name="log-weak"
           options={{
-            title: "오답노트",
+            title: "복습",
             tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <ChartNoAxesCombined color={color} size={22} strokeWidth={2.1} />

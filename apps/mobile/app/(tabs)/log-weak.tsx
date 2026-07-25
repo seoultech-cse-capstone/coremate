@@ -190,7 +190,6 @@ export default function LogWeakScreen() {
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
   const isWrongNote = mode === "wrongNote";
   const title = isWrongNote ? "Mistake Notes" : "Weakness Notes";
-  const tabLabel = isWrongNote ? "오답노트" : "약점분석";
   const headerHeight = HEADER_HEIGHT + insets.top;
   const activePurple = isWrongNote ? BRAND_PURPLE : WEAKNESS_PURPLE;
 
@@ -350,10 +349,6 @@ export default function LogWeakScreen() {
       setMode("wrongNote");
     }
   }, [modeParam]);
-
-  useEffect(() => {
-    navigation.setOptions({ title, tabBarLabel: tabLabel });
-  }, [navigation, tabLabel, title]);
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
