@@ -19,7 +19,7 @@ export function LoginRequiredGuide() {
 
           <Pressable
             style={styles.primaryButton}
-            onPress={() => router.push("/")}
+            onPress={() => router.replace("/")}
           >
             <Text style={styles.primaryButtonText}>로그인하러 가기</Text>
           </Pressable>

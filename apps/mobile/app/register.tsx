@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -157,6 +158,18 @@ export default function RegisterScreen() {
     }
     setStepIndex((i) => i - 1);
   };
+
+  // 안드로이드 하드웨어 뒤로가기도 화면 안 화살표와 동일하게 위저드를 한 스텝씩 되돌린다.
+  useEffect(() => {
+    if (isSuccess) {
+      return;
+    }
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      goBack();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [isSuccess, stepIndex]);
 
   const goNext = () => {
     if (!canProceed()) {
