@@ -32,13 +32,13 @@ function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const { isLogWeakSelecting } = useLogWeakSelection();
   const { status } = useAuth();
-  const isGuest = status === "guest";
+  const isMemberLocked = status !== "authenticated";
 
-  // 게스트에게 잠긴 탭(친구/오답노트/마이페이지)은 흐리게 표시하고 탭 자체를 비활성화한다.
-  const createTabBarButton = (isGuestLocked: boolean) => {
+  // 회원이 아니면(게스트든 로그아웃 상태든) 잠긴 탭(친구/오답노트/마이페이지)을 흐리게 표시하고 비활성화한다.
+  const createTabBarButton = (isMemberOnly: boolean) => {
     return (props: BottomTabBarButtonProps) => {
       const { ref: _ref, style, ...buttonProps } = props;
-      const locked = isGuest && isGuestLocked;
+      const locked = isMemberLocked && isMemberOnly;
 
       return (
         <Pressable

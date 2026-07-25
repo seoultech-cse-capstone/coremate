@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useRequireMember } from "../../src/features/auth";
 import {
   categoryTree,
   type FilterNode,
@@ -175,6 +176,7 @@ const weaknessReportStats = {
 };
 
 export default function LogWeakScreen() {
+  useRequireMember();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
