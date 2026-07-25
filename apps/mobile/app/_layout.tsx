@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { FONT } from "../constants/fonts";
 import { AuthProvider } from "../src/features/auth";
 import { queryClient } from "../src/shared/api/queryClient";
+import { LanguageProvider } from "../src/shared/language/LanguageContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -21,6 +22,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <LanguageProvider>
         <SafeAreaProvider>
           <Stack
         screenOptions={{
@@ -50,6 +52,10 @@ export default function RootLayout() {
           name="notification-settings"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="language-settings"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="terms-policies" options={{ headerShown: false }} />
         <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
         <Stack.Screen
@@ -70,6 +76,10 @@ export default function RootLayout() {
           name="mistake-exam-review"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="concept-detail"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="solve" options={{ headerShown: false }} />
         <Stack.Screen name="solve-result" options={{ headerShown: false }} />
         <Stack.Screen name="daily-quiz" options={{ headerShown: false }} />
@@ -81,6 +91,7 @@ export default function RootLayout() {
           </Stack>
           <StatusBar style="dark" />
         </SafeAreaProvider>
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
