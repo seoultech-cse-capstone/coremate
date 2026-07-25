@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, CircleHelp, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,6 +16,11 @@ import { solveApi } from "../solveApi";
 import type { SolveQuestion, SolveReviewItem } from "../types";
 
 const BRAND_PURPLE = "#6D5DFB";
+
+// TODO: 백엔드에 실제 힌트 조회 API(CommonMistake 기반)가 생기면 문제별 실제
+// 힌트로 교체할 것. 지금은 더미 문구를 고정으로 보여준다.
+const DUMMY_HINT_TEXT =
+  "정답을 직접 알려주지는 않지만, 문제에서 다루는 핵심 개념을 다시 짚어보면 실마리를 찾을 수 있어요.";
 
 type ConceptSolveScreenProps = {
   conceptId: number;
@@ -48,6 +53,7 @@ export function ConceptSolveScreen({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHintVisible, setIsHintVisible] = useState(false);
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
@@ -145,6 +151,7 @@ export function ConceptSolveScreen({
       if (!isLastQuestion) {
         setCurrentIndex((index) => index + 1);
         setSelectedAnswer(null);
+        setIsHintVisible(false);
         return;
       }
 
@@ -270,6 +277,32 @@ export function ConceptSolveScreen({
               );
             })}
           </View>
+
+          <Pressable
+            accessibilityRole="button"
+            style={styles.hintButton}
+            onPress={() => setIsHintVisible((currentValue) => !currentValue)}
+          >
+            <CircleHelp color={BRAND_PURPLE} size={19} strokeWidth={2.2} />
+            <Text style={styles.hintButtonText}>힌트 보기</Text>
+          </Pressable>
+
+          {isHintVisible && (
+            <View style={styles.hintPanel}>
+              <View style={styles.hintHeader}>
+                <Text style={styles.hintTitle}>힌트</Text>
+                <Pressable
+                  accessibilityLabel="힌트 닫기"
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => setIsHintVisible(false)}
+                >
+                  <X color={BRAND_PURPLE} size={18} strokeWidth={2.3} />
+                </Pressable>
+              </View>
+              <Text style={styles.hintText}>{DUMMY_HINT_TEXT}</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -278,7 +311,10 @@ export function ConceptSolveScreen({
           accessibilityLabel="이전 문제"
           disabled={currentIndex === 0}
           style={[styles.previousButton, currentIndex === 0 && styles.disabledButton]}
-          onPress={() => setCurrentIndex((index) => index - 1)}
+          onPress={() => {
+            setCurrentIndex((index) => index - 1);
+            setIsHintVisible(false);
+          }}
         >
           <ChevronLeft color={currentIndex === 0 ? "#aab2bd" : "#475569"} size={20} />
           <Text style={[styles.previousButtonText, currentIndex === 0 && styles.disabledText]}>
@@ -422,6 +458,12 @@ const styles = StyleSheet.create({
   selectedChoiceNumberText: { color: "#ffffff" },
   choiceText: { flex: 1, color: "#334155", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "500", lineHeight: 21 },
   selectedChoiceText: { color: "#5144cf", fontWeight: "700" },
+  hintButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 24 },
+  hintButtonText: { color: BRAND_PURPLE, fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "700" },
+  hintPanel: { borderRadius: 8, backgroundColor: "#F1EFFF", marginTop: 14, padding: 15 },
+  hintHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  hintTitle: { color: "#5144cf", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
+  hintText: { color: "#494365", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "500", lineHeight: 22, marginTop: 8 },
   footer: { flexDirection: "row", gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#e5e7eb", backgroundColor: "#ffffff", paddingHorizontal: 20, paddingTop: 12 },
   previousButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 8, backgroundColor: "#eef1f5", paddingHorizontal: 18 },
   previousButtonText: { color: "#475569", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
