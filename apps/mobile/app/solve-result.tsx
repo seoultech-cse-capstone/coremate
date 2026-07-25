@@ -44,7 +44,7 @@ export default function SolveResultRoute() {
           params: { title: resolvedTitle, sessionType: resolvedSessionType },
         })
       }
-      onReview={() =>
+      onReview={() => {
         router.push({
           pathname: "/mistake-exam-review",
           params: {
@@ -52,8 +52,8 @@ export default function SolveResultRoute() {
             category: resolvedTitle,
             sessionType: resolvedSessionType,
           },
-        })
-      }
+        });
+      }}
     />
   );
 }

@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useRequireMember } from "../../src/features/auth";
 import {
   AddFriendModal,
   FriendSearchModal,
@@ -38,6 +39,7 @@ type TabPressNavigation = {
 };
 
 export default function FriendScreen() {
+  useRequireMember();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);

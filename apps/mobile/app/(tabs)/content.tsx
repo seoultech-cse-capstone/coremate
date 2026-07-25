@@ -24,6 +24,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth } from "../../src/features/auth";
 import { ConceptCard } from "../../src/features/content/components/ConceptCard";
 import { ProblemSetCard } from "../../src/features/content/components/ProblemSetCard";
 
@@ -283,6 +284,8 @@ export default function ContentScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { status } = useAuth();
+  const isGuest = status === "guest";
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [trail, setTrail] = useState<TrailItem[]>([{ depth: "subject" }]);
   const currentTrail = trail[trail.length - 1];
@@ -339,16 +342,30 @@ export default function ContentScreen() {
   };
 
   const startProblemSet = (item: ProblemSetItem) => {
+    const sessionType = sessionTypeByDepth[currentDepth];
+
+    // 게스트는 개념 문제집만 풀 수 있고, 과목/챕터 모의고사는 로그인이 필요하다.
+    if (isGuest && sessionType !== "CONCEPT_PRACTICE") {
+      router.push("/login-required");
+      return;
+    }
+
     router.push({
       pathname: "/solve",
       params: {
         title: item.title,
-        sessionType: sessionTypeByDepth[currentDepth],
+        sessionType,
       },
     });
   };
 
   const openRecentReview = (item: ProblemSetItem) => {
+    // 해설/기록 확인은 회원 전용이라 게스트는 로그인 필요 안내로 보낸다.
+    if (isGuest) {
+      router.push("/login-required");
+      return;
+    }
+
     router.push({
       pathname: "/mistake-exam-review",
       params: {
@@ -409,6 +426,7 @@ export default function ContentScreen() {
                     key={item.id}
                     chapterCount={item.chapterCount}
                     countUnit={currentCountUnit}
+                    hideProgress={isGuest}
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
@@ -424,6 +442,7 @@ export default function ContentScreen() {
                     chapterCount={item.chapterCount}
                     countUnit={currentCountUnit}
                     hasSolved={item.hasSolved}
+                    hideProgress={isGuest}
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
