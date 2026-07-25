@@ -122,8 +122,10 @@ export function ConceptSolveScreen({
         }
         setBookmarkMap(nextMap);
       },
-      () => {
-        // 북마크 조회 실패는 풀이 자체를 막을 이유가 없으므로 조용히 무시한다.
+      (error) => {
+        // 북마크 조회 실패는 풀이 자체를 막을 이유가 없으니 화면은 그대로 두되,
+        // 원인 파악을 위해 로그는 남긴다.
+        console.error("[bookmark] 북마크 목록 조회 실패", error);
       },
     );
 
@@ -271,8 +273,9 @@ export function ConceptSolveScreen({
           return next;
         });
       }
-    } catch {
-      // 북마크 토글 실패는 풀이 흐름을 막지 않고 조용히 무시한다.
+    } catch (error) {
+      // 북마크 토글 실패는 풀이 흐름을 막지 않지만, 원인 파악을 위해 로그는 남긴다.
+      console.error("[bookmark] 북마크 토글 실패", error);
     } finally {
       setIsBookmarkPending(false);
     }
