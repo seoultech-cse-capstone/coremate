@@ -114,15 +114,15 @@ export default function RegisterScreen() {
   useEffect(() => {
     headingAnim.setValue(0);
     bodyAnim.setValue(0);
-    Animated.stagger(70, [
+    Animated.stagger(480, [
       Animated.timing(headingAnim, {
         toValue: 1,
-        duration: 160,
+        duration: 480,
         useNativeDriver: true,
       }),
       Animated.timing(bodyAnim, {
         toValue: 1,
-        duration: 160,
+        duration: 480,
         useNativeDriver: true,
       }),
     ]).start();
@@ -210,10 +210,13 @@ export default function RegisterScreen() {
     if (isSuccess) {
       return;
     }
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      goBack();
-      return true;
-    });
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        goBack();
+        return true;
+      },
+    );
     return () => subscription.remove();
   }, [isSuccess, stepIndex]);
 
