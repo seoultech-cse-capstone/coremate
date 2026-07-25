@@ -64,9 +64,6 @@ public record WeaknessAnalysisReportDetailResponse(
         List<EligibleSolveSessionResponse> selectedSessions,
 
         @Schema(description = "약점 개념 분석 목록")
-        List<WeaknessConceptResponse> weaknessConcepts,
-
-        @Schema(description = "파일 정보")
-        WeaknessAnalysisReportFileResponse file
+        List<WeaknessConceptResponse> weaknessConcepts
 ) {
 }
