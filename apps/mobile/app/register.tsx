@@ -309,6 +309,7 @@ export default function RegisterScreen() {
                   <TextInput
                     autoFocus
                     keyboardType="phone-pad"
+                    maxLength={13}
                     placeholder="010-0000-0000"
                     placeholderTextColor="#94a3b8"
                     style={styles.input}
