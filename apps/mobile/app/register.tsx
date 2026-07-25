@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Animated,
   BackHandler,
@@ -111,7 +111,7 @@ export default function RegisterScreen() {
   const headingAnim = useRef(new Animated.Value(0)).current;
   const bodyAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     headingAnim.setValue(0);
     bodyAnim.setValue(0);
     Animated.stagger(480, [
