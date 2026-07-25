@@ -119,5 +119,21 @@ public class User {
 
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
+        anonymizePersonalData();
+    }
+
+    /**
+     * 탈퇴 시 개인정보를 파기(익명화)한다. unique 제약이 있는 email·nickname은
+     * userId 기반 값으로 치환해 충돌을 피하고, 원본 값을 재가입에 다시 사용할 수 있게 한다.
+     * 참조 무결성·법정 보존이 필요한 기록(결제 등)은 행 자체를 유지한다.
+     */
+    private void anonymizePersonalData() {
+        this.email = "withdrawn_" + this.userId + "@removed.local";
+        this.nickname = "탈퇴회원_" + this.userId;
+        this.passwordHash = null;
+        this.name = null;
+        this.phoneNumber = null;
+        this.schoolName = null;
+        this.schoolEmail = null;
     }
 }
