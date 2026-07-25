@@ -92,30 +92,21 @@ const HEADINGS: Record<Step, string> = {
   school: "학교를\n입력해주세요.",
 };
 
-export default function RegisterScreen() {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
-  const [nickname, setNickname] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [school, setSchool] = useState("");
+type AnimatedStepProps = {
+  heading: string;
+  onReady?: () => void;
+  children: (isReady: boolean) => React.ReactNode;
+};
 
-  const signupMutation = useSignupMutation();
-
-  const step = STEPS[stepIndex];
-
-  // 스텝이 바뀔 때마다 큰 제목이 먼저, 살짝 뒤이어 입력 영역이 위에서 아래로 내려오며 나타난다.
+// 스텝이 바뀔 때마다 부모가 key={step}으로 이 컴포넌트를 통째로 새로 마운트한다.
+// headingAnim/bodyAnim이 매번 새 Animated.Value로 만들어지므로, 이전 스텝에서
+// 네이티브 쪽에 굳어있던 애니메이션 값이 새 스텝까지 남아있는 문제가 없다.
+function AnimatedStep({ heading, onReady, children }: AnimatedStepProps) {
   const headingAnim = useRef(new Animated.Value(0)).current;
   const bodyAnim = useRef(new Animated.Value(0)).current;
-  // 입력칸이 등장 애니메이션보다 먼저 포커스/키보드를 띄우지 않도록, 애니메이션이 끝난 뒤에만 포커스한다.
-  const primaryInputRef = useRef<TextInput>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useLayoutEffect(() => {
-    headingAnim.setValue(0);
-    bodyAnim.setValue(0);
     Animated.stagger(480, [
       Animated.timing(headingAnim, {
         toValue: 1,
@@ -127,10 +118,24 @@ export default function RegisterScreen() {
         duration: 480,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      primaryInputRef.current?.focus();
+    ]).start(({ finished }) => {
+      if (finished) {
+        setIsReady(true);
+      }
     });
-  }, [step, headingAnim, bodyAnim]);
+    // 이 컴포넌트는 스텝마다 새로 마운트되므로 마운트 시 한 번만 재생하면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // isReady가 true로 반영되어 입력칸의 editable이 실제로 바뀐 뒤에만 포커스한다.
+  // (애니메이션 완료 콜백에서 곧바로 focus()를 부르면, editable=true 렌더가
+  // 아직 커밋되기 전이라 포커스가 씹힐 수 있다.)
+  useEffect(() => {
+    if (isReady) {
+      onReady?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady]);
 
   const headingAnimatedStyle = {
     opacity: headingAnim,
@@ -155,6 +160,35 @@ export default function RegisterScreen() {
       },
     ],
   };
+
+  return (
+    <>
+      <Animated.Text style={[styles.heading, headingAnimatedStyle]}>
+        {heading}
+      </Animated.Text>
+      <Animated.View style={[styles.body, bodyAnimatedStyle]}>
+        {children(isReady)}
+      </Animated.View>
+    </>
+  );
+}
+
+export default function RegisterScreen() {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
+  const [nickname, setNickname] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [school, setSchool] = useState("");
+
+  const signupMutation = useSignupMutation();
+
+  const step = STEPS[stepIndex];
+  const primaryInputRef = useRef<TextInput>(null);
+
   const phoneInvalid = phone.length > 0 && !PHONE_RULE.test(phone);
   const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
   const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
@@ -299,11 +333,13 @@ export default function RegisterScreen() {
               <ChevronLeft color="#111827" size={28} strokeWidth={2.3} />
             </Pressable>
 
-            <Animated.Text style={[styles.heading, headingAnimatedStyle]}>
-              {HEADINGS[step]}
-            </Animated.Text>
-
-            <Animated.View style={[styles.body, bodyAnimatedStyle]}>
+            <AnimatedStep
+              key={step}
+              heading={HEADINGS[step]}
+              onReady={() => primaryInputRef.current?.focus()}
+            >
+              {(isReady) => (
+                <>
               {step === "consent" && (
                 <View>
                   <Pressable
@@ -363,6 +399,7 @@ export default function RegisterScreen() {
               {step === "nickname" && (
                 <TextInput
                   ref={primaryInputRef}
+                  editable={isReady}
                   placeholder="이름"
                   placeholderTextColor="#94a3b8"
                   style={styles.input}
@@ -376,6 +413,7 @@ export default function RegisterScreen() {
                 <>
                   <TextInput
                     ref={primaryInputRef}
+                    editable={isReady}
                     keyboardType="phone-pad"
                     maxLength={13}
                     placeholder="010-0000-0000"
@@ -396,6 +434,7 @@ export default function RegisterScreen() {
                 <>
                   <TextInput
                     ref={primaryInputRef}
+                    editable={isReady}
                     autoCapitalize="none"
                     autoComplete="email"
                     keyboardType="email-address"
@@ -417,6 +456,7 @@ export default function RegisterScreen() {
                 <>
                   <TextInput
                     ref={primaryInputRef}
+                    editable={isReady}
                     placeholder="Password"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry
@@ -431,6 +471,7 @@ export default function RegisterScreen() {
                   ) : null}
 
                   <TextInput
+                    editable={isReady}
                     placeholder="Confirm Password"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry
@@ -449,6 +490,7 @@ export default function RegisterScreen() {
               {step === "school" && (
                 <TextInput
                   ref={primaryInputRef}
+                  editable={isReady}
                   placeholder="학교명 (선택)"
                   placeholderTextColor="#94a3b8"
                   style={styles.input}
@@ -462,7 +504,9 @@ export default function RegisterScreen() {
                   {getApiErrorMessage(signupMutation.error)}
                 </Text>
               ) : null}
-            </Animated.View>
+                </>
+              )}
+            </AnimatedStep>
 
             <Pressable
               style={[
