@@ -22,7 +22,7 @@ type AuthContextValue = {
   /** 로그인/회원가입 성공 시 세션을 저장하고 인증 상태로 전환 */
   signIn: (session: AuthSession) => Promise<void>;
   /** 게스트로 계속하기(토큰 없이 제한된 기능 사용) */
-  continueAsGuest: () => void;
+  continueAsGuest: () => Promise<void>;
   /** 로그아웃: 저장된 세션을 지우고 미로그인 상태로 전환 */
   signOut: () => Promise<void>;
 };
@@ -70,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("authenticated");
   }, []);
 
-  const continueAsGuest = useCallback(() => {
+  const continueAsGuest = useCallback(async () => {
+    await tokenStorage.clear();
     setUser(null);
     setAccessToken(null);
     setStatus("guest");

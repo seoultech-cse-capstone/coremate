@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Mail, MessageCircle } from "lucide-react-native";
+import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
@@ -37,12 +38,23 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 }
 
 export default function StartScreen() {
-  const { continueAsGuest } = useAuth();
+  const { continueAsGuest, status } = useAuth();
 
-  const handleGuest = () => {
-    continueAsGuest();
+  // 세션이 복원되어 이미 로그인된 상태라면 시작화면을 보여주지 않고 바로 홈으로 보낸다.
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/(tabs)/home");
+    }
+  }, [status]);
+
+  const handleGuest = async () => {
+    await continueAsGuest();
     router.replace("/(tabs)/content");
   };
+
+  if (status === "loading" || status === "authenticated") {
+    return null;
+  }
 
   return (
     <LinearGradient
