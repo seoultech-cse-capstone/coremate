@@ -92,6 +92,10 @@ export default function StartScreen() {
           <Pressable style={styles.guestButton} onPress={handleGuest}>
             <Text style={styles.guestButtonText}>비로그인으로 체험하기</Text>
           </Pressable>
+
+          <Text style={styles.guestNotice}>
+            게스트로 로그인할 시 기능이 제한될 수 있습니다.
+          </Text>
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -184,5 +188,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textDecorationLine: "underline",
+  },
+  guestNotice: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
   },
 });
