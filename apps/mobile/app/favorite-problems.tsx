@@ -3,10 +3,12 @@ import { BookmarkX, ChevronLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -44,6 +46,9 @@ type ScreenState =
 export default function FavoriteProblemsScreen() {
   const { accessToken } = useAuth();
   const [state, setState] = useState<ScreenState>({ status: "loading" });
+  const [memoModal, setMemoModal] = useState<{ bookmarkId: number } | null>(null);
+  const [memoDraft, setMemoDraft] = useState("");
+  const [isSavingMemo, setIsSavingMemo] = useState(false);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
 
   useEffect(() => {
@@ -118,6 +123,47 @@ export default function FavoriteProblemsScreen() {
       showToast("즐겨찾기에서 삭제했어요");
     } catch (error) {
       console.error("[favorite-problems] 즐겨찾기 해제 실패", error);
+    }
+  };
+
+  const openMemoModal = (item: FavoriteItem) => {
+    setMemoModal({ bookmarkId: item.bookmarkId });
+    setMemoDraft(item.memo ?? "");
+  };
+
+  const closeMemoModal = () => {
+    setMemoModal(null);
+    setMemoDraft("");
+  };
+
+  const saveMemo = async () => {
+    if (!accessToken || !memoModal || isSavingMemo) {
+      return;
+    }
+    const bookmarkId = memoModal.bookmarkId;
+    const trimmedMemo = memoDraft.trim();
+
+    setIsSavingMemo(true);
+    try {
+      await bookmarkApi.updateMemo(bookmarkId, trimmedMemo, accessToken);
+      setState((current) =>
+        current.status === "ready"
+          ? {
+              status: "ready",
+              items: current.items.map((item) =>
+                item.bookmarkId === bookmarkId
+                  ? { ...item, memo: trimmedMemo || null }
+                  : item,
+              ),
+            }
+          : current,
+      );
+      showToast("메모를 저장했어요");
+      closeMemoModal();
+    } catch (error) {
+      console.error("[favorite-problems] 메모 저장 실패", error);
+    } finally {
+      setIsSavingMemo(false);
     }
   };
 
@@ -203,9 +249,30 @@ export default function FavoriteProblemsScreen() {
                       {QUESTION_FORMAT_LABEL[item.questionFormat] ?? item.questionFormat}
                     </Text>
 
+                    {item.memo && (
+                      <Text numberOfLines={1} style={styles.memoPreview}>
+                        메모: {item.memo}
+                      </Text>
+                    )}
+
                     <View style={styles.cardFooter}>
                       <Text style={styles.date}>{formatDate(item.bookmarkedAt)}</Text>
-                      <Text style={styles.linkText}>개념 보기</Text>
+
+                      <View style={styles.footerActions}>
+                        <Text style={styles.linkText}>개념 보기</Text>
+                        <Text style={styles.footerDivider}>|</Text>
+                        <Pressable
+                          hitSlop={6}
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            openMemoModal(item);
+                          }}
+                        >
+                          <Text style={styles.linkText}>
+                            {item.memo ? "메모 수정" : "메모 작성"}
+                          </Text>
+                        </Pressable>
+                      </View>
                     </View>
                   </Pressable>
                 ))}
@@ -216,6 +283,45 @@ export default function FavoriteProblemsScreen() {
       </SafeAreaView>
 
       <Toast message={toastMessage} opacity={toastOpacity} />
+
+      <Modal
+        animationType="fade"
+        transparent
+        visible={memoModal !== null}
+        onRequestClose={closeMemoModal}
+      >
+        <View style={styles.modalDim}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>메모</Text>
+            <TextInput
+              autoFocus
+              multiline
+              maxLength={2000}
+              placeholder="이 문제에 대한 메모를 남겨보세요"
+              placeholderTextColor="#94a3b8"
+              style={styles.memoInput}
+              value={memoDraft}
+              onChangeText={setMemoDraft}
+            />
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelButton} onPress={closeMemoModal}>
+                <Text style={styles.cancelButtonText}>취소</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={isSavingMemo}
+                style={styles.saveButton}
+                onPress={saveMemo}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isSavingMemo ? "저장 중…" : "저장"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -328,6 +434,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 21,
   },
+  memoPreview: {
+    marginTop: 8,
+    color: "#6D5DFB",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "500",
+  },
   cardFooter: {
     marginTop: 16,
     flexDirection: "row",
@@ -340,10 +453,85 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
+  footerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  footerDivider: {
+    color: "#CBD5E1",
+    fontSize: 12,
+  },
   linkText: {
     color: "#6D5DFB",
     fontFamily: FONT.pretendard,
     fontSize: 13,
+    fontWeight: "700",
+  },
+  modalDim: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.35)",
+    paddingHorizontal: 28,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    padding: 20,
+  },
+  modalTitle: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  memoInput: {
+    minHeight: 96,
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    textAlignVertical: "top",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  cancelButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "#F1F5F9",
+  },
+  cancelButtonText: {
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  saveButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "#6D5DFB",
+  },
+  saveButtonText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
     fontWeight: "700",
   },
 });

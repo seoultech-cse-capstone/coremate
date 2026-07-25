@@ -25,4 +25,12 @@ export const bookmarkApi = {
       accessToken,
     });
   },
+
+  updateMemo(bookmarkId: number, memo: string, accessToken: string): Promise<Bookmark> {
+    return httpClient.put<Bookmark>(
+      `/api/bookmarks/${bookmarkId}/memo`,
+      { memo },
+      { accessToken },
+    );
+  },
 };
