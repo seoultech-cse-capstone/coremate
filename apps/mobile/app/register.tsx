@@ -110,6 +110,8 @@ export default function RegisterScreen() {
   // 스텝이 바뀔 때마다 큰 제목이 먼저, 살짝 뒤이어 입력 영역이 위에서 아래로 내려오며 나타난다.
   const headingAnim = useRef(new Animated.Value(0)).current;
   const bodyAnim = useRef(new Animated.Value(0)).current;
+  // 입력칸이 등장 애니메이션보다 먼저 포커스/키보드를 띄우지 않도록, 애니메이션이 끝난 뒤에만 포커스한다.
+  const primaryInputRef = useRef<TextInput>(null);
 
   useLayoutEffect(() => {
     headingAnim.setValue(0);
@@ -125,7 +127,9 @@ export default function RegisterScreen() {
         duration: 480,
         useNativeDriver: true,
       }),
-    ]).start();
+    ]).start(() => {
+      primaryInputRef.current?.focus();
+    });
   }, [step, headingAnim, bodyAnim]);
 
   const headingAnimatedStyle = {
@@ -358,7 +362,7 @@ export default function RegisterScreen() {
 
               {step === "nickname" && (
                 <TextInput
-                  autoFocus
+                  ref={primaryInputRef}
                   placeholder="이름"
                   placeholderTextColor="#94a3b8"
                   style={styles.input}
@@ -371,7 +375,7 @@ export default function RegisterScreen() {
               {step === "phone" && (
                 <>
                   <TextInput
-                    autoFocus
+                    ref={primaryInputRef}
                     keyboardType="phone-pad"
                     maxLength={13}
                     placeholder="010-0000-0000"
@@ -391,9 +395,9 @@ export default function RegisterScreen() {
               {step === "email" && (
                 <>
                   <TextInput
+                    ref={primaryInputRef}
                     autoCapitalize="none"
                     autoComplete="email"
-                    autoFocus
                     keyboardType="email-address"
                     placeholder="Email"
                     placeholderTextColor="#94a3b8"
@@ -412,7 +416,7 @@ export default function RegisterScreen() {
               {step === "password" && (
                 <>
                   <TextInput
-                    autoFocus
+                    ref={primaryInputRef}
                     placeholder="Password"
                     placeholderTextColor="#94a3b8"
                     secureTextEntry
@@ -444,7 +448,7 @@ export default function RegisterScreen() {
 
               {step === "school" && (
                 <TextInput
-                  autoFocus
+                  ref={primaryInputRef}
                   placeholder="학교명 (선택)"
                   placeholderTextColor="#94a3b8"
                   style={styles.input}
