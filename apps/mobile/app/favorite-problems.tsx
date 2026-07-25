@@ -16,6 +16,8 @@ import { useAuth } from "../src/features/auth";
 import { bookmarkApi } from "../src/features/bookmark/bookmarkApi";
 import type { BookmarkedQuestion } from "../src/features/bookmark/types";
 import { contentApi } from "../src/features/content/contentApi";
+import { Toast } from "../src/shared/components/Toast";
+import { useToast } from "../src/shared/hooks/useToast";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 type FavoriteItem = BookmarkedQuestion & {
@@ -42,6 +44,7 @@ type ScreenState =
 export default function FavoriteProblemsScreen() {
   const { accessToken } = useAuth();
   const [state, setState] = useState<ScreenState>({ status: "loading" });
+  const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
 
   useEffect(() => {
     if (!accessToken) {
@@ -112,6 +115,7 @@ export default function FavoriteProblemsScreen() {
             }
           : current,
       );
+      showToast("즐겨찾기에서 삭제했어요");
     } catch (error) {
       console.error("[favorite-problems] 즐겨찾기 해제 실패", error);
     }
@@ -210,6 +214,8 @@ export default function FavoriteProblemsScreen() {
           )}
         </View>
       </SafeAreaView>
+
+      <Toast message={toastMessage} opacity={toastOpacity} />
     </View>
   );
 }
