@@ -1,8 +1,11 @@
 import { router } from "expo-router";
 
+import { useRequireMember } from "../src/features/auth";
 import { MistakeExamReview } from "../src/features/logWeak/components/MistakeExamReview";
 
 export default function DailyQuizReviewScreen() {
+  useRequireMember();
+
   return (
     <MistakeExamReview
       category="오늘의 퀴즈"

@@ -1,8 +1,11 @@
 import { router } from "expo-router";
 
+import { useRequireMember } from "../src/features/auth";
 import { SolveQuestionScreen } from "../src/features/solve/components/SolveQuestionScreen";
 
 export default function DailyQuizScreen() {
+  useRequireMember();
+
   return (
     <SolveQuestionScreen
       sessionType="DAILY_QUIZ"
