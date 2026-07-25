@@ -8,6 +8,7 @@ import Svg, { Path } from "react-native-svg";
 
 import { FONT } from "../constants/fonts";
 import { useAuth } from "../src/features/auth";
+import { LoadingScreen } from "../src/shared/components/LoadingScreen";
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
   return (
@@ -53,7 +54,7 @@ export default function StartScreen() {
   };
 
   if (status === "loading" || status === "authenticated") {
-    return null;
+    return <LoadingScreen />;
   }
 
   return (
