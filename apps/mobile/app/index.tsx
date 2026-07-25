@@ -49,7 +49,7 @@ export default function StartScreen() {
 
   const handleGuest = async () => {
     await continueAsGuest();
-    router.replace("/(tabs)/content");
+    router.replace("/(tabs)/home");
   };
 
   if (status === "loading" || status === "authenticated") {

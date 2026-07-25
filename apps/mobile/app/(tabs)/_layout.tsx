@@ -21,9 +21,11 @@ const BRAND_PURPLE = "#6D5DFB";
 const TAB_GRAY = "#94a3b8";
 
 export default function TabsLayout() {
+  const { status } = useAuth();
   return (
     <LogWeakSelectionProvider>
-      <TabsNavigator />
+      {/* status가 바뀔 때마다 재마운트해 로그아웃 전 마지막 탭(예: 마이페이지) 기억을 초기화한다 */}
+      <TabsNavigator key={status} />
     </LogWeakSelectionProvider>
   );
 }
