@@ -8,6 +8,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -63,9 +64,45 @@ export function ConceptSolveScreen({
   const [isHintVisible, setIsHintVisible] = useState(false);
   const [bookmarkMap, setBookmarkMap] = useState<Map<number, number>>(new Map());
   const [isBookmarkPending, setIsBookmarkPending] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    setToastMessage(message);
+    toastOpacity.setValue(0);
+    Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+
+    toastTimeoutRef.current = setTimeout(() => {
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setToastMessage(null);
+        }
+      });
+    }, 1600);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,6 +299,7 @@ export function ConceptSolveScreen({
           next.delete(currentQuestion.questionId);
           return next;
         });
+        showToast("즐겨찾기에서 제거했어요");
       } else {
         const created = await bookmarkApi.create(
           currentQuestion.questionId,
@@ -272,6 +310,7 @@ export function ConceptSolveScreen({
           next.set(currentQuestion.questionId, created.bookmarkId);
           return next;
         });
+        showToast("즐겨찾기에 추가했어요");
       }
     } catch (error) {
       // 북마크 토글 실패는 풀이 흐름을 막지 않지만, 원인 파악을 위해 로그는 남긴다.
@@ -436,6 +475,18 @@ export function ConceptSolveScreen({
           )}
         </Pressable>
       </View>
+
+      {toastMessage && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.toast,
+            { bottom: insets.bottom + 84, opacity: toastOpacity },
+          ]}
+        >
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -569,4 +620,20 @@ const styles = StyleSheet.create({
   disabledButton: { backgroundColor: "#f1f3f5" },
   disabledPrimaryButton: { backgroundColor: "#b6b0f7" },
   disabledText: { color: "#aab2bd" },
+  toast: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    alignItems: "center",
+    borderRadius: 999,
+    backgroundColor: "rgba(17, 24, 39, 0.92)",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  toastText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
+  },
 });
