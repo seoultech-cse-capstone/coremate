@@ -8,6 +8,7 @@ import com.coremate.backend.auth.dto.request.ResetPasswordRequest;
 import com.coremate.backend.auth.dto.request.SendResetCodeRequest;
 import com.coremate.backend.auth.dto.request.SignupRequest;
 import com.coremate.backend.auth.dto.request.VerifyResetCodeRequest;
+import com.coremate.backend.auth.dto.request.WithdrawRequest;
 import com.coremate.backend.auth.dto.response.AuthTokenResponse;
 import com.coremate.backend.auth.dto.response.FindEmailResponse;
 import com.coremate.backend.auth.dto.response.LoginResponse;
@@ -90,5 +91,13 @@ public class AuthController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         passwordResetService.resetPassword(request);
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "본인 확인(비밀번호) 후 계정을 탈퇴 처리하고 세션을 무효화한다.")
+    @PostMapping("/withdraw")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdraw(@AuthenticationPrincipal CustomUserDetails userDetails,
+                         @Valid @RequestBody WithdrawRequest request) {
+        authService.withdraw(userDetails.getUserId(), request.getPassword());
     }
 }

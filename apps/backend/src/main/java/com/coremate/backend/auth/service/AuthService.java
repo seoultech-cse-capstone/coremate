@@ -94,6 +94,22 @@ public class AuthService {
         redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
     }
 
+    public void withdraw(Long userId, String password) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new CoreMateException(ErrorCode.ALREADY_WITHDRAWN);
+        }
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new CoreMateException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        user.withdraw();
+        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+    }
+
     @Transactional(readOnly = true)
     public AuthTokenResponse reissue(ReissueTokenRequest request) {
         String refreshToken = request.getRefreshToken();
