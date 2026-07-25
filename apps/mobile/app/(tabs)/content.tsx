@@ -36,6 +36,10 @@ import {
   useSubjects,
 } from "../../src/features/content";
 import type { ChildCountKind, Subject } from "../../src/features/content";
+import {
+  useLanguage,
+  type ContentLanguage,
+} from "../../src/shared/language/LanguageContext";
 
 type ContentDepth = "subject" | "category1" | "category2" | "concept";
 
@@ -74,11 +78,26 @@ const SUBJECT_VISUALS: Record<
   CA: { Icon: Monitor, iconColor: "#F43F5E", thumbnailColor: "#FFE2E5" },
 };
 
-function mapSubject(subject: Subject, chapterCount: number): ProblemSetItem {
+function pickLocalizedName(
+  ko: string,
+  en: string,
+  language: ContentLanguage,
+): string {
+  if (language === "en") {
+    return en || ko;
+  }
+  return ko || en;
+}
+
+function mapSubject(
+  subject: Subject,
+  chapterCount: number,
+  language: ContentLanguage,
+): ProblemSetItem {
   const visuals = SUBJECT_VISUALS[subject.subjectCode];
   return {
     id: subject.subjectId,
-    title: subject.subjectNameEn || subject.subjectName,
+    title: pickLocalizedName(subject.subjectName, subject.subjectNameEn, language),
     chapterCount,
     progress: PLACEHOLDER_PROGRESS,
     hasSolved: false,
@@ -183,6 +202,7 @@ export default function ContentScreen() {
   const insets = useSafeAreaInsets();
   const { status } = useAuth();
   const isGuest = status === "guest";
+  const { language } = useLanguage();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [trail, setTrail] = useState<TrailItem[]>([{ depth: "subject" }]);
   const currentTrail = trail[trail.length - 1];
@@ -248,6 +268,7 @@ export default function ContentScreen() {
             mapSubject(
               subject,
               childCounts.get(subject.subjectId) ?? PLACEHOLDER_CHAPTER_COUNT,
+              language,
             ),
           );
       case "category1":
@@ -256,7 +277,11 @@ export default function ContentScreen() {
           .map((category) =>
             mapNode(
               category.categoryLv1Id,
-              category.categoryLv1NameEn || category.categoryLv1Name,
+              pickLocalizedName(
+                category.categoryLv1Name,
+                category.categoryLv1NameEn,
+                language,
+              ),
               childCounts.get(category.categoryLv1Id) ?? PLACEHOLDER_CHAPTER_COUNT,
             ),
           );
@@ -266,7 +291,11 @@ export default function ContentScreen() {
           .map((category) =>
             mapNode(
               category.categoryLv2Id,
-              category.categoryLv2NameEn || category.categoryLv2Name,
+              pickLocalizedName(
+                category.categoryLv2Name,
+                category.categoryLv2NameEn,
+                language,
+              ),
               childCounts.get(category.categoryLv2Id) ?? PLACEHOLDER_CHAPTER_COUNT,
             ),
           );
@@ -276,7 +305,7 @@ export default function ContentScreen() {
           .map((concept) =>
             mapNode(
               concept.conceptId,
-              concept.conceptNameEn || concept.conceptName,
+              pickLocalizedName(concept.conceptName, concept.conceptNameEn, language),
               PLACEHOLDER_CHAPTER_COUNT,
             ),
           );
@@ -288,6 +317,7 @@ export default function ContentScreen() {
     categoryLv2Query.data,
     conceptsQuery.data,
     childCounts,
+    language,
   ]);
 
   const resetContent = useCallback(() => {

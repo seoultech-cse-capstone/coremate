@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Globe,
   LogOut,
   Pencil,
   Shield,
@@ -29,6 +30,7 @@ type SettingRoute =
   | "/edit-profile"
   | "/edit-nickname"
   | "/notification-settings"
+  | "/language-settings"
   | "/terms-policies"
   | "/privacy-policy"
   | "/delete-account";
@@ -65,6 +67,7 @@ const settingSections: SettingSection[] = [
     title: "서비스",
     items: [
       { label: "알림 설정", Icon: Bell, route: "/notification-settings" },
+      { label: "언어 설정", Icon: Globe, route: "/language-settings" },
       { label: "약관 및 정책", Icon: FileText, route: "/terms-policies" },
       { label: "개인정보 처리방침", Icon: Shield, route: "/privacy-policy" },
     ],
