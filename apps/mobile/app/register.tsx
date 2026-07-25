@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -105,6 +106,51 @@ export default function RegisterScreen() {
   const signupMutation = useSignupMutation();
 
   const step = STEPS[stepIndex];
+
+  // 스텝이 바뀔 때마다 큰 제목이 먼저, 살짝 뒤이어 입력 영역이 위에서 아래로 내려오며 나타난다.
+  const headingAnim = useRef(new Animated.Value(0)).current;
+  const bodyAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    headingAnim.setValue(0);
+    bodyAnim.setValue(0);
+    Animated.stagger(70, [
+      Animated.timing(headingAnim, {
+        toValue: 1,
+        duration: 160,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bodyAnim, {
+        toValue: 1,
+        duration: 160,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [step, headingAnim, bodyAnim]);
+
+  const headingAnimatedStyle = {
+    opacity: headingAnim,
+    transform: [
+      {
+        translateY: headingAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-16, 0],
+        }),
+      },
+    ],
+  };
+
+  const bodyAnimatedStyle = {
+    opacity: bodyAnim,
+    transform: [
+      {
+        translateY: bodyAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-16, 0],
+        }),
+      },
+    ],
+  };
   const phoneInvalid = phone.length > 0 && !PHONE_RULE.test(phone);
   const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
   const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
@@ -246,9 +292,11 @@ export default function RegisterScreen() {
               <ChevronLeft color="#111827" size={28} strokeWidth={2.3} />
             </Pressable>
 
-            <Text style={styles.heading}>{HEADINGS[step]}</Text>
+            <Animated.Text style={[styles.heading, headingAnimatedStyle]}>
+              {HEADINGS[step]}
+            </Animated.Text>
 
-            <View style={styles.body}>
+            <Animated.View style={[styles.body, bodyAnimatedStyle]}>
               {step === "consent" && (
                 <View>
                   <Pressable
@@ -407,7 +455,7 @@ export default function RegisterScreen() {
                   {getApiErrorMessage(signupMutation.error)}
                 </Text>
               ) : null}
-            </View>
+            </Animated.View>
 
             <Pressable
               style={[
