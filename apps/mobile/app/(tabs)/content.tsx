@@ -31,10 +31,11 @@ import { ProblemSetCard } from "../../src/features/content/components/ProblemSet
 import {
   useCategoryLv1List,
   useCategoryLv2List,
+  useChildCounts,
   useConcepts,
   useSubjects,
 } from "../../src/features/content";
-import type { Subject } from "../../src/features/content";
+import type { ChildCountKind, Subject } from "../../src/features/content";
 
 type ContentDepth = "subject" | "category1" | "category2" | "concept";
 
@@ -73,12 +74,12 @@ const SUBJECT_VISUALS: Record<
   CA: { Icon: Monitor, iconColor: "#F43F5E", thumbnailColor: "#FFE2E5" },
 };
 
-function mapSubject(subject: Subject): ProblemSetItem {
+function mapSubject(subject: Subject, chapterCount: number): ProblemSetItem {
   const visuals = SUBJECT_VISUALS[subject.subjectCode];
   return {
     id: subject.subjectId,
     title: subject.subjectNameEn || subject.subjectName,
-    chapterCount: PLACEHOLDER_CHAPTER_COUNT,
+    chapterCount,
     progress: PLACEHOLDER_PROGRESS,
     hasSolved: false,
     Icon: visuals?.Icon,
@@ -87,11 +88,11 @@ function mapSubject(subject: Subject): ProblemSetItem {
   };
 }
 
-function mapNode(id: number, title: string): ProblemSetItem {
+function mapNode(id: number, title: string, chapterCount: number): ProblemSetItem {
   return {
     id,
     title,
-    chapterCount: PLACEHOLDER_CHAPTER_COUNT,
+    chapterCount,
     progress: PLACEHOLDER_PROGRESS,
     hasSolved: false,
   };
@@ -212,12 +213,43 @@ export default function ContentScreen() {
           ? categoryLv2Query
           : conceptsQuery;
 
+  // 카드에 보여줄 "바로 하위 단계 개수"(예: 과목 카드엔 대분류 개수)를 병렬 조회한다.
+  // 개념 카드의 "문제 개수"는 ProblemSetController가 필요해 이번 범위에서는 제외한다.
+  const childCountKind: ChildCountKind =
+    currentDepth === "subject"
+      ? "category-lv1"
+      : currentDepth === "category1"
+        ? "category-lv2"
+        : currentDepth === "category2"
+          ? "concepts"
+          : null;
+
+  const childCountIds = useMemo(() => {
+    switch (currentDepth) {
+      case "subject":
+        return (subjectsQuery.data ?? []).map((subject) => subject.subjectId);
+      case "category1":
+        return (categoryLv1Query.data ?? []).map((category) => category.categoryLv1Id);
+      case "category2":
+        return (categoryLv2Query.data ?? []).map((category) => category.categoryLv2Id);
+      default:
+        return [];
+    }
+  }, [currentDepth, subjectsQuery.data, categoryLv1Query.data, categoryLv2Query.data]);
+
+  const childCounts = useChildCounts(childCountKind, childCountIds);
+
   const currentItems = useMemo<ProblemSetItem[]>(() => {
     switch (currentDepth) {
       case "subject":
         return [...(subjectsQuery.data ?? [])]
           .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map(mapSubject);
+          .map((subject) =>
+            mapSubject(
+              subject,
+              childCounts.get(subject.subjectId) ?? PLACEHOLDER_CHAPTER_COUNT,
+            ),
+          );
       case "category1":
         return [...(categoryLv1Query.data ?? [])]
           .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -225,6 +257,7 @@ export default function ContentScreen() {
             mapNode(
               category.categoryLv1Id,
               category.categoryLv1NameEn || category.categoryLv1Name,
+              childCounts.get(category.categoryLv1Id) ?? PLACEHOLDER_CHAPTER_COUNT,
             ),
           );
       case "category2":
@@ -234,13 +267,18 @@ export default function ContentScreen() {
             mapNode(
               category.categoryLv2Id,
               category.categoryLv2NameEn || category.categoryLv2Name,
+              childCounts.get(category.categoryLv2Id) ?? PLACEHOLDER_CHAPTER_COUNT,
             ),
           );
       case "concept":
         return [...(conceptsQuery.data ?? [])]
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map((concept) =>
-            mapNode(concept.conceptId, concept.conceptNameEn || concept.conceptName),
+            mapNode(
+              concept.conceptId,
+              concept.conceptNameEn || concept.conceptName,
+              PLACEHOLDER_CHAPTER_COUNT,
+            ),
           );
     }
   }, [
@@ -249,6 +287,7 @@ export default function ContentScreen() {
     categoryLv1Query.data,
     categoryLv2Query.data,
     conceptsQuery.data,
+    childCounts,
   ]);
 
   const resetContent = useCallback(() => {
