@@ -70,3 +70,11 @@ export function useConcepts(categoryLv2Id: number | null) {
     enabled: categoryLv2Id !== null,
   });
 }
+
+export function useConceptDetail(conceptId: number | null) {
+  return useQuery({
+    queryKey: ["content", "concept-detail", conceptId],
+    queryFn: () => contentApi.getConceptDetail(conceptId as number),
+    enabled: conceptId !== null,
+  });
+}

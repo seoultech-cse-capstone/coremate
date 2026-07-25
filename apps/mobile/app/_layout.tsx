@@ -76,6 +76,10 @@ export default function RootLayout() {
           name="mistake-exam-review"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="concept-detail"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="solve" options={{ headerShown: false }} />
         <Stack.Screen name="solve-result" options={{ headerShown: false }} />
         <Stack.Screen name="daily-quiz" options={{ headerShown: false }} />

@@ -40,6 +40,33 @@ export type Concept = {
   sortOrder: number;
 };
 
+export type SourceRef = {
+  chunkId: string | null;
+  sourceFile: string | null;
+  page: number | null;
+};
+
+export type ConceptDetail = {
+  conceptId: number;
+  conceptCode: string;
+  subjectId: number;
+  subjectName: string;
+  categoryLv1Id: number;
+  categoryLv1Name: string;
+  categoryLv2Id: number;
+  categoryLv2Name: string;
+  conceptName: string;
+  conceptNameEn: string;
+  aliases: string[];
+  oneLineDefinition: string;
+  coreSummary: string;
+  coreKeywords: string[];
+  keyProperties: string[];
+  sourceRefs: SourceRef[];
+  reviewStatus: string;
+  isActive: boolean;
+};
+
 export type ApiEnvelope<T> = {
   success: boolean;
   message: string;

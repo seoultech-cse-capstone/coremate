@@ -381,6 +381,13 @@ export default function ContentScreen() {
     });
   };
 
+  const viewConceptDetail = (item: ProblemSetItem) => {
+    router.push({
+      pathname: "/concept-detail",
+      params: { conceptId: String(item.id) },
+    });
+  };
+
   const openRecentReview = (item: ProblemSetItem) => {
     // 해설/기록 확인은 회원 전용이라 게스트는 로그인 필요 안내로 보낸다.
     if (isGuest) {
@@ -476,11 +483,13 @@ export default function ContentScreen() {
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
+                    startButtonLabel={currentStartButtonLabel}
                     thumbnailColor={
                       item.thumbnailColor ?? currentThumbnail.thumbnailColor
                     }
                     title={item.title}
-                    onPress={() => startProblemSet(item)}
+                    onStart={() => startProblemSet(item)}
+                    onViewDetail={() => viewConceptDetail(item)}
                   />
                 ) : (
                   <ProblemSetCard
