@@ -112,4 +112,8 @@ public class User {
     public void updatePhoneNumber(String phoneNumber) {
         this.phoneNumber = phoneNumber;
     }
+
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }

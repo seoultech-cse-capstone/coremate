@@ -4,13 +4,19 @@ import com.coremate.backend.auth.dto.request.FindEmailRequest;
 import com.coremate.backend.auth.dto.request.LoginRequest;
 import com.coremate.backend.auth.dto.request.LogoutRequest;
 import com.coremate.backend.auth.dto.request.ReissueTokenRequest;
+import com.coremate.backend.auth.dto.request.ResetPasswordRequest;
+import com.coremate.backend.auth.dto.request.SendResetCodeRequest;
 import com.coremate.backend.auth.dto.request.SignupRequest;
+import com.coremate.backend.auth.dto.request.VerifyResetCodeRequest;
 import com.coremate.backend.auth.dto.response.AuthTokenResponse;
 import com.coremate.backend.auth.dto.response.FindEmailResponse;
 import com.coremate.backend.auth.dto.response.LoginResponse;
+import com.coremate.backend.auth.dto.response.ResetCodeResponse;
+import com.coremate.backend.auth.dto.response.ResetTokenResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
 import com.coremate.backend.auth.service.AccountRecoveryService;
 import com.coremate.backend.auth.service.AuthService;
+import com.coremate.backend.auth.service.PasswordResetService;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +38,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final AccountRecoveryService accountRecoveryService;
+    private final PasswordResetService passwordResetService;
 
     @Operation(summary = "회원가입")
     @PostMapping("/signup")
@@ -64,5 +71,24 @@ public class AuthController {
     @PostMapping("/find-email")
     public FindEmailResponse findEmail(@Valid @RequestBody FindEmailRequest request) {
         return accountRecoveryService.findEmail(request);
+    }
+
+    @Operation(summary = "비밀번호 재설정 인증번호 발송", description = "가입 이메일로 6자리 인증번호를 발송한다.")
+    @PostMapping("/password/reset-code")
+    public ResetCodeResponse sendResetCode(@Valid @RequestBody SendResetCodeRequest request) {
+        return passwordResetService.sendResetCode(request);
+    }
+
+    @Operation(summary = "비밀번호 재설정 인증번호 검증", description = "인증번호 검증에 성공하면 재설정 토큰을 발급한다.")
+    @PostMapping("/password/verify-code")
+    public ResetTokenResponse verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request) {
+        return passwordResetService.verifyResetCode(request);
+    }
+
+    @Operation(summary = "비밀번호 재설정", description = "재설정 토큰과 새 비밀번호로 비밀번호를 변경한다.")
+    @PostMapping("/password/reset")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request);
     }
 }

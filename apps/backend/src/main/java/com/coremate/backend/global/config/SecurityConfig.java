@@ -41,7 +41,10 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/signup",
                                 "/api/auth/reissue",
-                                "/api/auth/find-email"
+                                "/api/auth/find-email",
+                                "/api/auth/password/reset-code",
+                                "/api/auth/password/verify-code",
+                                "/api/auth/password/reset"
                         ).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
