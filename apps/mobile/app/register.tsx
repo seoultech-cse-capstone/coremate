@@ -32,6 +32,46 @@ const PASSWORD_RULE_MESSAGE =
 const PHONE_RULE = /^01[016789]\d{7,8}$/;
 const PHONE_RULE_MESSAGE = "올바른 휴대폰 번호 형식이 아닙니다.";
 
+const EMAIL_DOMAINS = [
+  "naver.com",
+  "gmail.com",
+  "daum.net",
+  "kakao.com",
+  "nate.com",
+];
+
+// "ehdgns" → 흔한 도메인을 붙인 전체 이메일 후보들, "ehdgns@na" → "na"로 시작하는
+// 도메인만 후보로. 이미 완전히 일치하는 도메인을 직접 다 입력했으면 후보를 숨긴다.
+function getEmailSuggestions(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const atIndex = trimmed.indexOf("@");
+  if (atIndex === -1) {
+    return EMAIL_DOMAINS.map((domain) => `${trimmed}@${domain}`);
+  }
+
+  const localPart = trimmed.slice(0, atIndex);
+  const domainQuery = trimmed.slice(atIndex + 1);
+  if (!localPart) {
+    return [];
+  }
+  if (domainQuery.length === 0) {
+    return EMAIL_DOMAINS.map((domain) => `${localPart}@${domain}`);
+  }
+
+  const matches = EMAIL_DOMAINS.filter((domain) =>
+    domain.startsWith(domainQuery),
+  );
+  if (matches.length === 0 || (matches.length === 1 && matches[0] === domainQuery)) {
+    return [];
+  }
+
+  return matches.map((domain) => `${localPart}@${domain}`);
+}
+
 function formatPhoneNumber(digits: string): string {
   if (digits.length < 4) {
     return digits;
@@ -191,6 +231,7 @@ export default function RegisterScreen() {
 
   const phoneInvalid = phone.length > 0 && !PHONE_RULE.test(phone);
   const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
+  const emailSuggestions = getEmailSuggestions(email);
   const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
   const passwordsMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
@@ -444,7 +485,25 @@ export default function RegisterScreen() {
                     value={email}
                     onChangeText={setEmail}
                   />
-                  {emailInvalid ? (
+                  {emailSuggestions.length > 0 ? (
+                    <View style={styles.suggestionList}>
+                      {emailSuggestions.map((suggestion, index) => (
+                        <Pressable
+                          key={suggestion}
+                          style={[
+                            styles.suggestionItem,
+                            index === emailSuggestions.length - 1 &&
+                              styles.suggestionItemLast,
+                          ]}
+                          onPress={() => setEmail(suggestion)}
+                        >
+                          <Text style={styles.suggestionText}>
+                            {suggestion}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : emailInvalid ? (
                     <Text style={styles.errorText}>
                       올바른 이메일 형식이 아닙니다.
                     </Text>
@@ -579,6 +638,29 @@ const styles = StyleSheet.create({
   },
   inputSpacing: {
     marginTop: 12,
+  },
+  suggestionList: {
+    marginTop: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#ffffff",
+    overflow: "hidden",
+  },
+  suggestionItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  suggestionItemLast: {
+    borderBottomWidth: 0,
+  },
+  suggestionText: {
+    color: "#111827",
+    fontFamily: FONT.kufam,
+    fontSize: 15,
+    fontWeight: "500",
   },
   errorText: {
     color: "#dc2626",
