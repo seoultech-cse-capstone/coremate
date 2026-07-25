@@ -25,6 +25,8 @@ export default function RootLayout() {
           <Stack
         screenOptions={{
           gestureEnabled: false,
+          animation: "fade",
+          animationDuration: 120,
           headerStyle: { backgroundColor: "#ffffff" },
           headerTitleStyle: {
             fontFamily: FONT.pretendard,
