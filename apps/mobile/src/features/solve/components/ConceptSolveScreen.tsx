@@ -1,0 +1,433 @@
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { FONT } from "../../../../constants/fonts";
+import { getApiErrorMessage } from "../../../shared/utils/apiError";
+import { solveApi } from "../solveApi";
+import type { SolveQuestion, SolveReviewItem } from "../types";
+
+const BRAND_PURPLE = "#6D5DFB";
+
+type ConceptSolveScreenProps = {
+  conceptId: number;
+  title: string;
+  isGuest: boolean;
+  accessToken: string | null;
+  onBack: () => void;
+  onComplete: (result: {
+    correctCount: number;
+    totalCount: number;
+    reviewItems: SolveReviewItem[];
+  }) => void;
+};
+
+type SessionState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; sessionId: number | null; questions: SolveQuestion[] };
+
+export function ConceptSolveScreen({
+  conceptId,
+  title,
+  isGuest,
+  accessToken,
+  onBack,
+  onComplete,
+}: ConceptSolveScreenProps) {
+  const insets = useSafeAreaInsets();
+  const [session, setSession] = useState<SessionState>({ status: "loading" });
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const reviewItemsRef = useRef<SolveReviewItem[]>([]);
+  const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
+  const startedAtRef = useRef<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const response = await solveApi.startConceptSession(
+          conceptId,
+          accessToken ?? undefined,
+        );
+        if (cancelled) {
+          return;
+        }
+        startedAtRef.current = Date.now();
+        setSession({
+          status: "ready",
+          sessionId: response.sessionId,
+          questions: response.questions,
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setSession({
+          status: "error",
+          message: getApiErrorMessage(error, "문제를 불러오지 못했습니다."),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conceptId]);
+
+  if (session.status === "loading") {
+    return (
+      <View style={styles.stateScreen}>
+        <ActivityIndicator color={BRAND_PURPLE} size="large" />
+      </View>
+    );
+  }
+
+  if (session.status === "error") {
+    return (
+      <View style={styles.stateScreen}>
+        <Text style={styles.stateText}>{session.message}</Text>
+        <Pressable style={styles.stateBackButton} onPress={onBack}>
+          <Text style={styles.stateBackButtonText}>돌아가기</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const { sessionId, questions } = session;
+  const currentQuestion = questions[currentIndex];
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const progress = ((currentIndex + 1) / questions.length) * 100;
+
+  const handleContinue = async () => {
+    if (!selectedAnswer || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const timeSpentSec = Math.round((Date.now() - startedAtRef.current) / 1000);
+
+      if (sessionId !== null && accessToken) {
+        const result = await solveApi.submitAnswer(
+          sessionId,
+          { questionId: currentQuestion.questionId, selectedAnswer, timeSpentSec },
+          accessToken,
+        );
+        reviewItemsRef.current.push({
+          questionId: currentQuestion.questionId,
+          questionText: currentQuestion.questionText,
+          choices: currentQuestion.choices,
+          selectedAnswer: result.selectedAnswer,
+          correctAnswer: result.correctAnswer,
+          isCorrect: result.isCorrect,
+          explanationText: result.explanationText,
+        });
+      } else {
+        answersRef.current.push({
+          questionId: currentQuestion.questionId,
+          selectedAnswer,
+        });
+      }
+
+      if (!isLastQuestion) {
+        setCurrentIndex((index) => index + 1);
+        setSelectedAnswer(null);
+        return;
+      }
+
+      if (sessionId !== null && accessToken) {
+        const totalTimeSpentSec = Math.round(
+          (Date.now() - startedAtRef.current) / 1000,
+        );
+        const completeResult = await solveApi.completeSession(
+          sessionId,
+          totalTimeSpentSec,
+          accessToken,
+        );
+        onComplete({
+          correctCount: completeResult.correctCount,
+          totalCount: completeResult.totalQuestionCount,
+          reviewItems: reviewItemsRef.current,
+        });
+      } else {
+        const guestResults = await solveApi.completeGuestSession(
+          conceptId,
+          answersRef.current,
+        );
+        const reviewItems: SolveReviewItem[] = guestResults.map((result) => {
+          const question = questions.find(
+            (item) => item.questionId === result.questionId,
+          );
+          return {
+            questionId: result.questionId,
+            questionText: question?.questionText ?? "",
+            choices: question?.choices ?? [],
+            selectedAnswer: result.selectedAnswer,
+            correctAnswer: result.correctAnswer,
+            isCorrect: result.isCorrect,
+            explanationText: result.explanationText,
+          };
+        });
+        const correctCount = guestResults.filter((item) => item.isCorrect).length;
+        onComplete({
+          correctCount,
+          totalCount: guestResults.length,
+          reviewItems,
+        });
+      }
+    } catch (error) {
+      setSession({
+        status: "error",
+        message: getApiErrorMessage(error, "제출에 실패했습니다. 다시 시도해주세요."),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <View style={styles.screen}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <Pressable
+          accessibilityLabel="문제 풀이 나가기"
+          accessibilityRole="button"
+          hitSlop={10}
+          style={styles.headerButton}
+          onPress={onBack}
+        >
+          <ChevronLeft color="#ffffff" size={28} strokeWidth={2.2} />
+        </Pressable>
+
+        <View style={styles.headerTitleArea}>
+          <Text numberOfLines={1} style={styles.headerTitle}>
+            {title}
+          </Text>
+          <Text style={styles.headerSubtitle}>개념 문제집</Text>
+        </View>
+
+        <View style={styles.headerButton} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.progressInfoRow}>
+          <Text style={styles.progressText}>
+            문제 {currentIndex + 1} / {questions.length}
+          </Text>
+          {isGuest && <Text style={styles.guestBadge}>게스트 체험</Text>}
+        </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressValue, { width: `${progress}%` }]} />
+        </View>
+
+        <View style={styles.questionCard}>
+          <Text style={styles.question}>{currentQuestion.questionText}</Text>
+
+          <View style={styles.choiceList}>
+            {currentQuestion.choices.map((choice) => {
+              const isSelected = selectedAnswer === choice.key;
+
+              return (
+                <Pressable
+                  key={choice.key}
+                  style={[styles.choice, isSelected && styles.selectedChoice]}
+                  onPress={() => setSelectedAnswer(choice.key)}
+                >
+                  <View
+                    style={[
+                      styles.choiceNumber,
+                      isSelected && styles.selectedChoiceNumber,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.choiceNumberText,
+                        isSelected && styles.selectedChoiceNumberText,
+                      ]}
+                    >
+                      {choice.key}
+                    </Text>
+                  </View>
+                  <Text style={[styles.choiceText, isSelected && styles.selectedChoiceText]}>
+                    {choice.text}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        <Pressable
+          accessibilityLabel="이전 문제"
+          disabled={currentIndex === 0}
+          style={[styles.previousButton, currentIndex === 0 && styles.disabledButton]}
+          onPress={() => setCurrentIndex((index) => index - 1)}
+        >
+          <ChevronLeft color={currentIndex === 0 ? "#aab2bd" : "#475569"} size={20} />
+          <Text style={[styles.previousButtonText, currentIndex === 0 && styles.disabledText]}>
+            이전
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityLabel={isLastQuestion ? "제출하기" : "다음 문제"}
+          disabled={!selectedAnswer || isSubmitting}
+          style={[
+            styles.primaryButton,
+            (!selectedAnswer || isSubmitting) && styles.disabledPrimaryButton,
+          ]}
+          onPress={handleContinue}
+        >
+          <Text style={styles.primaryButtonText}>
+            {isSubmitting ? "처리 중…" : isLastQuestion ? "제출하기" : "다음 문제"}
+          </Text>
+          {!isLastQuestion && !isSubmitting && (
+            <ChevronRight color="#ffffff" size={20} />
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#F3F3F3" },
+  stateScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 24,
+  },
+  stateText: {
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  stateBackButton: {
+    borderRadius: 999,
+    backgroundColor: BRAND_PURPLE,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  stateBackButtonText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  header: {
+    minHeight: 66,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: BRAND_PURPLE,
+    paddingHorizontal: 14,
+    paddingBottom: 7,
+  },
+  headerButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+  },
+  headerTitleArea: { flex: 1, alignItems: "center", paddingHorizontal: 8 },
+  headerTitle: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  headerSubtitle: {
+    marginTop: 2,
+    color: "#E2DFFF",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 30 },
+  progressInfoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  progressText: {
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  guestBadge: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  progressTrack: {
+    height: 7,
+    overflow: "hidden",
+    borderRadius: 999,
+    backgroundColor: "#dce1e8",
+    marginTop: 10,
+  },
+  progressValue: { height: "100%", borderRadius: 999, backgroundColor: BRAND_PURPLE },
+  questionCard: { borderRadius: 8, backgroundColor: "#ffffff", marginTop: 22, padding: 20 },
+  question: {
+    color: "#1f2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 19,
+    fontWeight: "700",
+    lineHeight: 29,
+  },
+  choiceList: { gap: 11, marginTop: 28 },
+  choice: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 14,
+  },
+  selectedChoice: { borderColor: BRAND_PURPLE, backgroundColor: "#F1EFFF" },
+  choiceNumber: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: "#eef1f5",
+    marginRight: 12,
+  },
+  selectedChoiceNumber: { backgroundColor: BRAND_PURPLE },
+  choiceNumberText: { color: "#64748b", fontFamily: FONT.kufam, fontSize: 12, fontWeight: "700" },
+  selectedChoiceNumberText: { color: "#ffffff" },
+  choiceText: { flex: 1, color: "#334155", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "500", lineHeight: 21 },
+  selectedChoiceText: { color: "#5144cf", fontWeight: "700" },
+  footer: { flexDirection: "row", gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#e5e7eb", backgroundColor: "#ffffff", paddingHorizontal: 20, paddingTop: 12 },
+  previousButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 8, backgroundColor: "#eef1f5", paddingHorizontal: 18 },
+  previousButtonText: { color: "#475569", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
+  primaryButton: { minHeight: 48, flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 8, backgroundColor: BRAND_PURPLE },
+  primaryButtonText: { color: "#ffffff", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "700" },
+  disabledButton: { backgroundColor: "#f1f3f5" },
+  disabledPrimaryButton: { backgroundColor: "#b6b0f7" },
+  disabledText: { color: "#aab2bd" },
+});

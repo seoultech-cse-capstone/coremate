@@ -1,21 +1,35 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import { useAuth } from "../src/features/auth";
 import { MistakeExamReview } from "../src/features/logWeak/components/MistakeExamReview";
+import type { SolveReviewItem } from "../src/features/solve/types";
 
 export default function MistakeExamReviewScreen() {
   const { status } = useAuth();
-  const { category, examType, sessionType, subject } = useLocalSearchParams<{
-    category?: string;
-    examType?: string;
-    sessionType?:
-      | "SUBJECT_MOCK"
-      | "CHAPTER_MOCK"
-      | "CONCEPT_PRACTICE"
-      | "DAILY_QUIZ";
-    subject?: string;
-  }>();
+  const { category, examType, reviewItemsJson, sessionType, subject } =
+    useLocalSearchParams<{
+      category?: string;
+      examType?: string;
+      reviewItemsJson?: string;
+      sessionType?:
+        | "SUBJECT_MOCK"
+        | "CHAPTER_MOCK"
+        | "CONCEPT_PRACTICE"
+        | "DAILY_QUIZ";
+      subject?: string;
+    }>();
+
+  const results = useMemo<SolveReviewItem[] | undefined>(() => {
+    if (!reviewItemsJson) {
+      return undefined;
+    }
+    try {
+      return JSON.parse(reviewItemsJson) as SolveReviewItem[];
+    } catch {
+      return undefined;
+    }
+  }, [reviewItemsJson]);
 
   // 게스트는 개념 문제집 해설만 볼 수 있다. 그 외(모의고사 등) 기록 화면은 회원 전용.
   const isBlockedForGuest =
@@ -37,6 +51,7 @@ export default function MistakeExamReviewScreen() {
       examType={examType ?? "모의고사"}
       sessionType={sessionType}
       subject={subject ?? "Data Structure"}
+      results={results}
       onBack={() => router.back()}
     />
   );

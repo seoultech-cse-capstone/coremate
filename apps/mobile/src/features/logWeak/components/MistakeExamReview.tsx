@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
+import type { SolveReviewItem } from "../../solve/types";
 
 type ReviewQuestion = {
   id: number;
@@ -11,6 +12,21 @@ type ReviewQuestion = {
   choices: string[];
   answerIndex: number;
   selectedIndex: number;
+  explanation: string;
+};
+
+type DisplayChoice = {
+  key: string;
+  text: string;
+  isAnswer: boolean;
+  isSelected: boolean;
+};
+
+type DisplayQuestion = {
+  id: number;
+  question: string;
+  choices: DisplayChoice[];
+  isCorrect: boolean;
   explanation: string;
 };
 
@@ -23,6 +39,8 @@ type MistakeExamReviewProps = {
     | "CONCEPT_PRACTICE"
     | "DAILY_QUIZ";
   subject: string;
+  /** 개념 문제집 실제 풀이 결과. 있으면 이걸 우선 보여주고, 없으면 아래 목데이터를 보여준다. */
+  results?: SolveReviewItem[];
   onBack: () => void;
 };
 
@@ -78,12 +96,44 @@ export function MistakeExamReview({
   examType,
   sessionType,
   subject,
+  results,
   onBack,
 }: MistakeExamReviewProps) {
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const currentQuestion = questions[currentIndex];
-  const isCorrect = currentQuestion.answerIndex === currentQuestion.selectedIndex;
+
+  const displayQuestions: DisplayQuestion[] = useMemo(() => {
+    if (results && results.length > 0) {
+      return results.map((item) => ({
+        id: item.questionId,
+        question: item.questionText,
+        choices: item.choices.map((choice) => ({
+          key: choice.key,
+          text: choice.text,
+          isAnswer: choice.key === item.correctAnswer,
+          isSelected: choice.key === item.selectedAnswer,
+        })),
+        isCorrect: item.isCorrect,
+        explanation: item.explanationText,
+      }));
+    }
+
+    return questions.map((mockQuestion) => ({
+      id: mockQuestion.id,
+      question: mockQuestion.question,
+      choices: mockQuestion.choices.map((text, index) => ({
+        key: String(index),
+        text,
+        isAnswer: index === mockQuestion.answerIndex,
+        isSelected: index === mockQuestion.selectedIndex,
+      })),
+      isCorrect: mockQuestion.answerIndex === mockQuestion.selectedIndex,
+      explanation: mockQuestion.explanation,
+    }));
+  }, [results]);
+
+  const currentQuestion = displayQuestions[currentIndex];
+  const isCorrect = currentQuestion.isCorrect;
   const resultText = useMemo(
     () => (isCorrect ? "정답이에요" : "오답이에요"),
     [isCorrect],
@@ -126,13 +176,13 @@ export function MistakeExamReview({
 
         <View style={styles.progressRow}>
           <Text style={styles.progressText}>
-            {currentIndex + 1} / {questions.length}
+            {currentIndex + 1} / {displayQuestions.length}
           </Text>
           <View style={styles.progressTrack}>
             <View
               style={[
                 styles.progressValue,
-                { width: `${((currentIndex + 1) / questions.length) * 100}%` },
+                { width: `${((currentIndex + 1) / displayQuestions.length) * 100}%` },
               ]}
             />
           </View>
@@ -154,12 +204,12 @@ export function MistakeExamReview({
 
           <View style={styles.choiceList}>
             {currentQuestion.choices.map((choice, index) => {
-              const isAnswer = index === currentQuestion.answerIndex;
-              const isSelected = index === currentQuestion.selectedIndex;
+              const isAnswer = choice.isAnswer;
+              const isSelected = choice.isSelected;
 
               return (
                 <View
-                  key={choice}
+                  key={choice.key}
                   style={[
                     styles.choice,
                     isAnswer && styles.answerChoice,
@@ -182,7 +232,7 @@ export function MistakeExamReview({
                       isSelected && !isAnswer && styles.wrongChoiceText,
                     ]}
                   >
-                    {choice}
+                    {choice.text}
                   </Text>
                   {isAnswer && (
                     <CircleCheck color="#16a34a" size={20} strokeWidth={2.5} />
@@ -224,23 +274,23 @@ export function MistakeExamReview({
 
           <Pressable
             accessibilityLabel="다음 문제"
-            disabled={currentIndex === questions.length - 1}
+            disabled={currentIndex === displayQuestions.length - 1}
             style={[
               styles.navigationButton,
-              currentIndex === questions.length - 1 && styles.disabledButton,
+              currentIndex === displayQuestions.length - 1 && styles.disabledButton,
             ]}
             onPress={() => setCurrentIndex((index) => index + 1)}
           >
             <Text
               style={[
                 styles.navigationText,
-                currentIndex === questions.length - 1 && styles.disabledNavigationText,
+                currentIndex === displayQuestions.length - 1 && styles.disabledNavigationText,
               ]}
             >
               다음
             </Text>
             <ChevronRight
-              color={currentIndex === questions.length - 1 ? "#94a3b8" : "#4b5563"}
+              color={currentIndex === displayQuestions.length - 1 ? "#94a3b8" : "#4b5563"}
               size={20}
             />
           </Pressable>

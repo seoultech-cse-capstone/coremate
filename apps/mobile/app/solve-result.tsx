@@ -13,9 +13,19 @@ const sessionTypes: SolveSessionType[] = [
 ];
 
 export default function SolveResultRoute() {
-  const { correctCount, elapsedSeconds, sessionType, title, totalCount } = useLocalSearchParams<{
+  const {
+    conceptId,
+    correctCount,
+    elapsedSeconds,
+    reviewItemsJson,
+    sessionType,
+    title,
+    totalCount,
+  } = useLocalSearchParams<{
+    conceptId?: string;
     correctCount?: string;
     elapsedSeconds?: string;
+    reviewItemsJson?: string;
     sessionType?: string;
     title?: string;
     totalCount?: string;
@@ -41,7 +51,11 @@ export default function SolveResultRoute() {
       onRetry={() =>
         router.replace({
           pathname: "/solve",
-          params: { title: resolvedTitle, sessionType: resolvedSessionType },
+          params: {
+            title: resolvedTitle,
+            sessionType: resolvedSessionType,
+            ...(conceptId ? { conceptId } : {}),
+          },
         })
       }
       onReview={() => {
@@ -51,6 +65,7 @@ export default function SolveResultRoute() {
             subject: "Data Structure",
             category: resolvedTitle,
             sessionType: resolvedSessionType,
+            ...(reviewItemsJson ? { reviewItemsJson } : {}),
           },
         });
       }}

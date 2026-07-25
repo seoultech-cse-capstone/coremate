@@ -377,6 +377,7 @@ export default function ContentScreen() {
       params: {
         title: item.title,
         sessionType,
+        ...(sessionType === "CONCEPT_PRACTICE" ? { conceptId: String(item.id) } : {}),
       },
     });
   };
