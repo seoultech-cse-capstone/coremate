@@ -26,7 +26,8 @@ export default function MistakeExamReviewScreen() {
     }
     try {
       return JSON.parse(reviewItemsJson) as SolveReviewItem[];
-    } catch {
+    } catch (error) {
+      console.error("[mistake-exam-review] reviewItemsJson 파싱 실패", error);
       return undefined;
     }
   }, [reviewItemsJson]);
