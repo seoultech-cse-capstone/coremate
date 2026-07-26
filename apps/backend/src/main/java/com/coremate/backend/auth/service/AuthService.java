@@ -44,7 +44,9 @@ public class AuthService {
         User user = User.builder()
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .name(request.getName())
                 .nickname(request.getNickname())
+                .phoneNumber(request.getPhoneNumber())
                 .role(UserRole.USER)
                 .build();
 
@@ -89,6 +91,22 @@ public class AuthService {
         if (stored == null || !stored.equals(refreshToken)) {
             throw new CoreMateException(ErrorCode.INVALID_TOKEN);
         }
+        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+    }
+
+    public void withdraw(Long userId, String password) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new CoreMateException(ErrorCode.ALREADY_WITHDRAWN);
+        }
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            throw new CoreMateException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        user.withdraw();
         redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
     }
 

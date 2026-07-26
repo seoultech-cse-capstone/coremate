@@ -22,7 +22,26 @@ spring:
       host: localhost
       port: 6379
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiry-sec: 3600      # 1시간
   refresh-token-expiry-sec: 604800   # 7일
+
+password-reset:
+  code-ttl-sec: 300           # 인증번호 유효시간 5분
+  token-ttl-sec: 600          # 재설정 토큰 유효시간 10분
+  resend-cooldown-sec: 60     # 재발송 쿨다운 60초
+  code-length: 6              # 인증번호 자릿수
+  max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
