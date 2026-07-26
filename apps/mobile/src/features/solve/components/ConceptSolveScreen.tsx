@@ -69,6 +69,33 @@ export function ConceptSolveScreen({
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
+  // 문제별 풀이 시간 계산용. "이전"으로 갔다가 같은 문제로 다시 돌아와도
+  // 각 방문 시간이 모두 합산되도록, 문제 인덱스별 누적 시간(과거 방문분)과
+  // 지금 보고 있는 방문이 시작된 시각을 따로 추적한다.
+  const questionTimeAccumulatorRef = useRef<Map<number, number>>(new Map());
+  const questionVisitStartedAtRef = useRef<number>(0);
+  const previousIndexRef = useRef(currentIndex);
+  // 문제당 답을 바꾼 횟수. 다음 문제로 넘어가면 리셋된다("이전"으로 돌아간
+  // 문제는 이미 제출됐으므로 다시 세지 않는다).
+  const optionChangeCountRef = useRef(0);
+
+  useEffect(() => {
+    if (session.status !== "ready") {
+      return;
+    }
+    const now = Date.now();
+    if (questionVisitStartedAtRef.current !== 0) {
+      const prevIndex = previousIndexRef.current;
+      const elapsed = now - questionVisitStartedAtRef.current;
+      questionTimeAccumulatorRef.current.set(
+        prevIndex,
+        (questionTimeAccumulatorRef.current.get(prevIndex) ?? 0) + elapsed,
+      );
+    }
+    questionVisitStartedAtRef.current = now;
+    previousIndexRef.current = currentIndex;
+    optionChangeCountRef.current = 0;
+  }, [currentIndex, session.status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,12 +218,24 @@ export function ConceptSolveScreen({
 
     setIsSubmitting(true);
     try {
-      const timeSpentSec = Math.round((Date.now() - startedAtRef.current) / 1000);
+      const currentVisitElapsedMs = Date.now() - questionVisitStartedAtRef.current;
+      const accumulatedMs =
+        (questionTimeAccumulatorRef.current.get(currentIndex) ?? 0) +
+        currentVisitElapsedMs;
+      const timeSpentSec = Math.round(accumulatedMs / 1000);
+      const optionChangeCount = optionChangeCountRef.current;
+      const isAnswerChanged = optionChangeCount > 0;
 
       if (sessionId !== null && accessToken) {
         const result = await solveApi.submitAnswer(
           sessionId,
-          { questionId: currentQuestion.questionId, selectedAnswer, timeSpentSec },
+          {
+            questionId: currentQuestion.questionId,
+            selectedAnswer,
+            timeSpentSec,
+            optionChangeCount,
+            isAnswerChanged,
+          },
           accessToken,
         );
         reviewItemsRef.current.push({
@@ -378,7 +417,12 @@ export function ConceptSolveScreen({
                 <Pressable
                   key={choice.key}
                   style={[styles.choice, isSelected && styles.selectedChoice]}
-                  onPress={() => setSelectedAnswer(choice.key)}
+                  onPress={() => {
+                    if (selectedAnswer !== null && selectedAnswer !== choice.key) {
+                      optionChangeCountRef.current += 1;
+                    }
+                    setSelectedAnswer(choice.key);
+                  }}
                 >
                   <View
                     style={[
