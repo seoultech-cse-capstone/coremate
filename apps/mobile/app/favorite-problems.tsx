@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { BookmarkX, ChevronLeft } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -50,13 +50,22 @@ export default function FavoriteProblemsScreen() {
   const [memoDraft, setMemoDraft] = useState("");
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
+  // accessToken은 배경 토큰 재발급이 일어날 때마다 값이 바뀐다. 이 화면에
+  // 처음 진입했을 때 딱 한 번만 목록을 불러오고, 재발급으로 인한 재실행은
+  // 무시해야 메모 저장/북마크 삭제 도중 목록이 통째로 다시 조회되며
+  // 경합하는 것을 막을 수 있다.
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
+    if (hasLoadedRef.current) {
+      return;
+    }
     if (!accessToken) {
       setState({ status: "error", message: "로그인이 필요합니다." });
       return;
     }
 
+    hasLoadedRef.current = true;
     let cancelled = false;
 
     (async () => {
@@ -65,7 +74,10 @@ export default function FavoriteProblemsScreen() {
         const uniqueConceptIds = [...new Set(bookmarks.map((item) => item.conceptId))];
         const conceptDetails = await Promise.all(
           uniqueConceptIds.map((conceptId) =>
-            contentApi.getConceptDetail(conceptId).catch(() => null),
+            contentApi.getConceptDetail(conceptId).catch((error) => {
+              console.error("[favorite-problems] 개념 정보 조회 실패", error);
+              return null;
+            }),
           ),
         );
         const conceptById = new Map(
@@ -94,6 +106,7 @@ export default function FavoriteProblemsScreen() {
         if (cancelled) {
           return;
         }
+        hasLoadedRef.current = false;
         setState({
           status: "error",
           message: getApiErrorMessage(error, "즐겨찾기 목록을 불러오지 못했습니다."),
@@ -123,6 +136,7 @@ export default function FavoriteProblemsScreen() {
       showToast("즐겨찾기에서 삭제했어요");
     } catch (error) {
       console.error("[favorite-problems] 즐겨찾기 해제 실패", error);
+      showToast("즐겨찾기 삭제에 실패했어요. 다시 시도해주세요.");
     }
   };
 
@@ -162,6 +176,7 @@ export default function FavoriteProblemsScreen() {
       closeMemoModal();
     } catch (error) {
       console.error("[favorite-problems] 메모 저장 실패", error);
+      showToast("메모 저장에 실패했어요. 다시 시도해주세요.");
     } finally {
       setIsSavingMemo(false);
     }
