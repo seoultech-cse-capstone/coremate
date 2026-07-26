@@ -40,7 +40,8 @@ export function setAuthHandlers(handlers: AuthHandlers | null): void {
   authHandlers = handlers;
 }
 
-// 401이 동시에 여러 건 발생해도 재발급 요청은 한 번만 나가도록 공유한다.
+// 겹치는 401 사이에는 재발급 요청을 이 Promise로 공유한다. 단, 이 Promise가
+// 끝나 null로 초기화된 뒤에 뒤늦게 도착한 401은 재발급을 다시 호출한다.
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
@@ -59,19 +60,11 @@ async function refreshAccessToken(): Promise<string | null> {
           return null;
         }
 
-        const response = await fetch(`${API_BASE_URL ?? ''}/api/auth/reissue`, {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
-        const data = await parseJson(response);
-
-        if (!response.ok) {
-          await handlers.onRefreshFailed();
-          return null;
-        }
-
-        const tokens = data as { accessToken: string; refreshToken: string };
+        const tokens = await request<{ accessToken: string; refreshToken: string }>(
+          'POST',
+          '/api/auth/reissue',
+          { body: { refreshToken } },
+        );
         await handlers.onTokensRefreshed(tokens.accessToken, tokens.refreshToken);
         return tokens.accessToken;
       } catch {
