@@ -167,6 +167,14 @@ export function ConceptSolveScreen({
       return;
     }
 
+    if (sessionId !== null && !accessToken) {
+      setSession({
+        status: "error",
+        message: "로그인이 만료되어 이어서 풀이할 수 없어요. 다시 로그인한 뒤 처음부터 풀어주세요.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const timeSpentSec = Math.round((Date.now() - startedAtRef.current) / 1000);
