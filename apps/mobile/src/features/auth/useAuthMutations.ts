@@ -43,15 +43,31 @@ export function useLogoutMutation() {
 
   return useMutation({
     mutationFn: async () => {
-      const [refreshToken, accessToken] = await Promise.all([
-        tokenStorage.getRefreshToken(),
-        tokenStorage.getAccessToken(),
-      ]);
-      if (refreshToken && accessToken) {
+      // accessToken이 이미 만료된 상태면 httpClient가 요청 도중 백그라운드로
+      // 토큰을 재발급받아버려서, 처음에 보낸 refreshToken은 서버 기준으로
+      // 이미 교체된 값이 된다. 재발급이 실제로 일어났는지 확인해 최신
+      // refreshToken으로 한 번 더 무효화를 시도한다.
+      const attemptLogout = async () => {
+        const [refreshToken, accessToken] = await Promise.all([
+          tokenStorage.getRefreshToken(),
+          tokenStorage.getAccessToken(),
+        ]);
+        if (!refreshToken || !accessToken) {
+          return null;
+        }
         try {
           await authApi.logout(refreshToken, accessToken);
         } catch {
           // 서버 로그아웃 실패는 무시하고 로컬만 정리한다.
+        }
+        return refreshToken;
+      };
+
+      const sentRefreshToken = await attemptLogout();
+      if (sentRefreshToken) {
+        const latestRefreshToken = await tokenStorage.getRefreshToken();
+        if (latestRefreshToken && latestRefreshToken !== sentRefreshToken) {
+          await attemptLogout();
         }
       }
     },
