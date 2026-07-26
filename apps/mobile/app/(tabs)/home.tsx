@@ -1,6 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useNavigation } from "expo-router";
+import { ListChecks } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
 import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,15 +14,66 @@ import {
 } from "react-native";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth } from "../../src/features/auth";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 
+const BRAND_PURPLE = "#6D5DFB";
+const PANEL_GRAY = "#F3F3F3";
+const OVERSCROLL_BUFFER = 96;
+
+type TabPressNavigation = {
+  addListener: (eventName: "tabPress", callback: () => void) => () => void;
+};
+
 export default function HomeScreen() {
+  const navigation = useNavigation();
+  const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
-  const panelTopOffset = Math.round(height * 0.42);
+  const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
+  const { status } = useAuth();
+  const isGuest = status === "guest";
+  const panelTopOffset = Math.round(height * 0.46);
+
+  useEffect(() => {
+    const tabNavigation = navigation as unknown as TabPressNavigation;
+    const unsubscribe = tabNavigation.addListener("tabPress", () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  // FR-GUEST-02: 게스트가 회원 전용 기능을 선택하면 로그인 필요 안내로 보낸다.
+  const goToMemberFeature = (memberHref: Parameters<typeof router.push>[0]) => {
+    if (isGuest) {
+      router.push("/login-required");
+      return;
+    }
+    router.push(memberHref);
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const maxScrollY = Math.max(
+      0,
+      contentSize.height - layoutMeasurement.height,
+    );
+    const isNearBottom =
+      maxScrollY > 0 && contentOffset.y > maxScrollY - OVERSCROLL_BUFFER;
+    const nextBackground = isNearBottom ? PANEL_GRAY : BRAND_PURPLE;
+
+    setBounceBackground((currentBackground) =>
+      currentBackground === nextBackground ? currentBackground : nextBackground,
+    );
+  };
 
   return (
     <ScrollView
-      style={styles.container}
+      bounces
+      onScroll={handleScroll}
+      ref={scrollRef}
+      scrollEventThrottle={16}
+      style={[styles.container, { backgroundColor: bounceBackground }]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={[
         styles.scrollContent,
@@ -38,9 +93,30 @@ export default function HomeScreen() {
             </LinearGradient>
           </View>
 
-          <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
+          <View style={styles.dailyQuizRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => goToMemberFeature("/daily-quiz")}
+            style={[
+              styles.primaryButton,
+              styles.dailyQuizButton,
+              styles.dailyQuizCompletedButton,
+            ]}
+          >
+            <View style={styles.dailyQuizButtonContent}>
+              <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
+              <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+            </View>
           </Pressable>
+          <Pressable
+            accessibilityLabel="오늘의 퀴즈 다시보기"
+            accessibilityRole="button"
+            onPress={() => goToMemberFeature("/daily-quiz-review")}
+            style={styles.dailyQuizReviewButton}
+          >
+            <ListChecks color="#475569" size={22} strokeWidth={2.1} />
+          </Pressable>
+          </View>
 
           <View style={styles.secondaryRow}>
             <Pressable
@@ -53,17 +129,14 @@ export default function HomeScreen() {
             <Pressable
               style={[styles.secondaryButton, styles.weaknessButton]}
               onPress={() =>
-                router.push({
+                goToMemberFeature({
                   pathname: "/(tabs)/log-weak",
                   params: { mode: "weakness", entry: Date.now().toString() },
                 })
               }
             >
               <Text
-                style={[
-                  styles.secondaryButtonText,
-                  styles.weaknessButtonText,
-                ]}
+                style={[styles.secondaryButtonText, styles.weaknessButtonText]}
               >
                 약점 분석하기
               </Text>
@@ -80,21 +153,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#6D5DFB",
   },
   scrollContent: {
-    backgroundColor: "#6D5DFB",
+    backgroundColor: BRAND_PURPLE,
   },
   bottomPanel: {
     width: "100%",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: "#F3F3F3",
+    backgroundColor: PANEL_GRAY,
     paddingHorizontal: 24,
     paddingTop: 32,
   },
   panelContent: {
-    paddingBottom: 28,
+    paddingBottom: 28 + OVERSCROLL_BUFFER,
   },
   levelBarTrack: {
     width: "100%",
@@ -122,7 +194,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 64,
     borderRadius: 18,
-    backgroundColor: "#6D5DFB",
+    backgroundColor: BRAND_PURPLE,
+  },
+  dailyQuizRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  dailyQuizButton: {
+    flex: 1,
+  },
+  dailyQuizCompletedButton: {
+    backgroundColor: "#94A3B8",
+  },
+  dailyQuizReviewButton: {
+    width: 64,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
   },
   primaryButtonText: {
     color: "#ffffff",
@@ -130,10 +219,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "500",
   },
+  dailyQuizButtonContent: {
+    alignItems: "center",
+    gap: 3,
+  },
+  dailyQuizStatus: {
+    color: "rgba(255, 255, 255, 0.76)",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "500",
+  },
   secondaryRow: {
     flexDirection: "row",
     gap: 12,
     marginTop: 14,
+    marginBottom: 28,
   },
   secondaryButton: {
     flex: 1,

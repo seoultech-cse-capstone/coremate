@@ -2,13 +2,18 @@ package com.coremate.backend.content.repository;
 
 import com.coremate.backend.content.entity.Question;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 
-    List<Question> findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(Long conceptId);
+    List<Question> findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(
+            Long conceptId);
+
+    Optional<Question> findByQuestionIdAndConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrue(
+            Long questionId, Long conceptId);
 
     @Query(value = """
             SELECT * FROM question
@@ -34,6 +39,19 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findUnsolvedByConceptId(
             @Param("conceptId") Long conceptId,
             @Param("userId") Long userId,
+            @Param("limit") int limit
+    );
+
+    @Query(value = """
+            SELECT * FROM question
+            WHERE concept_id IN (:conceptIds)
+              AND is_active = true
+              AND is_mock_eligible = true
+            ORDER BY RAND()
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Question> findRandomMockQuestionsByConceptIds(
+            @Param("conceptIds") List<Long> conceptIds,
             @Param("limit") int limit
     );
 }

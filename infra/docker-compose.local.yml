@@ -1,28 +1,63 @@
-version: '3.8'
+# ================================================================
+# CoreMate 로컬 개발 환경 (MySQL + Redis + Backend)
+# 모든 명령어는 coremate/infra/ 디렉터리에서 실행
+#
+# [자주 쓰는 명령어]
+# 코드 변경 후 백엔드 재빌드 + 재시작:
+#   docker compose -f docker-compose.local.yml up --build -d backend
+#
+# .env 파일 변경 후 재시작 (빌드 불필요):
+#   docker compose -f docker-compose.local.yml up -d backend
+#
+# 로그 확인 (실시간):
+#   docker compose -f docker-compose.local.yml logs -f backend
+#
+# 로그 확인 (최근 50줄):
+#   docker compose -f docker-compose.local.yml logs backend --tail=50
+#
+# 전체 컨테이너 내리기:
+#   docker compose -f docker-compose.local.yml down
+#
+# 전체 컨테이너 올리기 (최초 실행 또는 down 후):
+#   docker compose -f docker-compose.local.yml up --build -d
+#
+# 실행 중인 컨테이너 상태 확인:
+#   docker compose -f docker-compose.local.yml ps
+# ================================================================
+
+name: coremate-local
 
 services:
   mysql:
     image: mysql:8.0
     container_name: coremate-mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_HOST_PORT:-3306}:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: coremate
       MYSQL_USER: coremate
       MYSQL_PASSWORD: coremate
-    ports:
-      - "3306:3306"
+      TZ: Asia/Seoul
+    command:
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+      - "--default-time-zone=+09:00"
     volumes:
       - mysql_data:/var/lib/mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+      - ../scripts/db/content_master_schema.sql:/docker-entrypoint-initdb.d/01_content_master_schema.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   redis:
     image: redis:7.2
     container_name: coremate-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -38,6 +73,7 @@ services:
       context: ../apps/backend
       dockerfile: Dockerfile
     container_name: coremate-backend
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
@@ -46,7 +82,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: coremate
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:-coremate-local-dev-jwt-secret-change-me}
       SPRING_MAIL_HOST: smtp.gmail.com
       SPRING_MAIL_PORT: 587
       SPRING_MAIL_USERNAME: ${MAIL_USERNAME}

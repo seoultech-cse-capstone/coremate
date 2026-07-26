@@ -9,6 +9,7 @@ public record RandomBoxResponse(
         @Schema(example = "Starter Box") String boxName,
         @Schema(example = "COMMON") RandomBoxGrade boxGrade,
         @Schema(example = "1") Integer requiredLevel,
+        @Schema(example = "100") Integer priceCoin,
         @Schema(example = "true") Boolean isActive
 ) {
 }

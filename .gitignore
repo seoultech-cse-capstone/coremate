@@ -42,6 +42,7 @@ apps/backend/src/main/resources/application-secret.yaml
 out/
 
 # VS Code Java / Eclipse
+.vscode/
 .project
 .classpath
 .settings/

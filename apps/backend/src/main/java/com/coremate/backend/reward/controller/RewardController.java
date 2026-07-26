@@ -1,54 +1,58 @@
 package com.coremate.backend.reward.controller;
 
+import com.coremate.backend.global.config.OpenApiConfig;
+import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.reward.dto.response.DailyRewardLimitResponse;
 import com.coremate.backend.reward.dto.response.RewardLogResponse;
+import com.coremate.backend.reward.dto.response.RewardPolicyResponse;
 import com.coremate.backend.reward.dto.response.UserRewardSummaryResponse;
+import com.coremate.backend.reward.service.RewardService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Reward")
 @RestController
 @RequestMapping("/api/rewards")
+@RequiredArgsConstructor
+@SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
 public class RewardController {
+
+    private final RewardService rewardService;
 
     @Operation(summary = "보상 요약 조회")
     @GetMapping("/summary")
-    public UserRewardSummaryResponse getSummary() {
-        return new UserRewardSummaryResponse(42L, 1200, 5, 350);
+    public UserRewardSummaryResponse getSummary(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return rewardService.getSummary(userDetails.getUserId());
     }
 
     @Operation(summary = "보상 로그 조회")
     @GetMapping("/logs")
-    public List<RewardLogResponse> getLogs() {
-        return List.of(new RewardLogResponse(
-                1L,
-                42L,
-                "DAILY_ATTENDANCE",
-                10L,
-                5,
-                50,
-                null,
-                null,
-                LocalDateTime.now().minusDays(1)
-        ));
+    public List<RewardLogResponse> getLogs(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return rewardService.getRewardLogs(userDetails.getUserId());
     }
 
     @Operation(summary = "일일 보상 제한 조회")
     @GetMapping("/daily-limits")
-    public List<DailyRewardLimitResponse> getDailyLimits() {
-        return List.of(new DailyRewardLimitResponse(
-                1L,
-                42L,
-                LocalDate.now(),
-                "DAILY_ATTENDANCE",
-                1,
-                LocalDateTime.now()
-        ));
+    public List<DailyRewardLimitResponse> getDailyLimits(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate rewardDate
+    ) {
+        return rewardService.getDailyLimits(userDetails.getUserId(), rewardDate);
+    }
+
+    @Operation(summary = "활성 보상 정책 조회")
+    @GetMapping("/policies")
+    public List<RewardPolicyResponse> getActivePolicies() {
+        return rewardService.getActivePolicies();
     }
 }
