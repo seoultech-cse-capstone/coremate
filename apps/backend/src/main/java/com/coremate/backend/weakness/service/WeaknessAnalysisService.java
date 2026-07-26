@@ -2,7 +2,9 @@ package com.coremate.backend.weakness.service;
 
 import com.coremate.backend.content.entity.CategoryLv1;
 import com.coremate.backend.content.entity.CategoryLv2;
+import com.coremate.backend.content.entity.Concept;
 import com.coremate.backend.content.entity.Subject;
+import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
@@ -76,6 +78,7 @@ public class WeaknessAnalysisService {
     private final WeaknessAnalysisEvidenceLogRepository evidenceLogRepository;
     private final WeaknessAnalysisAiCallLogRepository aiCallLogRepository;
     private final WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
+    private final ConceptRepository contentConceptRepository;
 
     // ----------------------------------------------------------------------- //
     // 생성
@@ -362,10 +365,13 @@ public class WeaknessAnalysisService {
                 .map(e -> new WeaknessEvidenceLogResponse(e.getEvidenceLogId(), e.getSolveLogId(), null, null,
                         e.getEvidenceType().name(), null, null, null, null, null, null))
                 .toList();
+        String conceptName = contentConceptRepository.findById(concept.getConceptId())
+                .map(Concept::getConceptName)
+                .orElse(null);
         return new WeaknessConceptResponse(
                 concept.getAnalysisConceptId(),
                 concept.getConceptId(),
-                null,
+                conceptName,
                 concept.getWeaknessScore(),
                 concept.getEvidenceStrength(),
                 concept.getFinalType() != null ? concept.getFinalType().name() : null,
