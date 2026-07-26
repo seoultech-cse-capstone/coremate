@@ -12,6 +12,7 @@ import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,13 +82,19 @@ public class WeaknessScoringService {
         double strengthRaw = (double) (wrongCount * 2 + longTimeCount + hintUsedCount) / (questionCount + 3);
         BigDecimal evidenceStrength = BigDecimal.valueOf(Math.min(1.0, strengthRaw)).setScale(3, RoundingMode.HALF_UP);
 
+        // 유형 구분도: 최상위 신호 비율과 차상위 신호 비율의 차이(0~1). AI 교차검증 시 사용.
+        double[] rates = {wrongRate, longRate, hintRate};
+        Arrays.sort(rates);
+        BigDecimal typeSeparation = BigDecimal.valueOf(Math.min(1.0, rates[2] - rates[1]))
+                .setScale(3, RoundingMode.HALF_UP);
+
         WeaknessType backendCandidateType = classify(wrongCount, longTimeCount, hintUsedCount);
         List<WeaknessEvidenceLogResponse> evidence = pickEvidence(logs);
 
         return new ConceptCandidate(
-                concept.getConceptId(), concept.getConceptName(),
+                concept.getConceptId(), concept.getConceptName(), concept.getOneLineDefinition(),
                 questionCount, wrongCount, longTimeCount, hintUsedCount,
-                weaknessScore, evidenceStrength, backendCandidateType, evidence);
+                weaknessScore, evidenceStrength, typeSeparation, backendCandidateType, evidence);
     }
 
     /** 백엔드 내부 유형 후보(플레이스홀더 휴리스틱). AI 교차검증용이며 사용자 표시값 아님. */

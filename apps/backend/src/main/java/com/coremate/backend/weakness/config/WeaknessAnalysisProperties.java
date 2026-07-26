@@ -36,4 +36,23 @@ public class WeaknessAnalysisProperties {
 
     /** 롱타임(오래 걸린 문제) 판정 배수: 기준 시간 * 배수 이상이면 오래 걸린 문제. */
     private double longTimeRatio = 2.0;
+
+    /** 약점분석 1건 생성 시 차감 코인(플레이스홀더 — 확정 가격표 없음). */
+    private int coinCost = 100;
+
+    /** AI 서버(Python ai-pipeline) 기본 URL. */
+    private String aiServerBaseUrl = "http://localhost:8000";
+
+    /** AI 호출 읽기 타임아웃(초). */
+    private int aiTimeoutSec = 40;
+
+    /** 교차검증 시 유형 구분도가 이 값 미만이면 AI 유형 채택, 이상이면 AMBIGUOUS. */
+    private double typeSeparationThreshold = 0.3;
+
+    /** 요청 지문·호출 로그에 남길 버전 라벨. */
+    private String scoringRuleVersion = "v1";
+    private String promptVersion = "v1";
+    private String schemaVersion = "v1";
+    private String diagnosticProfileVersion = "none";
+    private String aiModelLabel = "ai-pipeline";
 }

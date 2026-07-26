@@ -12,12 +12,14 @@ import java.util.List;
 public record ConceptCandidate(
         Long conceptId,
         String conceptName,
+        String conceptCore,
         int questionCount,
         int wrongCount,
         int longTimeCount,
         int hintUsedCount,
         int weaknessScore,
         BigDecimal evidenceStrength,
+        BigDecimal typeSeparation,
         WeaknessType backendCandidateType,
         List<WeaknessEvidenceLogResponse> evidence
 ) {

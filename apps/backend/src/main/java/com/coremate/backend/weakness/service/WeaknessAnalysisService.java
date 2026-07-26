@@ -1,92 +1,527 @@
 package com.coremate.backend.weakness.service;
 
+import com.coremate.backend.content.entity.CategoryLv1;
+import com.coremate.backend.content.entity.CategoryLv2;
+import com.coremate.backend.content.entity.Subject;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.reward.entity.type.CurrencyReason;
+import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.entity.SolveSession;
+import com.coremate.backend.weakness.client.WeaknessAiClient;
+import com.coremate.backend.weakness.config.WeaknessAnalysisProperties;
+import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisRequest;
+import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisResponse;
 import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportRequest;
+import com.coremate.backend.weakness.dto.response.EligibleSolveSessionResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
+import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportSummaryResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessConceptResponse;
+import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
+import com.coremate.backend.weakness.dto.type.AiAnalysisStatus;
 import com.coremate.backend.weakness.dto.type.AnalysisReportStatus;
+import com.coremate.backend.weakness.dto.type.EvidenceType;
+import com.coremate.backend.weakness.dto.type.FinalTypeSource;
+import com.coremate.backend.weakness.dto.type.WeaknessType;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisConcept;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisEvidenceLog;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisReport;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisReportViewLog;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisSession;
+import com.coremate.backend.weakness.repository.WeaknessAnalysisAiCallLogRepository;
+import com.coremate.backend.weakness.repository.WeaknessAnalysisConceptRepository;
+import com.coremate.backend.weakness.repository.WeaknessAnalysisEvidenceLogRepository;
+import com.coremate.backend.weakness.repository.WeaknessAnalysisReportRepository;
+import com.coremate.backend.weakness.repository.WeaknessAnalysisReportViewLogRepository;
+import com.coremate.backend.weakness.repository.WeaknessAnalysisSessionRepository;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisAiCallLog;
 import com.coremate.backend.weakness.service.model.ConceptCandidate;
 import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
- * 약점분석 생성 오케스트레이션 — Phase 1 은 검증 + 결정론 스코어링까지만 수행하고
- * 백엔드 후보를 "미리보기"로 반환한다(저장·코인 차감·AI 호출·교차검증은 Phase 3).
- * 근거 부족이면 INSUFFICIENT_EVIDENCE 로 종료(AI 미호출).
+ * 약점분석 생성/조회 오케스트레이션(Phase 3).
+ *
+ * <p>생성: 검증 → 결정론 스코어링 → 근거부족 시 INSUFFICIENT_EVIDENCE 종료 → request_fingerprint 멱등
+ * → 코인 차감 → AI 서버 호출 → 백엔드/AI 유형 교차검증 → 저장(report/sessions/concepts/evidence/ai_call_log).
+ * 전 과정을 한 트랜잭션으로 묶어 AI 실패 시 코인 차감까지 롤백한다.
  */
 @Service
 @RequiredArgsConstructor
 public class WeaknessAnalysisService {
 
+    private static final String REFERENCE_TYPE = "WEAKNESS_ANALYSIS_REPORT";
+
     private final WeaknessSelectionValidator selectionValidator;
     private final WeaknessScoringService scoringService;
+    private final WeaknessAiClient aiClient;
+    private final RewardService rewardService;
+    private final WeaknessAnalysisProperties props;
+    private final ObjectMapper objectMapper;
+    private final WeaknessAnalysisReportRepository reportRepository;
+    private final WeaknessAnalysisSessionRepository sessionRepository;
+    private final WeaknessAnalysisConceptRepository conceptRepository;
+    private final WeaknessAnalysisEvidenceLogRepository evidenceLogRepository;
+    private final WeaknessAnalysisAiCallLogRepository aiCallLogRepository;
+    private final WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
 
-    @Transactional(readOnly = true)
-    public WeaknessAnalysisReportDetailResponse createPreview(Long userId, CreateWeaknessAnalysisReportRequest request) {
+    // ----------------------------------------------------------------------- //
+    // 생성
+    // ----------------------------------------------------------------------- //
+    @Transactional
+    public WeaknessAnalysisReportDetailResponse createReport(Long userId, CreateWeaknessAnalysisReportRequest request) {
         List<SolveSession> sessions = selectionValidator.validateAndLoad(userId, request.solveSessionIds());
-        WeaknessScoringResult result = scoringService.score(sessions);
-
-        if (!result.sufficient()) {
+        WeaknessScoringResult scoring = scoringService.score(sessions);
+        if (!scoring.sufficient()) {
             throw new CoreMateException(ErrorCode.WEAKNESS_INSUFFICIENT_EVIDENCE);
         }
 
-        List<WeaknessConceptResponse> concepts = result.candidates().stream()
-                .map(this::toConceptResponse)
-                .toList();
+        String fingerprint = buildFingerprint(userId, request.solveSessionIds());
+        // 멱등: 동일 요청으로 완료된 분석표가 있으면 재사용(코인·AI 호출 없음).
+        WeaknessAnalysisReport existing = reportRepository
+                .findByRequestFingerprintAndStatus(fingerprint, AnalysisReportStatus.COMPLETED)
+                .orElse(null);
+        if (existing != null) {
+            return toDetail(existing);
+        }
 
-        String title = (request.title() == null || request.title().isBlank())
-                ? "약점 분석 미리보기"
-                : request.title();
+        Subject subject = resolveSubject(sessions.get(0));
+        Long subjectId = subject != null ? subject.getSubjectId() : null;
+        String scopeName = subject != null ? subject.getSubjectName() : null;
 
-        // Phase 1: 백엔드 결정론 결과만 채운 미리보기(비저장). AI 해석 필드는 Phase 3에서 채움.
-        return new WeaknessAnalysisReportDetailResponse(
-                null,
-                userId,
-                title,
-                request.analysisScopeType(),
-                null,
-                null,
-                null,
-                "MARKDOWN",
-                sessions.size(),
-                result.totalQuestionCount(),
-                result.totalWrongCount(),
-                result.totalLongTimeCount(),
-                result.totalHintUsedCount(),
-                0,
-                AnalysisReportStatus.GENERATING,
-                LocalDateTime.now(),
-                null,
-                null,
-                concepts);
+        // 리포트 저장(REQUESTED) 후 코인 차감(참조 연결). AI 실패 시 트랜잭션 롤백으로 코인 원복.
+        WeaknessAnalysisReport report = reportRepository.save(WeaknessAnalysisReport.builder()
+                .userId(userId)
+                .subjectId(subjectId)
+                .categoryLv1Id(request.categoryLv1Id())
+                .categoryLv2Id(request.categoryLv2Id())
+                .conceptId(request.conceptId())
+                .analysisScopeType(request.analysisScopeType())
+                .analysisScopeNameSnapshot(scopeName)
+                .title(resolveTitle(request, scopeName))
+                .reportFormat("MARKDOWN")
+                .selectedSessionCount(sessions.size())
+                .totalQuestionCount(scoring.totalQuestionCount())
+                .totalWrongCount(scoring.totalWrongCount())
+                .totalLongTimeCount(scoring.totalLongTimeCount())
+                .totalHintUsedCount(scoring.totalHintUsedCount())
+                .coinCost(props.getCoinCost())
+                .requestFingerprint(fingerprint)
+                .build());
+        report.markGenerating();
+        saveSessions(report, sessions);
+
+        rewardService.spendCoin(userId, props.getCoinCost(), CurrencyReason.WEAKNESS_ANALYSIS_CREATE,
+                REFERENCE_TYPE, report.getAnalysisReportId());
+
+        // AI 호출
+        AiRequestBundle bundle = buildAiRequest(subject, scoring);
+        long startedAt = System.currentTimeMillis();
+        AiWeaknessAnalysisResponse aiResponse;
+        try {
+            aiResponse = aiClient.analyze(bundle.request());
+        } catch (RuntimeException ex) {
+            throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
+        }
+        int latencyMs = (int) (System.currentTimeMillis() - startedAt);
+        saveAiCallLog(report.getAnalysisReportId(), fingerprint, latencyMs, "SUCCESS");
+
+        // 교차검증 + 개념/근거 저장
+        Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> aiByConcept = indexAiByConcept(aiResponse);
+        List<WeaknessConceptResponse> conceptResponses = new ArrayList<>();
+        int sortOrder = 0;
+        for (ConceptCandidate candidate : scoring.candidates()) {
+            AiWeaknessAnalysisResponse.ConceptAnalysis ai = aiByConcept.get(candidate.conceptId());
+            CrossResult cross = crossValidate(candidate.backendCandidateType(), ai, candidate.typeSeparation());
+
+            WeaknessAnalysisConcept concept = conceptRepository.save(WeaknessAnalysisConcept.builder()
+                    .report(report)
+                    .conceptId(candidate.conceptId())
+                    .sortOrder(sortOrder++)
+                    .weaknessScore(candidate.weaknessScore())
+                    .evidenceStrength(candidate.evidenceStrength())
+                    .typeSeparation(candidate.typeSeparation())
+                    .backendCandidateType(candidate.backendCandidateType())
+                    .aiPrimaryType(cross.aiPrimaryType())
+                    .aiSecondarySignals(writeSignals(ai))
+                    .aiAnalysisStatus(cross.analysisStatus())
+                    .typeAgreement(cross.agreement())
+                    .finalType(cross.finalType())
+                    .finalTypeSource(cross.finalTypeSource())
+                    .reconciliationReason(cross.reason())
+                    .causeCode(ai != null ? ai.causeCode() : null)
+                    .confusedRelation(ai != null ? ai.confusedRelation() : null)
+                    .diagnosis(ai != null ? ai.diagnosis() : null)
+                    .likelyCause(ai != null ? ai.likelyCause() : null)
+                    .conceptTip(ai != null ? ai.conceptTip() : null)
+                    .build());
+
+            saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), candidate);
+            conceptResponses.add(toConceptResponse(concept, candidate, ai, cross));
+        }
+
+        report.markCompleted(aiResponse.overview(), null, props.getAiModelLabel(), props.getPromptVersion(),
+                props.getSchemaVersion(), props.getScoringRuleVersion(), props.getDiagnosticProfileVersion());
+
+        return buildDetail(report, sessions, conceptResponses);
     }
 
-    private WeaknessConceptResponse toConceptResponse(ConceptCandidate candidate) {
-        String evidenceSummary = String.format(
-                "오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
+    // ----------------------------------------------------------------------- //
+    // 조회 / 삭제
+    // ----------------------------------------------------------------------- //
+    @Transactional(readOnly = true)
+    public List<WeaknessAnalysisReportSummaryResponse> getReports(Long userId) {
+        return reportRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(userId, AnalysisReportStatus.DELETED)
+                .stream()
+                .map(this::toSummary)
+                .toList();
+    }
+
+    @Transactional
+    public WeaknessAnalysisReportDetailResponse getReportDetail(Long userId, Long analysisReportId) {
+        WeaknessAnalysisReport report = reportRepository.findByAnalysisReportIdAndUserId(analysisReportId, userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_REPORT_NOT_FOUND));
+        if (report.getStatus() == AnalysisReportStatus.DELETED) {
+            throw new CoreMateException(ErrorCode.WEAKNESS_REPORT_NOT_FOUND);
+        }
+        // 재열람은 무과금. 열람수/열람 로그만 기록.
+        report.recordView();
+        reportViewLogRepository.save(WeaknessAnalysisReportViewLog.builder()
+                .analysisReportId(report.getAnalysisReportId())
+                .userId(userId)
+                .build());
+        return toDetail(report);
+    }
+
+    @Transactional
+    public WeaknessAnalysisReportSummaryResponse deleteReport(Long userId, Long analysisReportId) {
+        WeaknessAnalysisReport report = reportRepository.findByAnalysisReportIdAndUserId(analysisReportId, userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_REPORT_NOT_FOUND));
+        report.softDelete();
+        return toSummary(report);
+    }
+
+    // ----------------------------------------------------------------------- //
+    // AI 요청 구성 + 교차검증
+    // ----------------------------------------------------------------------- //
+    private AiRequestBundle buildAiRequest(Subject subject, WeaknessScoringResult scoring) {
+        String subjectName = subject != null ? subject.getSubjectName() : "";
+        AiWeaknessAnalysisRequest.Totals totals = new AiWeaknessAnalysisRequest.Totals(
+                scoring.totalQuestionCount(), scoring.totalWrongCount(),
+                scoring.totalLongTimeCount(), scoring.totalHintUsedCount());
+
+        List<AiWeaknessAnalysisRequest.Candidate> candidates = new ArrayList<>();
+        int refCounter = 1;
+        for (ConceptCandidate candidate : scoring.candidates()) {
+            List<AiWeaknessAnalysisRequest.Evidence> evidence = new ArrayList<>();
+            for (WeaknessEvidenceLogResponse log : candidate.evidence()) {
+                Double timeRatio = null;
+                if ("LONG_TIME".equals(log.evidenceType()) && log.expectedSolveSec() != null
+                        && log.expectedSolveSec() > 0 && log.timeSpentSec() != null) {
+                    timeRatio = round2((double) log.timeSpentSec() / log.expectedSolveSec());
+                }
+                evidence.add(new AiWeaknessAnalysisRequest.Evidence(
+                        "e" + refCounter++, log.evidenceType(), null, null, timeRatio));
+            }
+            int q = candidate.questionCount();
+            AiWeaknessAnalysisRequest.Stats stats = new AiWeaknessAnalysisRequest.Stats(
+                    rate(candidate.wrongCount(), q), rate(candidate.longTimeCount(), q), rate(candidate.hintUsedCount(), q));
+            candidates.add(new AiWeaknessAnalysisRequest.Candidate(
+                    candidate.conceptId(), candidate.conceptName(), candidate.conceptCore(),
+                    candidate.weaknessScore(), candidate.evidenceStrength().doubleValue(),
+                    candidate.typeSeparation().doubleValue(), stats, List.of(), evidence));
+        }
+        AiWeaknessAnalysisRequest request = new AiWeaknessAnalysisRequest(
+                new AiWeaknessAnalysisRequest.Scope(subjectName), totals, candidates);
+        return new AiRequestBundle(request);
+    }
+
+    private CrossResult crossValidate(WeaknessType backendType,
+            AiWeaknessAnalysisResponse.ConceptAnalysis ai, BigDecimal typeSeparation) {
+        if (ai == null) {
+            return new CrossResult(null, null, FinalTypeSource.NONE, false,
+                    AiAnalysisStatus.INSUFFICIENT, "AI 해석 없음");
+        }
+        AiAnalysisStatus status = ai.analysisStatus();
+        WeaknessType aiType = ai.primaryType();
+        boolean agreement = backendType == aiType;
+
+        if (status == AiAnalysisStatus.INSUFFICIENT || status == AiAnalysisStatus.AMBIGUOUS) {
+            return new CrossResult(aiType, null, FinalTypeSource.NONE, agreement, status, "AI 판정 " + status.name());
+        }
+        if (agreement) {
+            return new CrossResult(aiType, aiType, FinalTypeSource.BOTH, true, status, "백엔드·AI 유형 일치");
+        }
+        double sep = typeSeparation != null ? typeSeparation.doubleValue() : 0.0;
+        if (sep < props.getTypeSeparationThreshold()) {
+            return new CrossResult(aiType, aiType, FinalTypeSource.AI, false, status, "유형 구분도 낮아 AI 유형 채택");
+        }
+        return new CrossResult(aiType, null, FinalTypeSource.NONE, false, status, "유형 불일치·구분도 높아 판단 보류");
+    }
+
+    // ----------------------------------------------------------------------- //
+    // 저장 헬퍼
+    // ----------------------------------------------------------------------- //
+    private void saveSessions(WeaknessAnalysisReport report, List<SolveSession> sessions) {
+        int order = 0;
+        for (SolveSession session : sessions) {
+            sessionRepository.save(WeaknessAnalysisSession.builder()
+                    .report(report)
+                    .solveSessionId(session.getSolveSessionId())
+                    .selectedOrder(order++)
+                    .solveSessionTitleSnapshot(session.getTitle())
+                    .wrongCountSnapshot(session.getWrongCount())
+                    .build());
+        }
+    }
+
+    private void saveEvidenceLogs(Long reportId, Long conceptId, ConceptCandidate candidate) {
+        for (WeaknessEvidenceLogResponse log : candidate.evidence()) {
+            evidenceLogRepository.save(WeaknessAnalysisEvidenceLog.builder()
+                    .analysisReportId(reportId)
+                    .analysisConceptId(conceptId)
+                    .solveLogId(log.solveLogId())
+                    .evidenceType(EvidenceType.valueOf(log.evidenceType()))
+                    .build());
+        }
+    }
+
+    private void saveAiCallLog(Long reportId, String fingerprint, int latencyMs, String status) {
+        aiCallLogRepository.save(WeaknessAnalysisAiCallLog.builder()
+                .analysisReportId(reportId)
+                .requestFingerprint(fingerprint)
+                .model(props.getAiModelLabel())
+                .promptVersion(props.getPromptVersion())
+                .schemaVersion(props.getSchemaVersion())
+                .scoringRuleVersion(props.getScoringRuleVersion())
+                .diagnosticProfileVersion(props.getDiagnosticProfileVersion())
+                .retryCount(0)
+                .escalationCount(0)
+                .latencyMs(latencyMs)
+                .status(status)
+                .build());
+    }
+
+    // ----------------------------------------------------------------------- //
+    // 응답 매핑
+    // ----------------------------------------------------------------------- //
+    private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept, ConceptCandidate candidate,
+            AiWeaknessAnalysisResponse.ConceptAnalysis ai, CrossResult cross) {
+        String evidenceSummary = String.format("오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
                 candidate.wrongCount(), candidate.longTimeCount(), candidate.hintUsedCount());
         return new WeaknessConceptResponse(
-                null,
+                concept.getAnalysisConceptId(),
                 candidate.conceptId(),
                 candidate.conceptName(),
                 candidate.weaknessScore(),
                 candidate.evidenceStrength(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
+                cross.finalType() != null ? cross.finalType().name() : null,
+                cross.finalTypeSource().name(),
+                ai != null ? ai.secondarySignals().stream().map(Enum::name).toList() : List.of(),
+                ai != null && ai.causeCode() != null ? ai.causeCode().name() : null,
+                cross.analysisStatus().name(),
+                ai != null ? ai.confusedRelation() : null,
+                ai != null ? ai.diagnosis() : null,
                 evidenceSummary,
-                null,
-                null,
+                candidate.conceptCore(),
+                ai != null ? ai.conceptTip() : null,
                 candidate.evidence());
+    }
+
+    /** 저장된 리포트로부터 상세 응답을 재구성(재열람용). MVP: 근거 로그는 최소 정보만. */
+    private WeaknessAnalysisReportDetailResponse toDetail(WeaknessAnalysisReport report) {
+        List<WeaknessConceptResponse> concepts = conceptRepository
+                .findByReport_AnalysisReportIdOrderBySortOrderAsc(report.getAnalysisReportId())
+                .stream()
+                .map(this::toConceptResponse)
+                .toList();
+        List<EligibleSolveSessionResponse> sessions = sessionRepository
+                .findByReport_AnalysisReportIdOrderBySelectedOrderAsc(report.getAnalysisReportId())
+                .stream()
+                .map(this::toSelectedSession)
+                .toList();
+        return buildDetailResponse(report, sessions, concepts);
+    }
+
+    private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept) {
+        List<WeaknessEvidenceLogResponse> evidence = evidenceLogRepository.findByAnalysisReportId(concept.getReport().getAnalysisReportId())
+                .stream()
+                .filter(e -> concept.getAnalysisConceptId().equals(e.getAnalysisConceptId()))
+                .map(e -> new WeaknessEvidenceLogResponse(e.getEvidenceLogId(), e.getSolveLogId(), null, null,
+                        e.getEvidenceType().name(), null, null, null, null, null, null))
+                .toList();
+        return new WeaknessConceptResponse(
+                concept.getAnalysisConceptId(),
+                concept.getConceptId(),
+                null,
+                concept.getWeaknessScore(),
+                concept.getEvidenceStrength(),
+                concept.getFinalType() != null ? concept.getFinalType().name() : null,
+                concept.getFinalTypeSource() != null ? concept.getFinalTypeSource().name() : null,
+                readSignals(concept.getAiSecondarySignals()),
+                concept.getCauseCode() != null ? concept.getCauseCode().name() : null,
+                concept.getAiAnalysisStatus() != null ? concept.getAiAnalysisStatus().name() : null,
+                concept.getConfusedRelation(),
+                concept.getDiagnosis(),
+                null,
+                null,
+                concept.getConceptTip(),
+                evidence);
+    }
+
+    private EligibleSolveSessionResponse toSelectedSession(WeaknessAnalysisSession session) {
+        return new EligibleSolveSessionResponse(
+                session.getSolveSessionId(), session.getSolveSessionTitleSnapshot(), null,
+                null, null, null, null, null, null, null, null,
+                null, session.getWrongCountSnapshot(), null, null, null, true, null);
+    }
+
+    private WeaknessAnalysisReportDetailResponse buildDetail(WeaknessAnalysisReport report,
+            List<SolveSession> sessions, List<WeaknessConceptResponse> concepts) {
+        List<EligibleSolveSessionResponse> selected = sessions.stream()
+                .map(this::toSelectedSession)
+                .toList();
+        return buildDetailResponse(report, selected, concepts);
+    }
+
+    private WeaknessAnalysisReportDetailResponse buildDetailResponse(WeaknessAnalysisReport report,
+            List<EligibleSolveSessionResponse> sessions, List<WeaknessConceptResponse> concepts) {
+        return new WeaknessAnalysisReportDetailResponse(
+                report.getAnalysisReportId(),
+                report.getUserId(),
+                report.getTitle(),
+                report.getAnalysisScopeType(),
+                report.getAnalysisScopeNameSnapshot(),
+                report.getSummaryText(),
+                report.getAnalysisText(),
+                report.getReportFormat(),
+                report.getSelectedSessionCount(),
+                report.getTotalQuestionCount(),
+                report.getTotalWrongCount(),
+                report.getTotalLongTimeCount(),
+                report.getTotalHintUsedCount(),
+                report.getCoinCost(),
+                report.getStatus(),
+                report.getRequestedAt(),
+                report.getGeneratedAt(),
+                sessions,
+                concepts);
+    }
+
+    private EligibleSolveSessionResponse toSelectedSession(SolveSession session) {
+        Subject subject = resolveSubject(session);
+        CategoryLv1 lv1 = session.getCategoryLv1();
+        CategoryLv2 lv2 = session.getCategoryLv2();
+        return new EligibleSolveSessionResponse(
+                session.getSolveSessionId(), session.getTitle(), session.getSessionType(),
+                subject != null ? subject.getSubjectId() : null, subject != null ? subject.getSubjectName() : null,
+                lv1 != null ? lv1.getCategoryLv1Id() : null, lv1 != null ? lv1.getCategoryLv1Name() : null,
+                lv2 != null ? lv2.getCategoryLv2Id() : null, lv2 != null ? lv2.getCategoryLv2Name() : null,
+                null, null,
+                session.getTotalQuestionCount(), session.getWrongCount(), null, null,
+                session.getCompletedAt(), true, null);
+    }
+
+    private WeaknessAnalysisReportSummaryResponse toSummary(WeaknessAnalysisReport report) {
+        return new WeaknessAnalysisReportSummaryResponse(
+                report.getAnalysisReportId(),
+                report.getTitle(),
+                report.getAnalysisScopeType(),
+                report.getAnalysisScopeNameSnapshot(),
+                report.getStatus(),
+                report.getSelectedSessionCount(),
+                report.getTotalQuestionCount(),
+                report.getTotalWrongCount(),
+                report.getCoinCost(),
+                report.getGeneratedAt(),
+                false);
+    }
+
+    // ----------------------------------------------------------------------- //
+    // 유틸
+    // ----------------------------------------------------------------------- //
+    private Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> indexAiByConcept(AiWeaknessAnalysisResponse response) {
+        Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> map = new LinkedHashMap<>();
+        if (response.conceptAnalyses() != null) {
+            for (AiWeaknessAnalysisResponse.ConceptAnalysis analysis : response.conceptAnalyses()) {
+                if (analysis.conceptId() != null) {
+                    map.put(analysis.conceptId(), analysis);
+                }
+            }
+        }
+        return map;
+    }
+
+    private String writeSignals(AiWeaknessAnalysisResponse.ConceptAnalysis ai) {
+        if (ai == null || ai.secondarySignals() == null) {
+            return null;
+        }
+        return objectMapper.writeValueAsString(ai.secondarySignals().stream().map(Enum::name).toList());
+    }
+
+    private List<String> readSignals(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        return objectMapper.readValue(json, new tools.jackson.core.type.TypeReference<List<String>>() {});
+    }
+
+    private String buildFingerprint(Long userId, List<Long> sessionIds) {
+        String raw = userId + "|" + sessionIds.stream().sorted().toList()
+                + "|" + props.getScoringRuleVersion() + "|" + props.getDiagnosticProfileVersion()
+                + "|" + props.getPromptVersion() + "|" + props.getSchemaVersion();
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (Exception ex) {
+            throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
+        }
+    }
+
+    private String resolveTitle(CreateWeaknessAnalysisReportRequest request, String scopeName) {
+        if (request.title() != null && !request.title().isBlank()) {
+            return request.title();
+        }
+        return (scopeName != null ? scopeName + " " : "") + "약점 분석표";
+    }
+
+    private Subject resolveSubject(SolveSession session) {
+        if (session.getSubject() != null) {
+            return session.getSubject();
+        }
+        if (session.getCategoryLv2() != null) {
+            return session.getCategoryLv2().getCategoryLv1().getSubject();
+        }
+        if (session.getCategoryLv1() != null) {
+            return session.getCategoryLv1().getSubject();
+        }
+        return null;
+    }
+
+    private double rate(int count, int total) {
+        return total == 0 ? 0.0 : round2((double) count / total);
+    }
+
+    private double round2(double value) {
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private record AiRequestBundle(AiWeaknessAnalysisRequest request) {
+    }
+
+    private record CrossResult(WeaknessType aiPrimaryType, WeaknessType finalType, FinalTypeSource finalTypeSource,
+            boolean agreement, AiAnalysisStatus analysisStatus, String reason) {
     }
 }
