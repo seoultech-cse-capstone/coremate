@@ -1,0 +1,138 @@
+import _bootstrap
+
+import argparse
+import json
+from pathlib import Path
+
+from tqdm import tqdm
+
+from schemas.concept_diagnostic_profile_schema import CONCEPT_DIAGNOSTIC_PROFILE_SCHEMA
+from schemas.question_diagnostic_profile_schema import QUESTION_DIAGNOSTIC_PROFILE_SCHEMA
+from src.ai_client import call_ai_json
+from src.hash_utils import make_question_hash
+
+# 진단 프로필 데이터 버전. 백엔드 weakness.analysis.diagnostic-profile-version 와 맞춘다.
+DIAGNOSTIC_PROFILE_VERSION = "v1"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="개념/문항 진단 프로필을 생성해 outputs/{SUBJECT}/diagnostic_profiles.json 로 저장한다.",
+    )
+    parser.add_argument("subject_code", help="예: DATA_STRUCTURE, NETWORK")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="생성할 개념 수 상한(스모크용). 지정 시 앞에서부터 N개 개념만 처리.",
+    )
+    parser.add_argument(
+        "--skip-questions",
+        action="store_true",
+        help="문항 진단 프로필 생성을 건너뛰고 개념 프로필만 생성.",
+    )
+    return parser.parse_args()
+
+
+def load_json(path: Path):
+    if not path.exists():
+        raise RuntimeError(f"필요한 산출물이 없습니다: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def main() -> None:
+    args = parse_args()
+    subject_code = args.subject_code
+    base = Path(f"outputs/{subject_code}")
+
+    concept_cards = load_json(base / "concept_cards.json")
+    questions = load_json(base / "questions.json")
+    common_mistakes = load_json(base / "common_mistakes.json")
+    relations = load_json(base / "concept_relations.json")
+
+    mistakes_by_concept: dict[str, list] = {}
+    for group in common_mistakes:
+        mistakes_by_concept[group["concept_code"]] = group.get("mistakes", [])
+
+    def relations_for(concept_code: str) -> list:
+        return [
+            r
+            for r in relations
+            if r.get("source_concept_code") == concept_code
+            or r.get("target_concept_code") == concept_code
+        ]
+
+    if args.limit is not None:
+        concept_cards = concept_cards[: args.limit]
+    selected_codes = {card["concept_code"] for card in concept_cards}
+
+    concept_prompt = Path("prompts/generate_concept_diagnostic_profile.md").read_text(encoding="utf-8")
+    question_prompt = Path("prompts/generate_question_diagnostic_profile.md").read_text(encoding="utf-8")
+
+    concept_profiles = []
+    for card in tqdm(concept_cards, desc="concept profiles"):
+        concept_code = card["concept_code"]
+        user_prompt = concept_prompt.format(
+            concept_card_json=json.dumps(card, ensure_ascii=False, indent=2),
+            common_mistakes_json=json.dumps(
+                mistakes_by_concept.get(concept_code, []), ensure_ascii=False, indent=2
+            ),
+            relations_json=json.dumps(relations_for(concept_code), ensure_ascii=False, indent=2),
+        )
+        result = call_ai_json(
+            system_prompt="너는 CS 전공 학습자의 약점을 진단하는 학습 콘텐츠 전문가다.",
+            user_prompt=user_prompt,
+            schema_name="concept_diagnostic_profile_schema",
+            schema=CONCEPT_DIAGNOSTIC_PROFILE_SCHEMA,
+            reasoning_effort="low",
+        )
+        result["concept_code"] = concept_code
+        result["concept_name"] = card.get("concept_name")
+        result["diagnostic_profile_version"] = DIAGNOSTIC_PROFILE_VERSION
+        concept_profiles.append(result)
+
+    question_profiles = []
+    if not args.skip_questions:
+        target_questions = [q for q in questions if q.get("concept_code") in selected_codes]
+        cards_by_code = {card["concept_code"]: card for card in concept_cards}
+        for question in tqdm(target_questions, desc="question profiles"):
+            concept_code = question["concept_code"]
+            user_prompt = question_prompt.format(
+                question_json=json.dumps(question, ensure_ascii=False, indent=2),
+                concept_card_json=json.dumps(
+                    cards_by_code.get(concept_code, {}), ensure_ascii=False, indent=2
+                ),
+                common_mistakes_json=json.dumps(
+                    mistakes_by_concept.get(concept_code, []), ensure_ascii=False, indent=2
+                ),
+            )
+            result = call_ai_json(
+                system_prompt="너는 CS 전공 시험 문항을 진단 관점에서 분석하는 전문가다.",
+                user_prompt=user_prompt,
+                schema_name="question_diagnostic_profile_schema",
+                schema=QUESTION_DIAGNOSTIC_PROFILE_SCHEMA,
+                reasoning_effort="low",
+            )
+            # 문항 식별·비생성 필드는 원본에서 그대로 채운다(import 가 content_hash 로 question_id 해석).
+            result["content_hash"] = str(question.get("content_hash") or make_question_hash(question))
+            result["concept_code"] = concept_code
+            result["expected_solve_sec"] = question.get("expected_solve_sec")
+            result["difficulty"] = question.get("difficulty_level")
+            result["diagnostic_profile_version"] = DIAGNOSTIC_PROFILE_VERSION
+            question_profiles.append(result)
+
+    out = {
+        "subject_code": subject_code,
+        "diagnostic_profile_version": DIAGNOSTIC_PROFILE_VERSION,
+        "concept_profiles": concept_profiles,
+        "question_profiles": question_profiles,
+    }
+    out_path = base / "diagnostic_profiles.json"
+    out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"진단 프로필 생성 완료: {out_path}")
+    print(f"개념 프로필: {len(concept_profiles)}개, 문항 프로필: {len(question_profiles)}개")
+
+
+if __name__ == "__main__":
+    main()
