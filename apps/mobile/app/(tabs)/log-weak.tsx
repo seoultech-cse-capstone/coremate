@@ -189,9 +189,13 @@ export default function LogWeakScreen() {
   // 완료 기록(subjectScopedSets) 기준으로 정한다 — 이 조회는 이름 조회용일 뿐이다.
   const { data: categoryLv1List = [] } = useCategoryLv1List(selectedSubjectId);
   const { data: categoryLv2List = [] } = useCategoryLv2List(selectedChapter1Id);
-  const { data: subjectScopedSets = [] } = useCompletedProblemSets(accessToken, {
+  const completedProblemSetsQuery = useCompletedProblemSets(accessToken, {
     subjectId: selectedSubjectId ?? undefined,
   });
+  const subjectScopedSets = useMemo(
+    () => completedProblemSetsQuery.data ?? [],
+    [completedProblemSetsQuery.data],
+  );
 
   const subjectNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -412,14 +416,17 @@ export default function LogWeakScreen() {
     }
   }, [modeParam]);
 
+  const { refetch: refetchCompletedProblemSets } = completedProblemSetsQuery;
+
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
+      refetchCompletedProblemSets();
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, refetchCompletedProblemSets]);
 
   useEffect(() => {
     setBounceBackground(activePurple);
