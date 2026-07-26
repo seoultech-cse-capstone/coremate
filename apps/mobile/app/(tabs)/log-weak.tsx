@@ -16,11 +16,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 import { useAuth, useRequireMember } from "../../src/features/auth";
-import { useSubjects } from "../../src/features/content/useContentQueries";
+import {
+  useCategoryLv1List,
+  useCategoryLv2List,
+  useSubjects,
+} from "../../src/features/content/useContentQueries";
 import { sessionTypeLabel } from "../../src/features/logWeak/types";
 import type { CompletedProblemSetSummary } from "../../src/features/logWeak/types";
 import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
+import { useLanguage } from "../../src/shared/language/LanguageContext";
 
 type LogWeakMode = "wrongNote" | "weakness";
 type DepthFilter = "subject" | "Chapter1" | "Chapter2" | "concept";
@@ -45,19 +50,40 @@ function formatCompletedDate(isoString: string): string {
   return isoString.slice(0, 10).replace(/-/g, ".");
 }
 
+type LocalizedNameLookups = {
+  subjectNameById: Map<number, string>;
+  categoryLv1NameById: Map<number, string>;
+  categoryLv2NameById: Map<number, string>;
+};
+
 function toExamHistoryDisplayItem(
   summary: CompletedProblemSetSummary,
+  lookups: LocalizedNameLookups,
 ): ExamHistoryDisplayItem {
+  const subjectName =
+    (summary.subjectId !== null
+      ? lookups.subjectNameById.get(summary.subjectId)
+      : undefined) ?? summary.subjectName;
+  const categoryLv1Name =
+    (summary.categoryLv1Id !== null
+      ? lookups.categoryLv1NameById.get(summary.categoryLv1Id)
+      : undefined) ?? summary.categoryLv1Name;
+  const categoryLv2Name =
+    (summary.categoryLv2Id !== null
+      ? lookups.categoryLv2NameById.get(summary.categoryLv2Id)
+      : undefined) ?? summary.categoryLv2Name;
+  // 개념명은 이 화면에서 콘텐츠 카탈로그를 별도로 불러오지 않아 언어 설정을
+  // 적용하지 않는다(필터도 개념 단계까지는 내려가지 않는 것과 같은 범위).
   const scopePath = [
-    summary.subjectName,
-    summary.categoryLv1Name,
-    summary.categoryLv2Name,
+    subjectName,
+    categoryLv1Name,
+    categoryLv2Name,
     summary.conceptName,
   ].filter((name): name is string => Boolean(name));
 
   return {
     solveSessionId: summary.solveSessionId,
-    subject: summary.subjectName ?? "",
+    subject: subjectName ?? "",
     category: scopePath[scopePath.length - 1] ?? "",
     examType: sessionTypeLabel[summary.sessionType],
     scopePath,
@@ -146,6 +172,7 @@ export default function LogWeakScreen() {
   const activePurple = isWrongNote ? BRAND_PURPLE : WEAKNESS_PURPLE;
 
   const { accessToken } = useAuth();
+  const { language } = useLanguage();
 
   // Row1(선택된 필터 목록)은 All + selectedPath. Row2(다음 단계 후보)는 selectedPath 깊이에 따라 달라진다.
   const [selectedSubject, selectedChapter1, selectedChapter2] = selectedPath;
@@ -156,21 +183,61 @@ export default function LogWeakScreen() {
   // 과목은 콘텐츠 카탈로그 기준으로 항상 전부 보여준다. 완료 기록이 하나도
   // 없는 과목이라도 필터로는 선택할 수 있어야 하기 때문이다.
   const { data: subjects = [] } = useSubjects();
-  // 대분류/중분류는 실제로 완료 기록이 있는 것만 필터 후보로 보여준다. 그래서
-  // 선택된 과목 범위 안의 완료 기록을 미리 받아 대분류/중분류 후보를 뽑아낸다.
+  // 완료 기록 API(CompletedProblemSetSummary)에는 영문명이 없어서, 언어
+  // 설정에 맞는 이름을 보여주려면 콘텐츠 카탈로그를 id 기준으로 별도 조회해
+  // 이름만 가져다 쓴다. 대분류/중분류를 "필터 후보로 보여줄지"는 여전히
+  // 완료 기록(subjectScopedSets) 기준으로 정한다 — 이 조회는 이름 조회용일 뿐이다.
+  const { data: categoryLv1List = [] } = useCategoryLv1List(selectedSubjectId);
+  const { data: categoryLv2List = [] } = useCategoryLv2List(selectedChapter1Id);
   const { data: subjectScopedSets = [] } = useCompletedProblemSets(accessToken, {
     subjectId: selectedSubjectId ?? undefined,
   });
+
+  const subjectNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const subject of subjects) {
+      map.set(
+        subject.subjectId,
+        language === "en" ? subject.subjectNameEn : subject.subjectName,
+      );
+    }
+    return map;
+  }, [subjects, language]);
+
+  const categoryLv1NameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categoryLv1List) {
+      map.set(
+        category.categoryLv1Id,
+        language === "en" ? category.categoryLv1NameEn : category.categoryLv1Name,
+      );
+    }
+    return map;
+  }, [categoryLv1List, language]);
+
+  const categoryLv2NameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categoryLv2List) {
+      map.set(
+        category.categoryLv2Id,
+        language === "en" ? category.categoryLv2NameEn : category.categoryLv2Name,
+      );
+    }
+    return map;
+  }, [categoryLv2List, language]);
 
   const categoryLv1Options = useMemo(() => {
     const seen = new Map<number, string>();
     for (const item of subjectScopedSets) {
       if (item.categoryLv1Id !== null && item.categoryLv1Name !== null) {
-        seen.set(item.categoryLv1Id, item.categoryLv1Name);
+        seen.set(
+          item.categoryLv1Id,
+          categoryLv1NameById.get(item.categoryLv1Id) ?? item.categoryLv1Name,
+        );
       }
     }
     return [...seen.entries()].map(([id, label]) => ({ id: String(id), label }));
-  }, [subjectScopedSets]);
+  }, [subjectScopedSets, categoryLv1NameById]);
 
   const categoryLv2Options = useMemo(() => {
     const seen = new Map<number, string>();
@@ -180,11 +247,14 @@ export default function LogWeakScreen() {
         item.categoryLv2Id !== null &&
         item.categoryLv2Name !== null
       ) {
-        seen.set(item.categoryLv2Id, item.categoryLv2Name);
+        seen.set(
+          item.categoryLv2Id,
+          categoryLv2NameById.get(item.categoryLv2Id) ?? item.categoryLv2Name,
+        );
       }
     }
     return [...seen.entries()].map(([id, label]) => ({ id: String(id), label }));
-  }, [subjectScopedSets, selectedChapter1Id]);
+  }, [subjectScopedSets, selectedChapter1Id, categoryLv2NameById]);
 
   const row1Items: FilterNode[] = [{ id: "all", label: "All" }, ...selectedPath];
   const row2Level: "subject" | "chapter1" | "chapter2" = !selectedSubject
@@ -195,7 +265,7 @@ export default function LogWeakScreen() {
   const row2Items: FilterNode[] = !selectedSubject
     ? subjects.map((subject) => ({
         id: String(subject.subjectId),
-        label: subject.subjectName,
+        label: language === "en" ? subject.subjectNameEn : subject.subjectName,
       }))
     : !selectedChapter1
       ? categoryLv1Options
@@ -232,8 +302,21 @@ export default function LogWeakScreen() {
       }
       return true;
     });
-    return filtered.map(toExamHistoryDisplayItem);
-  }, [subjectScopedSets, selectedChapter1Id, selectedChapter2Id]);
+    return filtered.map((item) =>
+      toExamHistoryDisplayItem(item, {
+        subjectNameById,
+        categoryLv1NameById,
+        categoryLv2NameById,
+      }),
+    );
+  }, [
+    subjectScopedSets,
+    selectedChapter1Id,
+    selectedChapter2Id,
+    subjectNameById,
+    categoryLv1NameById,
+    categoryLv2NameById,
+  ]);
 
   const filteredWeaknessReports = useMemo(
     () =>
