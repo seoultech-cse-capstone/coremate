@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
 import type { SolveReviewItem } from "../../solve/types";
+import { sessionTypeLabel, type CompletedSessionType } from "../types";
 
 type ReviewQuestion = {
   id: number;
@@ -33,23 +34,12 @@ type DisplayQuestion = {
 type MistakeExamReviewProps = {
   category: string;
   examType: string;
-  sessionType?:
-    | "SUBJECT_MOCK"
-    | "CHAPTER_MOCK"
-    | "CONCEPT_PRACTICE"
-    | "DAILY_QUIZ";
+  sessionType?: CompletedSessionType;
   subject: string;
-  /** 개념 문제집 실제 풀이 결과. 있으면 이걸 우선 보여주고, 없으면 아래 목데이터를 보여준다. */
+  /** 실제 풀이 결과. 있으면 이걸 우선 보여주고, 없으면 아래 목데이터를 보여준다. */
   results?: SolveReviewItem[];
   onBack: () => void;
 };
-
-const sessionTypeLabel = {
-  SUBJECT_MOCK: "과목 모의고사",
-  CHAPTER_MOCK: "챕터 모의고사",
-  CONCEPT_PRACTICE: "개념 문제집",
-  DAILY_QUIZ: "오늘의 CS 퀴즈",
-} as const;
 
 const questions: ReviewQuestion[] = [
   {
