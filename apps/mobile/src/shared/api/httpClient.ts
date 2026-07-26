@@ -47,11 +47,14 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!authHandlers) {
     return null;
   }
+  // authHandlers는 진행 중에 null로 바뀔 수 있으므로(AuthProvider 언마운트 등),
+  // 이번 재발급에 쓸 참조를 로컬로 고정해 이후 await 도중 사라지지 않게 한다.
+  const handlers = authHandlers;
 
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
-        const refreshToken = await authHandlers!.getRefreshToken();
+        const refreshToken = await handlers.getRefreshToken();
         if (!refreshToken) {
           return null;
         }
@@ -64,15 +67,15 @@ async function refreshAccessToken(): Promise<string | null> {
         const data = await parseJson(response);
 
         if (!response.ok) {
-          await authHandlers!.onRefreshFailed();
+          await handlers.onRefreshFailed();
           return null;
         }
 
         const tokens = data as { accessToken: string; refreshToken: string };
-        await authHandlers!.onTokensRefreshed(tokens.accessToken, tokens.refreshToken);
+        await handlers.onTokensRefreshed(tokens.accessToken, tokens.refreshToken);
         return tokens.accessToken;
       } catch {
-        await authHandlers!.onRefreshFailed();
+        await handlers.onRefreshFailed();
         return null;
       } finally {
         refreshPromise = null;
