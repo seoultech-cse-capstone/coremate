@@ -230,35 +230,48 @@ export default function LogWeakScreen() {
     return map;
   }, [categoryLv2List, language]);
 
-  const categoryLv1Options = useMemo(() => {
-    const seen = new Map<number, string>();
+  // 필터 후보로 보여줄지는 완료 기록(subjectScopedSets) 기준으로 정하되,
+  // 나열 순서는 문제집 탭과 똑같이 콘텐츠 카탈로그의 sortOrder를 따른다
+  // (완료 시각 순서로 나열되면 문제집 탭과 순서가 달라 보인다).
+  const categoryLv1IdsWithRecords = useMemo(() => {
+    const ids = new Set<number>();
     for (const item of subjectScopedSets) {
-      if (item.categoryLv1Id !== null && item.categoryLv1Name !== null) {
-        seen.set(
-          item.categoryLv1Id,
-          categoryLv1NameById.get(item.categoryLv1Id) ?? item.categoryLv1Name,
-        );
+      if (item.categoryLv1Id !== null) {
+        ids.add(item.categoryLv1Id);
       }
     }
-    return [...seen.entries()].map(([id, label]) => ({ id: String(id), label }));
-  }, [subjectScopedSets, categoryLv1NameById]);
+    return ids;
+  }, [subjectScopedSets]);
+
+  const categoryLv2IdsWithRecords = useMemo(() => {
+    const ids = new Set<number>();
+    for (const item of subjectScopedSets) {
+      if (item.categoryLv1Id === selectedChapter1Id && item.categoryLv2Id !== null) {
+        ids.add(item.categoryLv2Id);
+      }
+    }
+    return ids;
+  }, [subjectScopedSets, selectedChapter1Id]);
+
+  const categoryLv1Options = useMemo(() => {
+    return [...categoryLv1List]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .filter((category) => categoryLv1IdsWithRecords.has(category.categoryLv1Id))
+      .map((category) => ({
+        id: String(category.categoryLv1Id),
+        label: categoryLv1NameById.get(category.categoryLv1Id) ?? category.categoryLv1Name,
+      }));
+  }, [categoryLv1List, categoryLv1IdsWithRecords, categoryLv1NameById]);
 
   const categoryLv2Options = useMemo(() => {
-    const seen = new Map<number, string>();
-    for (const item of subjectScopedSets) {
-      if (
-        item.categoryLv1Id === selectedChapter1Id &&
-        item.categoryLv2Id !== null &&
-        item.categoryLv2Name !== null
-      ) {
-        seen.set(
-          item.categoryLv2Id,
-          categoryLv2NameById.get(item.categoryLv2Id) ?? item.categoryLv2Name,
-        );
-      }
-    }
-    return [...seen.entries()].map(([id, label]) => ({ id: String(id), label }));
-  }, [subjectScopedSets, selectedChapter1Id, categoryLv2NameById]);
+    return [...categoryLv2List]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .filter((category) => categoryLv2IdsWithRecords.has(category.categoryLv2Id))
+      .map((category) => ({
+        id: String(category.categoryLv2Id),
+        label: categoryLv2NameById.get(category.categoryLv2Id) ?? category.categoryLv2Name,
+      }));
+  }, [categoryLv2List, categoryLv2IdsWithRecords, categoryLv2NameById]);
 
   const row1Items: FilterNode[] = [{ id: "all", label: "All" }, ...selectedPath];
   const row2Level: "subject" | "chapter1" | "chapter2" = !selectedSubject
@@ -267,10 +280,12 @@ export default function LogWeakScreen() {
       ? "chapter1"
       : "chapter2";
   const row2Items: FilterNode[] = !selectedSubject
-    ? subjects.map((subject) => ({
-        id: String(subject.subjectId),
-        label: language === "en" ? subject.subjectNameEn : subject.subjectName,
-      }))
+    ? [...subjects]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((subject) => ({
+          id: String(subject.subjectId),
+          label: language === "en" ? subject.subjectNameEn : subject.subjectName,
+        }))
     : !selectedChapter1
       ? categoryLv1Options
       : categoryLv2Options;
