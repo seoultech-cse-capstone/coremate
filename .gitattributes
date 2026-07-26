@@ -1,0 +1,5 @@
+# Gradle 래퍼 셸 스크립트는 리눅스 기반 도커 빌드/CI에서 실행되므로 항상 LF여야
+# 한다. Windows에서 core.autocrlf 설정에 따라 체크아웃 시 CRLF로 바뀌면
+# "./gradlew: not found" 같은 오류로 빌드가 깨진다.
+apps/backend/gradlew text eol=lf
+apps/backend/gradlew.bat text eol=crlf

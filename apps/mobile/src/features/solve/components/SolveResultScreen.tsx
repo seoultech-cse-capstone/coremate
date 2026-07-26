@@ -27,7 +27,8 @@ type SolveResultScreenProps = {
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
   SUBJECT_MOCK: "과목 모의고사",
-  CHAPTER_MOCK: "챕터 모의고사",
+  CATEGORY_LV1_MOCK: "대분류 모의고사",
+  CATEGORY_LV2_MOCK: "중분류 모의고사",
   CONCEPT_PRACTICE: "개념 문제집",
   DAILY_QUIZ: "오늘의 CS 퀴즈",
 };
@@ -48,7 +49,9 @@ export function SolveResultScreen({
   const wrongCount = totalCount - correctCount;
   const correctRate = Math.round((correctCount / totalCount) * 100);
   const isMockExam =
-    sessionType === "SUBJECT_MOCK" || sessionType === "CHAPTER_MOCK";
+    sessionType === "SUBJECT_MOCK" ||
+    sessionType === "CATEGORY_LV1_MOCK" ||
+    sessionType === "CATEGORY_LV2_MOCK";
   const elapsedTimeLabel = `${Math.floor((elapsedSeconds ?? 0) / 60)
     .toString()
     .padStart(2, "0")}:${((elapsedSeconds ?? 0) % 60)

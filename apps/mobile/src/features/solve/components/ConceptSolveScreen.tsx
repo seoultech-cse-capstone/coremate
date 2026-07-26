@@ -22,7 +22,11 @@ import { Toast } from "../../../shared/components/Toast";
 import { useToast } from "../../../shared/hooks/useToast";
 import { getApiErrorMessage } from "../../../shared/utils/apiError";
 import { solveApi } from "../solveApi";
-import type { SolveQuestion, SolveReviewItem } from "../types";
+import type {
+  SolveQuestion,
+  SolveReviewItem,
+  StartSolveSessionResponse,
+} from "../types";
 
 const BRAND_PURPLE = "#6D5DFB";
 
@@ -31,8 +35,57 @@ const BRAND_PURPLE = "#6D5DFB";
 const DUMMY_HINT_TEXT =
   "정답을 직접 알려주지는 않지만, 문제에서 다루는 핵심 개념을 다시 짚어보면 실마리를 찾을 수 있어요.";
 
+/** 개념 문제집은 게스트도 가능하고, 모의고사 3종은 전부 회원 전용이다. */
+export type SolveTarget =
+  | { type: "concept"; conceptId: number }
+  | { type: "subjectMock"; subjectId: number }
+  | { type: "categoryLv1Mock"; categoryLv1Id: number }
+  | { type: "categoryLv2Mock"; categoryLv2Id: number };
+
+const TARGET_SUBTITLE: Record<SolveTarget["type"], string> = {
+  concept: "개념 문제집",
+  subjectMock: "과목 모의고사",
+  categoryLv1Mock: "대분류 모의고사",
+  categoryLv2Mock: "중분류 모의고사",
+};
+
+function targetKey(target: SolveTarget): string {
+  switch (target.type) {
+    case "concept":
+      return `concept:${target.conceptId}`;
+    case "subjectMock":
+      return `subjectMock:${target.subjectId}`;
+    case "categoryLv1Mock":
+      return `categoryLv1Mock:${target.categoryLv1Id}`;
+    case "categoryLv2Mock":
+      return `categoryLv2Mock:${target.categoryLv2Id}`;
+  }
+}
+
+function startSession(
+  target: SolveTarget,
+  accessToken: string | null,
+): Promise<StartSolveSessionResponse> {
+  switch (target.type) {
+    case "concept":
+      return solveApi.startConceptSession(target.conceptId, accessToken ?? undefined);
+    case "subjectMock":
+      return solveApi.startSubjectMockSession(target.subjectId, accessToken as string);
+    case "categoryLv1Mock":
+      return solveApi.startCategoryLv1MockSession(
+        target.categoryLv1Id,
+        accessToken as string,
+      );
+    case "categoryLv2Mock":
+      return solveApi.startCategoryLv2MockSession(
+        target.categoryLv2Id,
+        accessToken as string,
+      );
+  }
+}
+
 type ConceptSolveScreenProps = {
-  conceptId: number;
+  target: SolveTarget;
   title: string;
   isGuest: boolean;
   accessToken: string | null;
@@ -50,7 +103,7 @@ type SessionState =
   | { status: "ready"; sessionId: number | null; questions: SolveQuestion[] };
 
 export function ConceptSolveScreen({
-  conceptId,
+  target,
   title,
   isGuest,
   accessToken,
@@ -102,10 +155,7 @@ export function ConceptSolveScreen({
 
     (async () => {
       try {
-        const response = await solveApi.startConceptSession(
-          conceptId,
-          accessToken ?? undefined,
-        );
+        const response = await startSession(target, accessToken);
         if (cancelled) {
           return;
         }
@@ -131,7 +181,7 @@ export function ConceptSolveScreen({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conceptId]);
+  }, [targetKey(target)]);
 
   // 게스트는 북마크 기능이 없다. 회원이면 이 세션의 문제들 중 이미
   // 북마크된 것이 있는지 한 번에 조회해둔다(문제별 개별 조회 API가 없음).
@@ -276,8 +326,13 @@ export function ConceptSolveScreen({
           reviewItems: reviewItemsRef.current,
         });
       } else {
+        // 모의고사 3종은 전부 회원 전용이라 이 분기(게스트 완료)는 개념
+        // 문제집에서만 실제로 도달한다.
+        if (target.type !== "concept") {
+          throw new Error("게스트 풀이는 개념 문제집에서만 가능합니다.");
+        }
         const guestResults = await solveApi.completeGuestSession(
-          conceptId,
+          target.conceptId,
           answersRef.current,
         );
         const reviewItems: SolveReviewItem[] = guestResults.map((result) => {
@@ -365,7 +420,7 @@ export function ConceptSolveScreen({
           <Text numberOfLines={1} style={styles.headerTitle}>
             {title}
           </Text>
-          <Text style={styles.headerSubtitle}>개념 문제집</Text>
+          <Text style={styles.headerSubtitle}>{TARGET_SUBTITLE[target.type]}</Text>
         </View>
 
         {!accessToken ? (
