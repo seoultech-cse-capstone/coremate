@@ -1,6 +1,7 @@
 export type SolveSessionType =
   | "SUBJECT_MOCK"
-  | "CHAPTER_MOCK"
+  | "CATEGORY_LV1_MOCK"
+  | "CATEGORY_LV2_MOCK"
   | "CONCEPT_PRACTICE"
   | "DAILY_QUIZ";
 

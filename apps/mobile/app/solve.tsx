@@ -1,7 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
 
 import { useAuth } from "../src/features/auth";
-import { ConceptSolveScreen } from "../src/features/solve/components/ConceptSolveScreen";
+import {
+  ConceptSolveScreen,
+  type SolveTarget,
+} from "../src/features/solve/components/ConceptSolveScreen";
 import {
   SolveQuestionScreen,
   type SolveSessionType,
@@ -9,7 +12,8 @@ import {
 
 const sessionTypes: SolveSessionType[] = [
   "SUBJECT_MOCK",
-  "CHAPTER_MOCK",
+  "CATEGORY_LV1_MOCK",
+  "CATEGORY_LV2_MOCK",
   "CONCEPT_PRACTICE",
   "DAILY_QUIZ",
 ];
@@ -17,9 +21,10 @@ const sessionTypes: SolveSessionType[] = [
 export default function SolveScreen() {
   const { status, accessToken } = useAuth();
   const isGuest = status === "guest";
-  const { conceptId, sessionType, title } = useLocalSearchParams<{
+  const { conceptId, sessionType, targetId, title } = useLocalSearchParams<{
     conceptId?: string;
     sessionType?: string;
+    targetId?: string;
     title?: string;
   }>();
   const resolvedSessionType = sessionTypes.includes(sessionType as SolveSessionType)
@@ -28,13 +33,26 @@ export default function SolveScreen() {
   const resolvedTitle = title ?? "Dynamic Array";
   const parsedConceptId = Number(conceptId);
   const resolvedConceptId = Number.isFinite(parsedConceptId) ? parsedConceptId : null;
+  const parsedTargetId = Number(targetId);
+  const resolvedTargetId = Number.isFinite(parsedTargetId) ? parsedTargetId : null;
 
-  // 개념 문제집은 실제 문제 API로 연결한다. 그 외(모의고사/오늘의 퀴즈)는
+  const target: SolveTarget | null =
+    resolvedSessionType === "CONCEPT_PRACTICE" && resolvedConceptId !== null
+      ? { type: "concept", conceptId: resolvedConceptId }
+      : resolvedSessionType === "SUBJECT_MOCK" && resolvedTargetId !== null
+        ? { type: "subjectMock", subjectId: resolvedTargetId }
+        : resolvedSessionType === "CATEGORY_LV1_MOCK" && resolvedTargetId !== null
+          ? { type: "categoryLv1Mock", categoryLv1Id: resolvedTargetId }
+          : resolvedSessionType === "CATEGORY_LV2_MOCK" && resolvedTargetId !== null
+            ? { type: "categoryLv2Mock", categoryLv2Id: resolvedTargetId }
+            : null;
+
+  // 개념 문제집/모의고사 3종은 실제 문제 API로 연결한다. 그 외(오늘의 퀴즈)는
   // 아직 백엔드가 더미 데이터라 기존 목데이터 화면을 그대로 쓴다.
-  if (resolvedSessionType === "CONCEPT_PRACTICE" && resolvedConceptId !== null) {
+  if (target !== null) {
     return (
       <ConceptSolveScreen
-        conceptId={resolvedConceptId}
+        target={target}
         title={resolvedTitle}
         isGuest={isGuest}
         accessToken={accessToken}
@@ -45,7 +63,7 @@ export default function SolveScreen() {
             params: {
               title: resolvedTitle,
               sessionType: resolvedSessionType,
-              conceptId: String(resolvedConceptId),
+              conceptId: target.type === "concept" ? String(target.conceptId) : undefined,
               correctCount: correctCount.toString(),
               totalCount: totalCount.toString(),
               reviewItemsJson: JSON.stringify(reviewItems),

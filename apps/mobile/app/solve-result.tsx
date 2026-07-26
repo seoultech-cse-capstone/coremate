@@ -7,7 +7,8 @@ import type { SolveSessionType } from "../src/features/solve/components/SolveQue
 
 const sessionTypes: SolveSessionType[] = [
   "SUBJECT_MOCK",
-  "CHAPTER_MOCK",
+  "CATEGORY_LV1_MOCK",
+  "CATEGORY_LV2_MOCK",
   "CONCEPT_PRACTICE",
   "DAILY_QUIZ",
 ];
@@ -19,6 +20,7 @@ export default function SolveResultRoute() {
     elapsedSeconds,
     reviewItemsJson,
     sessionType,
+    targetId,
     title,
     totalCount,
   } = useLocalSearchParams<{
@@ -27,6 +29,7 @@ export default function SolveResultRoute() {
     elapsedSeconds?: string;
     reviewItemsJson?: string;
     sessionType?: string;
+    targetId?: string;
     title?: string;
     totalCount?: string;
   }>();
@@ -55,6 +58,7 @@ export default function SolveResultRoute() {
             title: resolvedTitle,
             sessionType: resolvedSessionType,
             ...(conceptId ? { conceptId } : {}),
+            ...(targetId ? { targetId } : {}),
           },
         })
       }
