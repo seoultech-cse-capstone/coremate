@@ -27,7 +27,13 @@ export const solveApi = {
 
   submitAnswer(
     sessionId: number,
-    body: { questionId: number; selectedAnswer: string; timeSpentSec: number },
+    body: {
+      questionId: number;
+      selectedAnswer: string;
+      timeSpentSec: number;
+      optionChangeCount: number;
+      isAnswerChanged: boolean;
+    },
     accessToken: string,
   ): Promise<SubmitAnswerResponse> {
     return httpClient

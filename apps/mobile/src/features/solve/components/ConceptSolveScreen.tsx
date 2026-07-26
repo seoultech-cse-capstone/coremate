@@ -75,6 +75,9 @@ export function ConceptSolveScreen({
   const questionTimeAccumulatorRef = useRef<Map<number, number>>(new Map());
   const questionVisitStartedAtRef = useRef<number>(0);
   const previousIndexRef = useRef(currentIndex);
+  // 문제당 답을 바꾼 횟수. 다음 문제로 넘어가면 리셋된다("이전"으로 돌아간
+  // 문제는 이미 제출됐으므로 다시 세지 않는다).
+  const optionChangeCountRef = useRef(0);
 
   useEffect(() => {
     if (session.status !== "ready") {
@@ -91,6 +94,7 @@ export function ConceptSolveScreen({
     }
     questionVisitStartedAtRef.current = now;
     previousIndexRef.current = currentIndex;
+    optionChangeCountRef.current = 0;
   }, [currentIndex, session.status]);
 
   useEffect(() => {
@@ -219,11 +223,19 @@ export function ConceptSolveScreen({
         (questionTimeAccumulatorRef.current.get(currentIndex) ?? 0) +
         currentVisitElapsedMs;
       const timeSpentSec = Math.round(accumulatedMs / 1000);
+      const optionChangeCount = optionChangeCountRef.current;
+      const isAnswerChanged = optionChangeCount > 0;
 
       if (sessionId !== null && accessToken) {
         const result = await solveApi.submitAnswer(
           sessionId,
-          { questionId: currentQuestion.questionId, selectedAnswer, timeSpentSec },
+          {
+            questionId: currentQuestion.questionId,
+            selectedAnswer,
+            timeSpentSec,
+            optionChangeCount,
+            isAnswerChanged,
+          },
           accessToken,
         );
         reviewItemsRef.current.push({
@@ -405,7 +417,12 @@ export function ConceptSolveScreen({
                 <Pressable
                   key={choice.key}
                   style={[styles.choice, isSelected && styles.selectedChoice]}
-                  onPress={() => setSelectedAnswer(choice.key)}
+                  onPress={() => {
+                    if (selectedAnswer !== null && selectedAnswer !== choice.key) {
+                      optionChangeCountRef.current += 1;
+                    }
+                    setSelectedAnswer(choice.key);
+                  }}
                 >
                   <View
                     style={[
