@@ -153,6 +153,20 @@ export function ConceptSolveScreen({
   useEffect(() => {
     let cancelled = false;
 
+    // "다시 풀기"처럼 같은 화면이 재사용되며 target만 바뀌는 경우, 이전
+    // 세션에서 남은 진행 상태/타이머가 새 세션에 섞이지 않도록 전부
+    // 초기화한다.
+    setSession({ status: "loading" });
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setIsHintVisible(false);
+    reviewItemsRef.current = [];
+    answersRef.current = [];
+    questionTimeAccumulatorRef.current = new Map();
+    questionVisitStartedAtRef.current = 0;
+    previousIndexRef.current = 0;
+    optionChangeCountRef.current = 0;
+
     (async () => {
       try {
         const response = await startSession(target, accessToken);
