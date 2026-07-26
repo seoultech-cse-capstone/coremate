@@ -13,6 +13,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookmarkedQuestionResponse {
+    @Schema(example = "10")
+    private Long bookmarkId;
+
     @Schema(example = "101")
     private Long questionId;
 
@@ -27,6 +30,9 @@ public class BookmarkedQuestionResponse {
 
     @Schema(example = "3")
     private Integer difficultyLevel;
+
+    @Schema(example = "Review this later")
+    private String memo;
 
     @Schema(example = "2026-05-12T09:10:11")
     private LocalDateTime bookmarkedAt;

@@ -22,6 +22,9 @@ public class BookmarkResponse {
     @Schema(example = "101")
     private Long questionId;
 
+    @Schema(example = "9001")
+    private Long sourceSolveSessionId;
+
     @Schema(example = "Review this later")
     private String memo;
 

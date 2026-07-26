@@ -39,6 +39,37 @@ public enum ErrorCode {
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "문제를 찾을 수 없습니다"),
     QUESTION_HINT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 문제에 사용 가능한 힌트가 없습니다"),
 
+    // Bookmark
+    BOOKMARK_NOT_FOUND(HttpStatus.NOT_FOUND, "북마크를 찾을 수 없습니다"),
+
+    // Friend
+    FRIEND_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 관계를 찾을 수 없습니다"),
+    FRIEND_POKE_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 콕 찌르기 기록을 찾을 수 없습니다"),
+    FRIEND_SELF_REQUEST(HttpStatus.BAD_REQUEST, "자기 자신에게 친구 요청을 보낼 수 없습니다"),
+    FRIEND_REQUEST_DUPLICATED(HttpStatus.CONFLICT, "이미 친구이거나 요청을 보낸 사용자입니다"),
+    FRIEND_REQUEST_NOT_RECEIVED(HttpStatus.FORBIDDEN, "본인에게 온 친구 요청만 처리할 수 있습니다"),
+    FRIEND_RELATION_REQUIRED(HttpStatus.FORBIDDEN, "친구 관계인 사용자만 확인할 수 있습니다"),
+    INVALID_FRIEND_STATUS(HttpStatus.BAD_REQUEST, "친구 요청 응답 상태가 올바르지 않습니다"),
+
+    // DailyQuiz / Attendance
+    DAILY_QUIZ_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 CS 퀴즈를 찾을 수 없습니다"),
+    DAILY_QUIZ_INCOMPLETE(HttpStatus.BAD_REQUEST, "오늘의 CS 퀴즈 답안이 완성되지 않았습니다"),
+    ATTENDANCE_NOT_FOUND(HttpStatus.NOT_FOUND, "출석 기록을 찾을 수 없습니다"),
+
+    // Avatar / Inventory
+    AVATAR_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "아바타 아이템을 찾을 수 없습니다"),
+    USER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "보유 아이템을 찾을 수 없습니다"),
+    AVATAR_ITEM_NOT_EQUIPPABLE(HttpStatus.BAD_REQUEST, "장착할 수 없는 아이템입니다"),
+    INVALID_AVATAR_SLOT(HttpStatus.BAD_REQUEST, "아바타 장착 슬롯이 올바르지 않습니다"),
+
+    // Shop / RandomBox
+    SHOP_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상점 상품을 찾을 수 없습니다"),
+    SHOP_LEVEL_REQUIRED(HttpStatus.FORBIDDEN, "상품 구매에 필요한 레벨이 부족합니다"),
+    UNSUPPORTED_SHOP_PRODUCT(HttpStatus.BAD_REQUEST, "아직 지원하지 않는 상점 상품입니다"),
+    RANDOM_BOX_NOT_FOUND(HttpStatus.NOT_FOUND, "랜덤박스를 찾을 수 없습니다"),
+    RANDOM_BOX_REWARD_NOT_FOUND(HttpStatus.NOT_FOUND, "랜덤박스 보상 후보를 찾을 수 없습니다"),
+    INVALID_RANDOM_BOX_POLICY(HttpStatus.INTERNAL_SERVER_ERROR, "랜덤박스 보상 정책이 올바르지 않습니다"),
+
     // Solve
     SOLVE_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "풀이 세션을 찾을 수 없습니다"),
     SOLVE_SESSION_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 풀이 세션입니다"),
@@ -49,7 +80,13 @@ public enum ErrorCode {
 
     // Weakness
     WEAKNESS_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "약점 분석 리포트를 찾을 수 없습니다"),
-    WEAKNESS_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "약점 분석 중 오류가 발생했습니다");
+    WEAKNESS_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "약점 분석 중 오류가 발생했습니다"),
+
+    // Reward
+    REWARD_POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "보상 정책을 찾을 수 없습니다"),
+    INSUFFICIENT_COIN(HttpStatus.BAD_REQUEST, "보유 코인이 부족합니다"),
+    INVALID_REWARD_AMOUNT(HttpStatus.BAD_REQUEST, "보상 수량이 올바르지 않습니다"),
+    DAILY_REWARD_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "일일 보상 한도를 초과했습니다");
 
     private final HttpStatus status;
     private final String message;
