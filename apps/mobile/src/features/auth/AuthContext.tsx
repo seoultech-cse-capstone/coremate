@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -95,8 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   // httpClient는 features/auth를 직접 참조할 수 없으므로(순환 참조 방지),
-  // 실제 재발급/로그아웃 구현을 여기서 주입한다.
-  useEffect(() => {
+  // 실제 재발급/로그아웃 구현을 여기서 주입한다. user가 바뀐 렌더 커밋 직후
+  // 곧바로(다른 비동기 작업이 끼어들기 전에) 최신 updateTokens로 교체되도록
+  // useEffect가 아닌 useLayoutEffect를 사용한다.
+  useLayoutEffect(() => {
     setAuthHandlers({
       getRefreshToken: () => tokenStorage.getRefreshToken(),
       onTokensRefreshed: updateTokens,
