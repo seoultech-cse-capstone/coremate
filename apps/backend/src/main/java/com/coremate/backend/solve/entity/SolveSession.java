@@ -65,6 +65,13 @@ public class SolveSession {
     @Column(name = "total_question_count", nullable = false)
     private int totalQuestionCount;
 
+    /**
+     * 세션 시작 시 결정된 문제 ID 목록 (JSON 배열).
+     * 서버가 진실의 원천이 되어 답안 제출 시 questionOrder 결정과 범위 검증에 사용된다.
+     */
+    @Column(name = "question_ids_json", columnDefinition = "json")
+    private String questionIdsJson;
+
     @Column(name = "correct_count", nullable = false)
     private int correctCount;
 
@@ -96,7 +103,7 @@ public class SolveSession {
     @Builder
     private SolveSession(Long userId, SolveSessionType sessionType, Subject subject,
             CategoryLv1 categoryLv1, CategoryLv2 categoryLv2, Concept concept,
-            String title, int totalQuestionCount) {
+            String title, int totalQuestionCount, String questionIdsJson) {
         this.userId = userId;
         this.sessionType = sessionType;
         this.subject = subject;
@@ -105,6 +112,7 @@ public class SolveSession {
         this.concept = concept;
         this.title = title;
         this.totalQuestionCount = totalQuestionCount;
+        this.questionIdsJson = questionIdsJson;
         this.correctCount = 0;
         this.wrongCount = 0;
         this.totalTimeSpentSec = 0;

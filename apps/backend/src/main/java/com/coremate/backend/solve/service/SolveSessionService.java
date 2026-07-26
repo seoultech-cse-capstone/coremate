@@ -1,9 +1,15 @@
 package com.coremate.backend.solve.service;
 
+import com.coremate.backend.content.entity.CategoryLv1;
+import com.coremate.backend.content.entity.CategoryLv2;
 import com.coremate.backend.content.entity.Concept;
 import com.coremate.backend.content.entity.Question;
+import com.coremate.backend.content.entity.Subject;
+import com.coremate.backend.content.repository.CategoryLv1Repository;
+import com.coremate.backend.content.repository.CategoryLv2Repository;
 import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.content.repository.QuestionRepository;
+import com.coremate.backend.content.repository.SubjectRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
@@ -27,6 +33,7 @@ import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +45,13 @@ import tools.jackson.databind.ObjectMapper;
 @Transactional
 public class SolveSessionService {
 
+    // 문제 수 정책 (추후 조정 가능)
+    private static final int CHAPTER_MOCK_TOTAL = 20;
+    private static final int SUBJECT_MOCK_TOTAL = 50;
+
+    private final SubjectRepository subjectRepository;
+    private final CategoryLv1Repository categoryLv1Repository;
+    private final CategoryLv2Repository categoryLv2Repository;
     private final ConceptRepository conceptRepository;
     private final QuestionRepository questionRepository;
     private final SolveSessionRepository solveSessionRepository;
@@ -90,6 +104,7 @@ public class SolveSessionService {
                 .concept(concept)
                 .title(title)
                 .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
                 .build();
 
         solveSessionRepository.save(session);
@@ -132,6 +147,32 @@ public class SolveSessionService {
         }
     }
 
+    /**
+     * 세션 시작 시 결정된 questionId 목록을 JSON 문자열로 직렬화한다.
+     */
+    private String writeQuestionIds(List<Question> questions) {
+        List<Long> ids = questions.stream().map(Question::getQuestionId).toList();
+        try {
+            return objectMapper.writeValueAsString(ids);
+        } catch (Exception e) {
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
+        }
+    }
+
+    /**
+     * SolveSession.questionIdsJson을 List로 파싱한다.
+     */
+    private List<Long> parseQuestionIds(String questionIdsJson) {
+        if (questionIdsJson == null || questionIdsJson.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(questionIdsJson, new TypeReference<>() {});
+        } catch (Exception e) {
+            throw new CoreMateException(ErrorCode.INVALID_CONTENT_DATA);
+        }
+    }
+
 
     public SubmitAnswerResponse submitAnswer(Long solveSessionId, Long userId, SubmitAnswerRequest request) {
         SolveSession session = solveSessionRepository.findBySolveSessionIdAndUserId(solveSessionId, userId)
@@ -145,26 +186,16 @@ public class SolveSessionService {
             throw new CoreMateException(ErrorCode.ANSWER_ALREADY_SUBMITTED);
         }
 
-        if (session.getConcept() == null) {
+        // 세션 시작 시 결정된 questionId 목록에서 순서(order)를 결정론적으로 계산한다.
+        // 개념 문제집 / 모의고사 모두 동일한 방식으로 처리 (concept 유무와 무관).
+        List<Long> sessionQuestionIds = parseQuestionIds(session.getQuestionIdsJson());
+        int order = sessionQuestionIds.indexOf(request.questionId()) + 1;
+        if (order <= 0) {
             throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
         }
 
-        List<Question> conceptQuestions = questionRepository
-                .findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(
-                        session.getConcept().getConceptId());
-
-        Question question = null;
-        int order = -1;
-        for (int i = 0; i < conceptQuestions.size(); i++) {
-            if (conceptQuestions.get(i).getQuestionId().equals(request.questionId())) {
-                question = conceptQuestions.get(i);
-                order = i + 1;
-                break;
-            }
-        }
-        if (question == null) {
-            throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
-        }
+        Question question = questionRepository.findById(request.questionId())
+                .orElseThrow(() -> new CoreMateException(ErrorCode.QUESTION_NOT_FOUND));
 
         boolean isCorrect = question.getCorrectAnswer().equals(request.selectedAnswer());
 
@@ -229,6 +260,18 @@ public class SolveSessionService {
 
         if (session.getSessionType() == SolveSessionType.CONCEPT_PRACTICE && session.getConcept() != null) {
             updateConceptProgress(userId, session.getConcept().getConceptId(), session.getSolveSessionId());
+        } else if (isMockSession(session.getSessionType())) {
+            // 모의고사는 이미 완료된 개념만 progress를 최신 회차로 갱신한다.
+            // 미완료 개념은 모의고사 참여만으로 완료 처리하지 않고 그대로 둔다.
+            List<Long> conceptIdsInSession = logs.stream()
+                    .map(log -> log.getQuestion().getConcept().getConceptId())
+                    .distinct()
+                    .toList();
+            Set<Long> alreadyCompletedConceptIds = userConceptProgressRepository
+                    .findCompletedConceptIds(userId, conceptIdsInSession);
+            for (Long cid : alreadyCompletedConceptIds) {
+                updateConceptProgress(userId, cid, session.getSolveSessionId());
+            }
         }
 
         return new CompleteSolveSessionResponse(
@@ -252,8 +295,7 @@ public class SolveSessionService {
                 .findByUserIdAndConcept_ConceptIdAndStatus(userId, conceptId, SolveSessionStatus.IN_PROGRESS)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
-        List<Question> questions =
-                questionRepository.findAllByConcept_ConceptIdAndActiveTrueAndConceptPracticeEligibleTrueOrderByQuestionIdAsc(conceptId);
+        List<Long> sessionQuestionIds = parseQuestionIds(session.getQuestionIdsJson());
 
         List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
 
@@ -271,9 +313,131 @@ public class SolveSessionService {
                 session.getSessionType(),
                 session.getTotalQuestionCount(),
                 session.getStartedAt(),
-                questions.stream().map(Question::getQuestionId).toList(),
+                sessionQuestionIds,
                 answeredLogs
         );
+    }
+
+    public StartSolveSessionResponse startCategoryLv1MockSession(Long userId, Long categoryLv1Id) {
+        CategoryLv1 categoryLv1 = categoryLv1Repository.findByCategoryLv1IdAndActiveTrue(categoryLv1Id)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.CATEGORY_LV1_NOT_FOUND));
+
+        List<Concept> concepts = conceptRepository
+                .findAllByCategoryLv2_CategoryLv1_CategoryLv1IdAndActiveTrue(categoryLv1Id);
+
+        List<Long> conceptIds = concepts.stream().map(Concept::getConceptId).toList();
+        List<Question> questions = selectMockQuestions(conceptIds, CHAPTER_MOCK_TOTAL);
+
+        String title = categoryLv1.getCategoryLv1Name() + " 챕터 모의고사";
+
+        SolveSession session = SolveSession.builder()
+                .userId(userId)
+                .sessionType(SolveSessionType.CATEGORY_LV1_MOCK)
+                .subject(categoryLv1.getSubject())
+                .categoryLv1(categoryLv1)
+                .title(title)
+                .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
+                .build();
+        solveSessionRepository.save(session);
+
+        return buildStartResponse(session, title, SolveSessionType.CATEGORY_LV1_MOCK, questions);
+    }
+
+    public StartSolveSessionResponse startCategoryLv2MockSession(Long userId, Long categoryLv2Id) {
+        CategoryLv2 categoryLv2 = categoryLv2Repository.findByCategoryLv2IdAndActiveTrue(categoryLv2Id)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.CATEGORY_LV2_NOT_FOUND));
+
+        List<Concept> concepts = conceptRepository
+                .findAllByCategoryLv2_CategoryLv2IdAndActiveTrueOrderBySortOrderAsc(categoryLv2Id);
+
+        List<Long> conceptIds = concepts.stream().map(Concept::getConceptId).toList();
+        List<Question> questions = selectMockQuestions(conceptIds, CHAPTER_MOCK_TOTAL);
+
+        String title = categoryLv2.getCategoryLv2Name() + " 챕터 모의고사";
+
+        SolveSession session = SolveSession.builder()
+                .userId(userId)
+                .sessionType(SolveSessionType.CATEGORY_LV2_MOCK)
+                .subject(categoryLv2.getCategoryLv1().getSubject())
+                .categoryLv1(categoryLv2.getCategoryLv1())
+                .categoryLv2(categoryLv2)
+                .title(title)
+                .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
+                .build();
+        solveSessionRepository.save(session);
+
+        return buildStartResponse(session, title, SolveSessionType.CATEGORY_LV2_MOCK, questions);
+    }
+
+    public StartSolveSessionResponse startSubjectMockSession(Long userId, Long subjectId) {
+        Subject subject = subjectRepository.findBySubjectIdAndActiveTrue(subjectId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.SUBJECT_NOT_FOUND));
+
+        List<Concept> concepts = conceptRepository
+                .findAllByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(subjectId);
+
+        List<Long> conceptIds = concepts.stream().map(Concept::getConceptId).toList();
+        List<Question> questions = selectMockQuestions(conceptIds, SUBJECT_MOCK_TOTAL);
+
+        String title = subject.getSubjectName() + " 과목 모의고사";
+
+        SolveSession session = SolveSession.builder()
+                .userId(userId)
+                .sessionType(SolveSessionType.SUBJECT_MOCK)
+                .subject(subject)
+                .title(title)
+                .totalQuestionCount(questions.size())
+                .questionIdsJson(writeQuestionIds(questions))
+                .build();
+        solveSessionRepository.save(session);
+
+        return buildStartResponse(session, title, SolveSessionType.SUBJECT_MOCK, questions);
+    }
+
+    /**
+     * 모의고사 문제 선정.
+     * 완료/미완료 개념 구분 없이, 지정한 conceptIds 범위 내에서 total 문제 수만큼 랜덤하게 선정한다.
+     * 이미 푼 문제 여부와 무관하게 전부 랜덤이다.
+     */
+    private List<Question> selectMockQuestions(List<Long> conceptIds, int total) {
+        if (conceptIds.isEmpty()) {
+            throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
+        }
+
+        List<Question> selected = questionRepository.findRandomMockQuestionsByConceptIds(conceptIds, total);
+
+        if (selected.isEmpty()) {
+            throw new CoreMateException(ErrorCode.QUESTION_NOT_FOUND);
+        }
+        return selected;
+    }
+
+    private StartSolveSessionResponse buildStartResponse(SolveSession session, String title,
+            SolveSessionType sessionType, List<Question> questions) {
+        List<QuestionSolveResponse> questionResponses = questions.stream()
+                .map(q -> new QuestionSolveResponse(
+                        q.getQuestionId(),
+                        q.getQuestionText(),
+                        parseChoices(q.getChoicesJson())
+                ))
+                .toList();
+        return new StartSolveSessionResponse(
+                session.getSolveSessionId(),
+                title,
+                sessionType,
+                questions.size(),
+                session.getStatus(),
+                session.getStartedAt(),
+                questionResponses
+        );
+    }
+
+    private boolean isMockSession(SolveSessionType type) {
+        return type == SolveSessionType.CATEGORY_LV1_MOCK
+                || type == SolveSessionType.CATEGORY_LV2_MOCK
+                || type == SolveSessionType.SUBJECT_MOCK;
     }
 
     private void updateConceptProgress(Long userId, Long conceptId, Long solveSessionId) {
