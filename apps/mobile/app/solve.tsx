@@ -64,6 +64,16 @@ export default function SolveScreen() {
               title: resolvedTitle,
               sessionType: resolvedSessionType,
               conceptId: target.type === "concept" ? String(target.conceptId) : undefined,
+              // "다시 풀기"가 같은 대상으로 새 세션을 다시 시작할 수 있도록
+              // 모의고사 3종은 targetId도 결과 화면까지 그대로 들고 간다.
+              targetId:
+                target.type === "subjectMock"
+                  ? String(target.subjectId)
+                  : target.type === "categoryLv1Mock"
+                    ? String(target.categoryLv1Id)
+                    : target.type === "categoryLv2Mock"
+                      ? String(target.categoryLv2Id)
+                      : undefined,
               correctCount: correctCount.toString(),
               totalCount: totalCount.toString(),
               reviewItemsJson: JSON.stringify(reviewItems),
