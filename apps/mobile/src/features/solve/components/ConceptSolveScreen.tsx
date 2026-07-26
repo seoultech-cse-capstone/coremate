@@ -92,6 +92,7 @@ export function ConceptSolveScreen({
         if (cancelled) {
           return;
         }
+        console.error("[solve] 세션 시작 실패", error);
         setSession({
           status: "error",
           message: getApiErrorMessage(error, "문제를 불러오지 못했습니다."),
@@ -175,6 +176,19 @@ export function ConceptSolveScreen({
       return;
     }
 
+    // "이전"으로 돌아갔다가 다시 고른 경우, 이미 제출된 문제라면 재제출하지 않고
+    // 다음으로만 이동한다(이미 서버/누적 목록에 답안이 반영돼 있음).
+    const answeredCount =
+      sessionId !== null && accessToken
+        ? reviewItemsRef.current.length
+        : answersRef.current.length;
+    if (currentIndex < answeredCount) {
+      setCurrentIndex((index) => index + 1);
+      setSelectedAnswer(null);
+      setIsHintVisible(false);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const timeSpentSec = Math.round((Date.now() - startedAtRef.current) / 1000);
@@ -249,6 +263,7 @@ export function ConceptSolveScreen({
         });
       }
     } catch (error) {
+      console.error("[solve] 답안 제출/완료 실패", error);
       setSession({
         status: "error",
         message: getApiErrorMessage(error, "제출에 실패했습니다. 다시 시도해주세요."),
@@ -314,7 +329,7 @@ export function ConceptSolveScreen({
           <Text style={styles.headerSubtitle}>개념 문제집</Text>
         </View>
 
-        {isGuest ? (
+        {!accessToken ? (
           <View style={styles.headerButton} />
         ) : (
           <Pressable
@@ -423,6 +438,7 @@ export function ConceptSolveScreen({
           style={[styles.previousButton, currentIndex === 0 && styles.disabledButton]}
           onPress={() => {
             setCurrentIndex((index) => index - 1);
+            setSelectedAnswer(null);
             setIsHintVisible(false);
           }}
         >
