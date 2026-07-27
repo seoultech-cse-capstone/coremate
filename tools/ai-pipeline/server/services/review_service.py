@@ -87,6 +87,9 @@ DB_IMPORT_REVIEW_ARTIFACT_TYPES = [
     ReviewArtifactType.CONCEPT_RELATIONS,
     ReviewArtifactType.COMMON_MISTAKES,
     ReviewArtifactType.QUESTIONS,
+    # 진단 프로필은 아직 생성하지 않은 과목이 많아, 없으면 건너뛴다(아래 과목 일괄 승인 참고).
+    ReviewArtifactType.CONCEPT_DIAGNOSTIC_PROFILES,
+    ReviewArtifactType.QUESTION_DIAGNOSTIC_PROFILES,
 ]
 
 
@@ -215,18 +218,25 @@ def bulk_approve_subject_artifacts(
             continue
 
         seen_artifact_types.add(artifact_type)
-        responses.append(
-            bulk_approve_artifact(
-                subject_code=normalized_subject_code,
-                artifact_type=artifact_type,
-                request=BulkReviewApproveRequest(
-                    reviewer=request.reviewer,
-                    review_note=request.review_note,
-                    overwrite_existing=request.overwrite_existing,
-                    export_approved=request.export_approved,
-                ),
+
+        try:
+            responses.append(
+                bulk_approve_artifact(
+                    subject_code=normalized_subject_code,
+                    artifact_type=artifact_type,
+                    request=BulkReviewApproveRequest(
+                        reviewer=request.reviewer,
+                        review_note=request.review_note,
+                        overwrite_existing=request.overwrite_existing,
+                        export_approved=request.export_approved,
+                    ),
+                )
             )
-        )
+        except ReviewSourceNotFoundError:
+            # 과목 단위 승인은 "있는 것만 승인"한다. 아직 생성하지 않은 아티팩트
+            # (예: 진단 프로필) 때문에 과목 전체 승인이 실패하지 않도록 건너뛴다.
+            # 아티팩트를 콕 집어 요청하는 엔드포인트는 기존대로 404 를 낸다.
+            continue
 
     return BulkReviewApproveSubjectResponse(
         subject_code=normalized_subject_code,
