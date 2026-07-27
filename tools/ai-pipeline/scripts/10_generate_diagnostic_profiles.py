@@ -12,12 +12,10 @@ from schemas.question_diagnostic_profile_schema import (
 )
 from src.ai_client import call_ai_json
 from src.hash_utils import make_question_hash
+from src.resume import SAVE_EVERY, load_existing, report_resume, save_progress
 
 # 진단 프로필 데이터 버전. 백엔드 weakness.analysis.diagnostic-profile-version 와 맞춘다.
 DIAGNOSTIC_PROFILE_VERSION = "v1"
-
-# 몇 건마다 중간 저장할지. 도중에 실패해도 여기까지는 남아 다음 실행에서 건너뛴다.
-SAVE_EVERY = 10
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,34 +49,6 @@ def load_json(path: Path):
     if not path.exists():
         raise RuntimeError(f"필요한 산출물이 없습니다: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_existing(path: Path, key_field: str, force: bool) -> tuple[list, set]:
-    """
-    이전 실행에서 만들어 둔 프로필을 읽어 (기존 목록, 완료된 키 집합) 을 돌려준다.
-    현재 버전과 다른 항목은 형식이 바뀐 것이므로 완료로 보지 않고 다시 생성한다.
-    """
-    if force or not path.exists():
-        return [], set()
-    try:
-        items = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return [], set()
-    if not isinstance(items, list):
-        return [], set()
-
-    kept = [
-        item
-        for item in items
-        if isinstance(item, dict)
-        and item.get("diagnostic_profile_version") == DIAGNOSTIC_PROFILE_VERSION
-        and item.get(key_field)
-    ]
-    return kept, {item[key_field] for item in kept}
-
-
-def write_profiles(path: Path, items: list) -> None:
-    path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main() -> None:
@@ -116,12 +86,17 @@ def main() -> None:
     question_path = base / "question_diagnostic_profiles.json"
 
     # 이어하기: 이전 실행에서 만들어 둔 것은 건너뛴다(중단돼도 이미 쓴 비용을 버리지 않는다).
-    concept_profiles, done_concepts = load_existing(concept_path, "concept_code", args.force)
-    question_profiles, done_questions = load_existing(question_path, "content_hash", args.force)
+    # 형식이 바뀐(버전이 다른) 항목은 완료로 보지 않고 다시 만든다.
+    current_version = lambda item: item.get("diagnostic_profile_version") == DIAGNOSTIC_PROFILE_VERSION
+    concept_profiles, done_concepts = load_existing(
+        concept_path, lambda p: p.get("concept_code"), force=args.force, keep=current_version
+    )
+    question_profiles, done_questions = load_existing(
+        question_path, lambda p: p.get("content_hash"), force=args.force, keep=current_version
+    )
 
     pending_cards = [c for c in concept_cards if c["concept_code"] not in done_concepts]
-    if done_concepts:
-        print(f"개념 프로필: 기존 {len(done_concepts)}개 건너뜀, {len(pending_cards)}개 생성 예정")
+    report_resume("개념 프로필", len(done_concepts), len(pending_cards))
 
     for index, card in enumerate(tqdm(pending_cards, desc="concept profiles"), start=1):
         concept_code = card["concept_code"]
@@ -144,8 +119,8 @@ def main() -> None:
         result["diagnostic_profile_version"] = DIAGNOSTIC_PROFILE_VERSION
         concept_profiles.append(result)
         if index % SAVE_EVERY == 0:
-            write_profiles(concept_path, concept_profiles)
-    write_profiles(concept_path, concept_profiles)
+            save_progress(concept_path, concept_profiles)
+    save_progress(concept_path, concept_profiles)
 
     if not args.skip_questions:
         target_questions = [
@@ -153,8 +128,7 @@ def main() -> None:
             if q.get("concept_code") in selected_codes
             and str(q.get("content_hash") or make_question_hash(q)) not in done_questions
         ]
-        if done_questions:
-            print(f"문항 프로필: 기존 {len(done_questions)}개 건너뜀, {len(target_questions)}개 생성 예정")
+        report_resume("문항 프로필", len(done_questions), len(target_questions))
         cards_by_code = {card["concept_code"]: card for card in concept_cards}
         for index, question in enumerate(tqdm(target_questions, desc="question profiles"), start=1):
             concept_code = question["concept_code"]
@@ -185,8 +159,8 @@ def main() -> None:
             result["diagnostic_profile_version"] = DIAGNOSTIC_PROFILE_VERSION
             question_profiles.append(result)
             if index % SAVE_EVERY == 0:
-                write_profiles(question_path, question_profiles)
-    write_profiles(question_path, question_profiles)
+                save_progress(question_path, question_profiles)
+    save_progress(question_path, question_profiles)
 
     print(f"진단 프로필 생성 완료: {concept_path} ({len(concept_profiles)}개)")
     print(f"                      {question_path} ({len(question_profiles)}개)")

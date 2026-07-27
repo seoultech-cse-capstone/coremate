@@ -11,6 +11,7 @@ from tqdm import tqdm
 from schemas.question_schema import QUESTION_SCHEMA
 from src.hash_utils import make_question_hash
 from src.ai_client import call_ai_json
+from src.resume import SAVE_EVERY, is_forced, load_existing, report_resume, save_progress
 from src.validators import validate_question, validate_questions
 
 
@@ -177,10 +178,17 @@ def normalize_question(
     return normalized
 
 
-all_questions = []
-hint_reference_errors = []
+out_dir = Path(f"outputs/{subject_code}")
+out_path = out_dir / "questions.json"
 
-for concept_card in tqdm(concept_cards):
+# 이어하기: 이미 문항을 만든 개념은 통째로 건너뛴다(개념당 여러 문항이 나오므로 개념 단위).
+all_questions, done_codes = load_existing(
+    out_path, lambda q: q.get("concept_code"), force=is_forced(sys.argv)
+)
+pending_cards = [c for c in concept_cards if c["concept_code"] not in done_codes]
+report_resume("questions", len(done_codes), len(pending_cards))
+
+for index, concept_card in enumerate(tqdm(pending_cards), start=1):
     concept_code = concept_card["concept_code"]
 
     current_mistake_group = mistake_map.get(concept_code, {"mistakes": []})
@@ -228,25 +236,27 @@ for concept_card in tqdm(concept_cards):
             )
 
             validation_errors.append(error_message)
-            hint_reference_errors.append(
-                f"[concept_code={concept_code}] {error_message}"
-            )
 
         normalized_question["validation_errors"] = validation_errors
 
         all_questions.append(normalized_question)
 
+    if index % SAVE_EVERY == 0:
+        save_progress(out_path, all_questions)
+
+save_progress(out_path, all_questions)
+
+# hint 참조 오류는 이어하기로 건너뛴 문항까지 포함해야 하므로 전체 기준으로 다시 모은다.
+hint_reference_errors = [
+    f"[concept_code={question.get('concept_code')}] "
+    f"hint_mistake_code가 common_mistakes.json에 존재하지 않음: {question.get('hint_mistake_code')}"
+    for question in all_questions
+    if question.get("hint_mistake_code") is not None
+    and question.get("hint_mistake_code") not in mistake_code_map
+]
 
 batch_validation_errors = validate_questions(all_questions)
 batch_validation_errors.extend(hint_reference_errors)
-
-out_dir = Path(f"outputs/{subject_code}")
-out_dir.mkdir(parents=True, exist_ok=True)
-
-out_path = out_dir / "questions.json"
-
-with open(out_path, "w", encoding="utf-8") as f:
-    json.dump(all_questions, f, ensure_ascii=False, indent=2)
 
 validation_error_path = out_dir / "question_validation_errors.txt"
 
