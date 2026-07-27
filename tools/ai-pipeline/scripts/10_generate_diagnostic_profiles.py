@@ -7,7 +7,9 @@ from pathlib import Path
 from tqdm import tqdm
 
 from schemas.concept_diagnostic_profile_schema import CONCEPT_DIAGNOSTIC_PROFILE_SCHEMA
-from schemas.question_diagnostic_profile_schema import QUESTION_DIAGNOSTIC_PROFILE_SCHEMA
+from schemas.question_diagnostic_profile_schema import (
+    build_question_diagnostic_schema_for_mistakes,
+)
 from src.ai_client import call_ai_json
 from src.hash_utils import make_question_hash
 
@@ -17,7 +19,10 @@ DIAGNOSTIC_PROFILE_VERSION = "v1"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="개념/문항 진단 프로필을 생성해 outputs/{SUBJECT}/diagnostic_profiles.json 로 저장한다.",
+        description=(
+            "개념/문항 진단 프로필을 생성해 outputs/{SUBJECT}/ 에 "
+            "concept_diagnostic_profiles.json, question_diagnostic_profiles.json 로 저장한다."
+        ),
     )
     parser.add_argument("subject_code", help="예: DATA_STRUCTURE, NETWORK")
     parser.add_argument(
@@ -106,11 +111,14 @@ def main() -> None:
                     mistakes_by_concept.get(concept_code, []), ensure_ascii=False, indent=2
                 ),
             )
+            # 이 개념의 mistake_code 만 misconception_code 로 허용(임의 코드 방지).
             result = call_ai_json(
                 system_prompt="너는 CS 전공 시험 문항을 진단 관점에서 분석하는 전문가다.",
                 user_prompt=user_prompt,
                 schema_name="question_diagnostic_profile_schema",
-                schema=QUESTION_DIAGNOSTIC_PROFILE_SCHEMA,
+                schema=build_question_diagnostic_schema_for_mistakes(
+                    mistakes_by_concept.get(concept_code, [])
+                ),
                 reasoning_effort="low",
             )
             # 문항 식별·비생성 필드는 원본에서 그대로 채운다(import 가 content_hash 로 question_id 해석).
@@ -121,17 +129,20 @@ def main() -> None:
             result["diagnostic_profile_version"] = DIAGNOSTIC_PROFILE_VERSION
             question_profiles.append(result)
 
-    out = {
-        "subject_code": subject_code,
-        "diagnostic_profile_version": DIAGNOSTIC_PROFILE_VERSION,
-        "concept_profiles": concept_profiles,
-        "question_profiles": question_profiles,
-    }
-    out_path = base / "diagnostic_profiles.json"
-    out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 검수 워크플로우(review_service)는 "아티팩트 1개 = 파일 1개, JSON 배열" 을 전제로 하므로
+    # 개념/문항 프로필을 각각의 파일로 내보낸다(concept_cards.json / questions.json 과 동일 관례).
+    concept_path = base / "concept_diagnostic_profiles.json"
+    question_path = base / "question_diagnostic_profiles.json"
+    concept_path.write_text(
+        json.dumps(concept_profiles, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    question_path.write_text(
+        json.dumps(question_profiles, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
-    print(f"진단 프로필 생성 완료: {out_path}")
-    print(f"개념 프로필: {len(concept_profiles)}개, 문항 프로필: {len(question_profiles)}개")
+    print(f"진단 프로필 생성 완료: {concept_path} ({len(concept_profiles)}개)")
+    print(f"                      {question_path} ({len(question_profiles)}개)")
+    print("다음 단계: 검수(리뷰 API) → 승인 내보내기 → scripts/11_import_diagnostic_profiles.py")
 
 
 if __name__ == "__main__":

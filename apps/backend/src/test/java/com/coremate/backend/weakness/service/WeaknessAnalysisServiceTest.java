@@ -46,6 +46,7 @@ import tools.jackson.databind.ObjectMapper;
 @ExtendWith(MockitoExtension.class)
 class WeaknessAnalysisServiceTest {
 
+    @Mock private DiagnosticProfileService diagnosticProfileService;
     @Mock private WeaknessSelectionValidator selectionValidator;
     @Mock private WeaknessScoringService scoringService;
     @Mock private WeaknessAiClient aiClient;

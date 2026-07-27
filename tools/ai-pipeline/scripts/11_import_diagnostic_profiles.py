@@ -11,12 +11,21 @@ from server.services.content_import_service import (
     _connect_mysql,
 )
 
-REVIEW_STATUS_DRAFT = "DRAFT"  # DiagnosticReviewStatus.DRAFT (AI 생성 직후)
+# 승인 검수를 통과한 항목만 적재하므로 DB 에는 APPROVED 로 기록한다
+# (09_import_approved_to_mysql.py 가 review_status='approved' 로 적재하는 것과 같은 규칙).
+REVIEW_STATUS_APPROVED = "APPROVED"
+
+APPROVED_DIR = "reviews/approved"
+CONCEPT_ARTIFACT = "concept_diagnostic_profiles.json"
+QUESTION_ARTIFACT = "question_diagnostic_profiles.json"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="diagnostic_profiles.json 을 concept/question_diagnostic_profile 테이블에 적재한다.",
+        description=(
+            "검수 승인된 진단 프로필(outputs/{SUBJECT}/reviews/approved/)을 "
+            "concept/question_diagnostic_profile 테이블에 적재한다."
+        ),
     )
     parser.add_argument("subject_code", help="예: DATA_STRUCTURE, NETWORK")
     parser.add_argument(
@@ -25,6 +34,21 @@ def parse_args() -> argparse.Namespace:
         help="MySQL 에 실제로 기록한다. 없으면 해석 결과만 검증(dry-run).",
     )
     return parser.parse_args()
+
+
+def _load_approved(path: Path) -> list[dict]:
+    """검수 승인 산출물(JSON 배열)을 읽는다. 아직 승인 내보내기를 하지 않았으면 안내하고 멈춘다."""
+    if not path.exists():
+        raise RuntimeError(
+            "승인된 진단 프로필이 없습니다: "
+            f"{path}\n"
+            "먼저 검수 후 승인 내보내기를 실행하세요"
+            "(리뷰 API: POST /api/v1/reviews/{subject_code}/artifacts/{artifact_type}/approve)."
+        )
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, list):
+        raise RuntimeError(f"승인 산출물은 JSON 배열이어야 합니다: {path}")
+    return data
 
 
 def _json_text(value: Any) -> str | None:
@@ -87,7 +111,7 @@ def _upsert_concept_profile(cursor: Any, concept_id: int, p: dict) -> None:
             _json_text(p.get("basic_review_points")),
             round(float(p.get("misconception_mapping_coverage") or 0.0), 3),
             p.get("diagnostic_profile_version"),
-            REVIEW_STATUS_DRAFT,
+            REVIEW_STATUS_APPROVED,
         ),
     )
 
@@ -120,20 +144,16 @@ def _upsert_question_profile(cursor: Any, question_id: int, concept_id: int, p: 
             p.get("difficulty"),
             _json_text(p.get("answer_misconception_map")),
             p.get("diagnostic_profile_version"),
-            REVIEW_STATUS_DRAFT,
+            REVIEW_STATUS_APPROVED,
         ),
     )
 
 
 def main() -> None:
     args = parse_args()
-    path = Path(f"outputs/{args.subject_code}/diagnostic_profiles.json")
-    if not path.exists():
-        raise RuntimeError(f"diagnostic_profiles.json 이 없습니다: {path}")
-    data = json.loads(path.read_text(encoding="utf-8"))
-
-    concept_profiles = data.get("concept_profiles", [])
-    question_profiles = data.get("question_profiles", [])
+    approved_dir = Path(f"outputs/{args.subject_code}/{APPROVED_DIR}")
+    concept_profiles = _load_approved(approved_dir / CONCEPT_ARTIFACT)
+    question_profiles = _load_approved(approved_dir / QUESTION_ARTIFACT)
 
     settings = MySQLConnectionSettings.from_env()
     connection = _connect_mysql(settings)

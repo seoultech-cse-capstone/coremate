@@ -53,6 +53,10 @@ public class WeaknessAnalysisProperties {
     private String scoringRuleVersion = "v1";
     private String promptVersion = "v1";
     private String schemaVersion = "v1";
-    private String diagnosticProfileVersion = "none";
+    /**
+     * 사용할 진단 프로필 데이터 버전. 이 버전으로 승인(APPROVED)된 프로필만 AI 입력·리포트에 결합한다.
+     * {@code none} 이면 프로필을 전혀 읽지 않는다(프로필 도입 전과 동일 동작).
+     */
+    private String diagnosticProfileVersion = "v1";
     private String aiModelLabel = "ai-pipeline";
 }

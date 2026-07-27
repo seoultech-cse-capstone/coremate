@@ -82,37 +82,98 @@ VALUES
      1.000, 'v1', 'APPROVED', NOW(), NOW());
 
 -- =============================================================================
--- 2) 문항별 진단 프로필 (question_diagnostic_profile) — 개념별 대표 오개념 문항 1개
---    9504(9301), 9509(9302), 9512(9303), 9518(9304). expected_solve_sec/difficulty 는
---    weakness_dummy_seed.sql 의 문항 값과 일치시킨다.
+-- 2) 문항별 진단 프로필 (question_diagnostic_profile)
+--    약점분석의 "대표 근거"로 실제 뽑히는 문항을 모두 포함해야 오개념 코드/스킬 유형이
+--    AI 입력에 실린다. 현재 더미 기준 근거 문항:
+--      개념 9301 → 9503(WRONG) 9501(WRONG) 9504(LONG_TIME)
+--      개념 9303 → 9511(WRONG) 9514(WRONG) 9513(LONG_TIME)
+--      개념 9304 → 9516(WRONG) 9520(WRONG) 9517(LONG_TIME)
+--    (9509/9512/9518 은 개념별 대표 오개념 문항으로 함께 보관)
+--    expected_solve_sec/difficulty 는 weakness_dummy_seed.sql 의 문항 값과 일치시킨다.
+--
+--    misconception_code 규칙(파이프라인과 동일):
+--      정답 선택지 = NONE / 카탈로그에 없는 오개념 = OTHER /
+--      개념별 공통 오개념 = {concept_code}_M01 (더미는 개념당 1개)
 -- =============================================================================
 INSERT INTO question_diagnostic_profile
     (question_id, concept_id, diagnostic_summary, question_skill_type,
      expected_solve_sec, difficulty, answer_misconception_map,
      diagnostic_profile_version, review_status, created_at, updated_at)
 VALUES
+    -- ---------------- 개념 9301 완전 이진 트리 ----------------
+    (9501, 9301,
+     '완전 이진 트리의 정의를 정확히 아는지 진단한다. 마지막 레벨은 왼쪽부터 부분적으로 채워도 된다는 조건이 핵심이다.',
+     'RECALL', 60, 3,
+     '[{"option_key":"A","is_correct":true,"interpretation":"마지막 레벨을 제외한 모든 레벨이 꽉 차고 마지막은 왼쪽부터 채운다는 정의를 정확히 이해했다.","misconception_code":"NONE"},{"option_key":"B","is_correct":false,"interpretation":"모든 레벨이 예외 없이 꽉 차야 한다고 보아 완전 이진 트리를 포화 이진 트리로 오해한 경우다.","misconception_code":"DEV_CPT_COMPLETE_BINTREE_M01"},{"option_key":"C","is_correct":false,"interpretation":"모든 노드의 차수가 2여야 한다고 보아 내부 노드 조건과 혼동한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":false,"interpretation":"좌우 서브트리 높이 조건을 완전 이진 트리의 정의로 착각한 경우다.","misconception_code":"OTHER"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    (9503, 9301,
+     '완전 이진 트리의 배열 표현에서 마지막 내부 노드 인덱스를 계산할 수 있는지 진단한다. floor(n/2) 규칙을 적용해야 한다.',
+     'APPLICATION', 60, 3,
+     '[{"option_key":"A","is_correct":false,"interpretation":"마지막 내부 노드를 항상 루트로 보아 배열 인덱스 계산 규칙을 적용하지 못한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":false,"interpretation":"floor(n/2) 계산을 잘못해 인덱스를 하나 작게 잡은 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":true,"interpretation":"n=6 에서 floor(6/2)=3 이라는 계산을 정확히 수행했다.","misconception_code":"NONE"},{"option_key":"D","is_correct":false,"interpretation":"마지막 노드(리프)를 마지막 내부 노드로 혼동한 경우다.","misconception_code":"OTHER"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
     (9504, 9301,
      '완전 이진 트리의 정의를 포화 이진 트리와 구분해 이해했는지 진단한다. 마지막 레벨이 왼쪽부터 부분적으로 채워져도 됨을 알아야 맞출 수 있다.',
      'COMPREHENSION', 60, 3,
-     '[{"option_key":"A","is_correct":false,"interpretation":"트리 높이를 노드 수와 무관하게 고정값으로 오해한 경우다."},{"option_key":"B","is_correct":false,"interpretation":"완전 이진 트리의 리프 구조를 잘못 이해한 경우다."},{"option_key":"C","is_correct":false,"interpretation":"구조 조건과 값 정렬을 혼동해 정렬을 조건으로 착각한 경우다."},{"option_key":"D","is_correct":true,"interpretation":"마지막 레벨은 왼쪽부터 부분적으로 채워도 된다는 정의를 정확히 이해했다."}]',
+     '[{"option_key":"A","is_correct":false,"interpretation":"트리 높이를 노드 수와 무관하게 고정값으로 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":false,"interpretation":"완전 이진 트리의 리프 구조를 잘못 이해한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"구조 조건과 값 정렬을 혼동해 정렬을 조건으로 착각한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":true,"interpretation":"마지막 레벨은 왼쪽부터 부분적으로 채워도 된다는 정의를 정확히 이해했다.","misconception_code":"NONE"}]',
      'v1', 'APPROVED', NOW(), NOW()),
 
+    -- ---------------- 개념 9302 포화 이진 트리 ----------------
     (9509, 9302,
      '완전과 포화 이진 트리의 포함 관계를 바르게 이해했는지 진단한다. 완전이 곧 포화는 아니라는 점이 핵심이다.',
      'COMPREHENSION', 90, 4,
-     '[{"option_key":"A","is_correct":true,"interpretation":"완전이면 곧 포화라는 착각을 정확히 교정해 포함 관계를 바르게 이해했다."},{"option_key":"B","is_correct":false,"interpretation":"포화 이진 트리에 리프가 없다고 잘못 이해한 경우다."},{"option_key":"C","is_correct":false,"interpretation":"포화의 노드 수 규칙을 짝수 여부로 잘못 일반화한 경우다."},{"option_key":"D","is_correct":false,"interpretation":"포화의 높이 개념을 0으로 오해한 경우다."}]',
+     '[{"option_key":"A","is_correct":true,"interpretation":"완전이면 곧 포화라는 착각을 정확히 교정해 포함 관계를 바르게 이해했다.","misconception_code":"NONE"},{"option_key":"B","is_correct":false,"interpretation":"포화 이진 트리에 리프가 없다고 잘못 이해한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"포화의 노드 수 규칙을 짝수 여부로 잘못 일반화한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":false,"interpretation":"포화의 높이 개념을 0으로 오해한 경우다.","misconception_code":"OTHER"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    -- ---------------- 개념 9303 힙의 성질 ----------------
+    (9511, 9303,
+     '최대 힙의 힙 성질(부모>=자식)을 정확히 아는지 진단한다. 부분 순서와 전체 정렬을 구분해야 한다.',
+     'RECALL', 45, 2,
+     '[{"option_key":"A","is_correct":false,"interpretation":"좌-루트-우 대소 관계를 적용해 힙을 이진 탐색 트리로 혼동한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":false,"interpretation":"리프 값이 모두 같아야 한다고 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":true,"interpretation":"모든 부모가 자식 이상이라는 최대 힙의 부분 순서를 정확히 이해했다.","misconception_code":"NONE"},{"option_key":"D","is_correct":false,"interpretation":"힙을 전체가 정렬된 배열로 오해한 경우다.","misconception_code":"DEV_CPT_HEAP_PROP_M01"}]',
      'v1', 'APPROVED', NOW(), NOW()),
 
     (9512, 9303,
      '힙이 전체 정렬 구조라는 오해를 교정했는지 진단한다. 힙은 부분 순서만 보장한다는 점을 알아야 한다.',
      'COMPREHENSION', 45, 2,
-     '[{"option_key":"A","is_correct":false,"interpretation":"힙을 전체가 정렬된 구조로 오해한 경우다."},{"option_key":"B","is_correct":false,"interpretation":"힙과 이진 탐색 트리를 혼동한 경우다."},{"option_key":"C","is_correct":false,"interpretation":"루트가 최소이자 최대라고 잘못 이해한 경우다."},{"option_key":"D","is_correct":true,"interpretation":"힙이 부분 순서만 보장한다는 성질을 정확히 이해했다."}]',
+     '[{"option_key":"A","is_correct":false,"interpretation":"힙이 항상 정렬되어 있다고 보아 전체 정렬 구조로 오해한 경우다.","misconception_code":"DEV_CPT_HEAP_PROP_M01"},{"option_key":"B","is_correct":false,"interpretation":"힙과 이진 탐색 트리를 혼동한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"루트가 최소이자 최대라고 잘못 이해한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":true,"interpretation":"힙이 부분 순서만 보장한다는 성질을 정확히 이해했다.","misconception_code":"NONE"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    (9513, 9303,
+     '힙과 이진 탐색 트리의 순서 보장 차이를 구분할 수 있는지 진단한다.',
+     'ANALYSIS', 45, 2,
+     '[{"option_key":"A","is_correct":true,"interpretation":"BST 는 중위 순회가 정렬되고 힙은 형제 간 순서를 보장하지 않는다는 차이를 정확히 이해했다.","misconception_code":"NONE"},{"option_key":"B","is_correct":false,"interpretation":"힙과 BST 를 같은 자료구조로 혼동한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"힙의 임의 탐색이 O(log n) 이라고 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":false,"interpretation":"BST 가 항상 완전 이진 트리라고 오해한 경우다.","misconception_code":"OTHER"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    (9514, 9303,
+     '1-기반 배열 힙에서 자식 인덱스 계산 규칙(2i)을 적용할 수 있는지 진단한다.',
+     'APPLICATION', 45, 2,
+     '[{"option_key":"A","is_correct":false,"interpretation":"인덱스를 단순히 하나 줄이는 것으로 보아 자식 계산 규칙을 적용하지 못한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":true,"interpretation":"1-기반 배열에서 왼쪽 자식이 2i 라는 규칙을 정확히 적용했다.","misconception_code":"NONE"},{"option_key":"C","is_correct":false,"interpretation":"부모 인덱스 계산식(i/2)과 자식 계산식을 뒤바꾼 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":false,"interpretation":"0-기반 배열의 오른쪽 자식 공식을 1-기반에 잘못 적용한 경우다.","misconception_code":"OTHER"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    -- ---------------- 개념 9304 힙 연산 ----------------
+    (9516, 9304,
+     'sift-up 이 힙 성질을 회복하는 절차임을 이해했는지 진단한다.',
+     'COMPREHENSION', 60, 3,
+     '[{"option_key":"A","is_correct":false,"interpretation":"sift-up 이 트리 전체를 정렬한다고 보아 힙을 정렬 구조로 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":false,"interpretation":"삽입 연산과 삭제 연산을 뒤바꿔 이해한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"sift-up 의 목적을 트리 높이 조절로 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":true,"interpretation":"삽입 노드를 부모와 비교하며 힙 성질을 회복한다는 절차를 정확히 이해했다.","misconception_code":"NONE"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    (9517, 9304,
+     '최댓값 삭제가 sift-down 으로 O(log n) 임을 아는지 진단한다.',
+     'APPLICATION', 60, 3,
+     '[{"option_key":"A","is_correct":true,"interpretation":"루트 삭제 후 sift-down 으로 O(log n) 이라는 점을 정확히 이해했다.","misconception_code":"NONE"},{"option_key":"B","is_correct":false,"interpretation":"최댓값 접근 비용(O(1))과 삭제 비용을 혼동한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"삭제를 선형 탐색이 필요한 연산으로 오해한 경우다.","misconception_code":"DEV_CPT_HEAP_OPS_M01"},{"option_key":"D","is_correct":false,"interpretation":"전체 정렬 비용과 단일 삭제 비용을 혼동한 경우다.","misconception_code":"OTHER"}]',
      'v1', 'APPROVED', NOW(), NOW()),
 
     (9518, 9304,
      '힙 연산의 시간복잡도, 특히 임의 탐색이 느리다는 점을 이해했는지 진단한다.',
      'COMPREHENSION', 60, 3,
-     '[{"option_key":"A","is_correct":false,"interpretation":"루트 삭제 복잡도를 O(1) 로 오해한 경우다."},{"option_key":"B","is_correct":true,"interpretation":"힙의 임의 원소 탐색이 O(n) 이라는 점을 정확히 이해했다."},{"option_key":"C","is_correct":false,"interpretation":"삽입이 전체 정렬을 유발한다고 오해한 경우다."},{"option_key":"D","is_correct":false,"interpretation":"build-heap 을 O(n log n) 으로만 가능하다고 오해한 경우다."}]',
+     '[{"option_key":"A","is_correct":false,"interpretation":"루트 삭제 복잡도를 O(1) 로 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":true,"interpretation":"힙의 임의 원소 탐색이 O(n) 이라는 점을 정확히 이해했다.","misconception_code":"NONE"},{"option_key":"C","is_correct":false,"interpretation":"삽입이 전체 정렬을 유발한다고 오해한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":false,"interpretation":"build-heap 을 O(n log n) 으로만 가능하다고 오해한 경우다.","misconception_code":"OTHER"}]',
+     'v1', 'APPROVED', NOW(), NOW()),
+
+    (9520, 9304,
+     '삽입과 루트 삭제에 각각 어떤 연산이 쓰이는지 구분할 수 있는지 진단한다.',
+     'ANALYSIS', 60, 3,
+     '[{"option_key":"A","is_correct":false,"interpretation":"sift-up 과 sift-down 을 같은 연산으로 보아 방향 차이를 구분하지 못한 경우다.","misconception_code":"OTHER"},{"option_key":"B","is_correct":false,"interpretation":"sift-up 의 쓰임을 삭제로 잘못 연결한 경우다.","misconception_code":"OTHER"},{"option_key":"C","is_correct":false,"interpretation":"sift-down 의 쓰임을 삽입으로 잘못 연결한 경우다.","misconception_code":"OTHER"},{"option_key":"D","is_correct":true,"interpretation":"삽입은 sift-up, 루트 삭제는 sift-down 이라는 대응을 정확히 이해했다.","misconception_code":"NONE"}]',
      'v1', 'APPROVED', NOW(), NOW());
 
 -- =============================================================================

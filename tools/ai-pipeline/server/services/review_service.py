@@ -71,6 +71,14 @@ REVIEW_ARTIFACT_SPECS = {
         artifact_type=ReviewArtifactType.QUESTION_REVIEWS,
         source_file_name="question_reviews.json",
     ),
+    ReviewArtifactType.CONCEPT_DIAGNOSTIC_PROFILES: ReviewArtifactSpec(
+        artifact_type=ReviewArtifactType.CONCEPT_DIAGNOSTIC_PROFILES,
+        source_file_name="concept_diagnostic_profiles.json",
+    ),
+    ReviewArtifactType.QUESTION_DIAGNOSTIC_PROFILES: ReviewArtifactSpec(
+        artifact_type=ReviewArtifactType.QUESTION_DIAGNOSTIC_PROFILES,
+        source_file_name="question_diagnostic_profiles.json",
+    ),
 }
 
 DB_IMPORT_REVIEW_ARTIFACT_TYPES = [
@@ -462,6 +470,21 @@ def _extract_source_items(
 
     if artifact_type == ReviewArtifactType.QUESTION_REVIEWS:
         return _extract_question_review_items(source_data)
+
+    if artifact_type == ReviewArtifactType.CONCEPT_DIAGNOSTIC_PROFILES:
+        return _extract_list_items(
+            artifact_type=artifact_type,
+            source_data=source_data,
+            key_fields=("concept_code",),
+        )
+
+    if artifact_type == ReviewArtifactType.QUESTION_DIAGNOSTIC_PROFILES:
+        # 문항 프로필은 문항과 동일하게 content_hash 로 식별한다(09 임포터와 같은 키).
+        return _extract_list_items(
+            artifact_type=artifact_type,
+            source_data=source_data,
+            key_fields=("content_hash",),
+        )
 
     raise ReviewDataError(f"unsupported review artifact type: {artifact_type.value}")
 

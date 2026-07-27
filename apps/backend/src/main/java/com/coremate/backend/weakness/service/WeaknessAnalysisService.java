@@ -66,6 +66,10 @@ public class WeaknessAnalysisService {
 
     private static final String REFERENCE_TYPE = "WEAKNESS_ANALYSIS_REPORT";
 
+    /** AI 입력에 담을 반복 오개념 코드 최대 개수(문서 비용 절감 규칙: 상위 2). */
+    private static final int MAX_REPEATED_MISCONCEPTIONS = 2;
+
+    private final DiagnosticProfileService diagnosticProfileService;
     private final WeaknessSelectionValidator selectionValidator;
     private final WeaknessScoringService scoringService;
     private final WeaknessAiClient aiClient;
@@ -225,30 +229,69 @@ public class WeaknessAnalysisService {
                 scoring.totalQuestionCount(), scoring.totalWrongCount(),
                 scoring.totalLongTimeCount(), scoring.totalHintUsedCount());
 
+        // 문항 진단 프로필(스킬 유형·선택지별 오개념 코드)을 한 번에 조회해 근거에 결합한다.
+        List<Long> questionIds = scoring.candidates().stream()
+                .flatMap(c -> c.evidence().stream())
+                .map(WeaknessEvidenceLogResponse::questionId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        Map<Long, DiagnosticProfileService.QuestionProfileView> questionProfiles =
+                diagnosticProfileService.loadQuestionProfiles(questionIds);
+
         List<AiWeaknessAnalysisRequest.Candidate> candidates = new ArrayList<>();
         int refCounter = 1;
         for (ConceptCandidate candidate : scoring.candidates()) {
             List<AiWeaknessAnalysisRequest.Evidence> evidence = new ArrayList<>();
+            Map<String, Integer> misconceptionCounts = new LinkedHashMap<>();
             for (WeaknessEvidenceLogResponse log : candidate.evidence()) {
                 Double timeRatio = null;
                 if ("LONG_TIME".equals(log.evidenceType()) && log.expectedSolveSec() != null
                         && log.expectedSolveSec() > 0 && log.timeSpentSec() != null) {
                     timeRatio = round2((double) log.timeSpentSec() / log.expectedSolveSec());
                 }
+                DiagnosticProfileService.QuestionProfileView profile = questionProfiles.get(log.questionId());
+                String skillType = profile != null ? profile.skillType() : null;
+                // 오개념 코드는 오답일 때만 의미가 있다(고른 선지가 어떤 오개념을 드러내는지).
+                String misconceptionCode = null;
+                if (profile != null && "WRONG".equals(log.evidenceType())) {
+                    misconceptionCode = profile.misconceptionCodeFor(log.selectedAnswer());
+                    if (misconceptionCode != null) {
+                        misconceptionCounts.merge(misconceptionCode, 1, Integer::sum);
+                    }
+                }
                 evidence.add(new AiWeaknessAnalysisRequest.Evidence(
-                        "e" + refCounter++, log.evidenceType(), null, null, timeRatio));
+                        "e" + refCounter++, log.evidenceType(), skillType, misconceptionCode, timeRatio));
             }
             int q = candidate.questionCount();
             AiWeaknessAnalysisRequest.Stats stats = new AiWeaknessAnalysisRequest.Stats(
                     rate(candidate.wrongCount(), q), rate(candidate.longTimeCount(), q), rate(candidate.hintUsedCount(), q));
+            String conceptCore = diagnosticProfileService.loadConceptProfile(candidate.conceptId())
+                    .map(DiagnosticProfileService.ConceptProfileView::conceptCore)
+                    .filter(core -> core != null && !core.isBlank())
+                    .orElse(candidate.conceptCore());
             candidates.add(new AiWeaknessAnalysisRequest.Candidate(
-                    candidate.conceptId(), candidate.conceptName(), candidate.conceptCore(),
+                    candidate.conceptId(), candidate.conceptName(), conceptCore,
                     candidate.weaknessScore(), candidate.evidenceStrength().doubleValue(),
-                    candidate.typeSeparation().doubleValue(), stats, List.of(), evidence));
+                    candidate.typeSeparation().doubleValue(), stats,
+                    topRepeatedMisconceptions(misconceptionCounts), evidence));
         }
         AiWeaknessAnalysisRequest request = new AiWeaknessAnalysisRequest(
                 new AiWeaknessAnalysisRequest.Scope(subjectName), totals, candidates);
         return new AiRequestBundle(request);
+    }
+
+    /**
+     * 반복 오개념 상위 {@value #MAX_REPEATED_MISCONCEPTIONS}개. 2회 이상 나타난 코드만 "반복"으로 본다.
+     * (대표 근거 범위 안에서 집계하므로 개념당 최대 {@code maxEvidencePerConcept}건이 상한)
+     */
+    private List<AiWeaknessAnalysisRequest.RepeatedMisconception> topRepeatedMisconceptions(
+            Map<String, Integer> counts) {
+        return counts.entrySet().stream()
+                .filter(e -> e.getValue() >= 2)
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .limit(MAX_REPEATED_MISCONCEPTIONS)
+                .map(e -> new AiWeaknessAnalysisRequest.RepeatedMisconception(e.getKey(), e.getValue()))
+                .toList();
     }
 
     private CrossResult crossValidate(WeaknessType backendType,
@@ -324,6 +367,8 @@ public class WeaknessAnalysisService {
             AiWeaknessAnalysisResponse.ConceptAnalysis ai, CrossResult cross) {
         String evidenceSummary = String.format("오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
                 candidate.wrongCount(), candidate.longTimeCount(), candidate.hintUsedCount());
+        DiagnosticProfileService.ConceptProfileView profile =
+                diagnosticProfileService.loadConceptProfile(candidate.conceptId()).orElse(null);
         return new WeaknessConceptResponse(
                 concept.getAnalysisConceptId(),
                 candidate.conceptId(),
@@ -338,9 +383,18 @@ public class WeaknessAnalysisService {
                 ai != null ? ai.confusedRelation() : null,
                 ai != null ? ai.diagnosis() : null,
                 evidenceSummary,
-                candidate.conceptCore(),
+                detailedExplanation(profile, candidate.conceptCore()),
                 ai != null ? ai.conceptTip() : null,
+                profile != null ? profile.toResponse() : null,
                 candidate.evidence());
+    }
+
+    /** 상세 설명은 개념 진단 프로필의 설명을 우선 사용하고, 없으면 개념 한 줄 정의로 대체한다. */
+    private String detailedExplanation(DiagnosticProfileService.ConceptProfileView profile, String fallback) {
+        if (profile != null && profile.conceptExplanation() != null && !profile.conceptExplanation().isBlank()) {
+            return profile.conceptExplanation();
+        }
+        return fallback;
     }
 
     /** 저장된 리포트로부터 상세 응답을 재구성(재열람용). MVP: 근거 로그는 최소 정보만. */
@@ -365,9 +419,12 @@ public class WeaknessAnalysisService {
                 .map(e -> new WeaknessEvidenceLogResponse(e.getEvidenceLogId(), e.getSolveLogId(), null, null,
                         e.getEvidenceType().name(), null, null, null, null, null, null))
                 .toList();
-        String conceptName = contentConceptRepository.findById(concept.getConceptId())
-                .map(Concept::getConceptName)
-                .orElse(null);
+        Concept contentConcept = contentConceptRepository.findById(concept.getConceptId()).orElse(null);
+        String conceptName = contentConcept != null ? contentConcept.getConceptName() : null;
+        // 재열람 시에도 개념 진단 프로필을 다시 조회해 학습 콘텐츠를 채운다(코인 재차감 없음).
+        DiagnosticProfileService.ConceptProfileView profile =
+                diagnosticProfileService.loadConceptProfile(concept.getConceptId()).orElse(null);
+        String fallbackCore = contentConcept != null ? contentConcept.getOneLineDefinition() : null;
         return new WeaknessConceptResponse(
                 concept.getAnalysisConceptId(),
                 concept.getConceptId(),
@@ -382,8 +439,9 @@ public class WeaknessAnalysisService {
                 concept.getConfusedRelation(),
                 concept.getDiagnosis(),
                 null,
-                null,
+                detailedExplanation(profile, fallbackCore),
                 concept.getConceptTip(),
+                profile != null ? profile.toResponse() : null,
                 evidence);
     }
 

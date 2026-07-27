@@ -52,6 +52,9 @@ public record WeaknessConceptResponse(
         @Schema(description = "개념 학습 팁")
         String conceptTip,
 
+        @Schema(description = "약한 개념 학습 내용(개념 진단 프로필). 승인된 프로필이 없으면 null")
+        ConceptLearningResponse conceptLearning,
+
         @Schema(description = "약점 판단 근거 로그 목록")
         List<WeaknessEvidenceLogResponse> evidenceLogs
 ) {
