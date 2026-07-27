@@ -1,4 +1,4 @@
-package com.coremate.backend.problemset.dto.type;
+package com.coremate.backend.content.dto.type;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

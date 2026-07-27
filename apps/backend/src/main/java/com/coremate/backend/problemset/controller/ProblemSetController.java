@@ -7,13 +7,11 @@ import com.coremate.backend.problemset.dto.response.CompletedProblemSetDetailRes
 import com.coremate.backend.problemset.dto.response.CompletedProblemSetSummaryResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetDetailResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetQuestionResponse;
-import com.coremate.backend.problemset.dto.response.ProblemSetSummaryResponse;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.problemset.dto.type.QuestionFormat;
 import com.coremate.backend.problemset.dto.type.QuestionType;
 import com.coremate.backend.problemset.service.CompletedProblemSetService;
-import com.coremate.backend.problemset.service.ProblemSetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -36,7 +34,6 @@ import java.util.List;
 public class ProblemSetController {
 
     private final CompletedProblemSetService completedProblemSetService;
-    private final ProblemSetService problemSetService;
 
     @Operation(
             summary = "완료된 문제집 회차 목록 조회 (회원 전용)",
@@ -72,25 +69,6 @@ public class ProblemSetController {
         return ApiResponse.success("완료된 문제집 상세 조회 성공",
                 completedProblemSetService.getCompletedProblemSetDetail(
                         userDetails.getUserId(), solveSessionId));
-    }
-
-    // 문제집 목록 요약 정보 조회
-    @Operation(summary = "문제집 요약 목록 조회",
-            description = "중분류(parentId) 하위의 개념 문제집 목록을 풀이 상태(미풀이/진행중/완료)와 함께 반환한다. "
-                    + "로그인 시 인증 토큰의 본인 풀이 기록 기준으로 상태를 계산하고, 비로그인은 전부 미풀이로 반환한다. "
-                    + "완료 기록이 있으면 최고 점수 회차 기준 총 문제 수/정답 수/합격 여부(전 문제 정답 시 PASS)를 포함한다.")
-    @GetMapping("/summaries")
-    public ApiResponse<List<ProblemSetSummaryResponse>> getProblemSetSummaries(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Parameter(description = "문제집 유형 (현재 CONCEPT_PRACTICE 지원)", example = "CONCEPT_PRACTICE")
-            @RequestParam ProblemSetType problemSetType,
-
-            @Parameter(description = "대상 상위 ID. 개념 문제집이면 중분류(categoryLv2) ID", example = "101")
-            @RequestParam Long parentId
-    ) {
-        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
-        return ApiResponse.success("문제집 요약 목록 조회 성공",
-                problemSetService.getProblemSetSummaries(problemSetType, parentId, userId));
     }
 
     // 하위 개념 기준 문제집 상세 조회

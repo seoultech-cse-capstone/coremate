@@ -7,15 +7,16 @@ import com.coremate.backend.content.dto.response.ConceptResponse;
 import com.coremate.backend.content.dto.response.SubjectResponse;
 import com.coremate.backend.content.service.ContentService;
 import com.coremate.backend.global.response.ApiResponse;
+import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Content", description = "과목, 대분류, 중분류, 하위 개념 탐색 API")
@@ -48,13 +49,15 @@ public class ContentController {
         return ApiResponse.success("중분류 목록 조회 성공", contentService.getCategoryLv2List(categoryLv1Id));
     }
 
-    @Operation(summary = "하위 개념 목록 조회", description = "선택한 중분류 아래의 개념 목록을 조회한다.")
+    @Operation(summary = "하위 개념 목록 조회",
+            description = "선택한 중분류 아래의 개념 목록을 풀이 상태(미풀이/진행중/완료)와 함께 조회한다. "
+                    + "로그인 시 인증 토큰의 본인 풀이 기록 기준으로 상태를 계산하고, 비로그인은 전부 미풀이로 반환한다.")
     @GetMapping("/category-lv2/{categoryLv2Id}/concepts")
     public ApiResponse<List<ConceptResponse>> getConcepts(
-            @Parameter(description = "중분류 ID", example = "101") @PathVariable Long categoryLv2Id,
-            @Parameter(description = "회원 기준 완료 여부 표시용 사용자 ID. 비로그인 체험이면 생략 가능", example = "1")
-            @RequestParam(required = false) Long userId
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Parameter(description = "중분류 ID", example = "101") @PathVariable Long categoryLv2Id
     ) {
+        Long userId = (userDetails != null) ? userDetails.getUserId() : null;
         return ApiResponse.success("하위 개념 목록 조회 성공", contentService.getConcepts(categoryLv2Id, userId));
     }
 
