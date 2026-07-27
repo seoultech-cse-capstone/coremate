@@ -59,6 +59,24 @@ def _json_text(value: Any) -> str | None:
     return json.dumps(value, ensure_ascii=False)
 
 
+def _require_tables(cursor: Any) -> None:
+    """스키마는 백엔드(JPA ddl-auto)가 만든다. 백엔드를 한 번도 띄우지 않았으면 안내한다."""
+    cursor.execute(
+        """
+        SELECT COUNT(*) AS n FROM information_schema.tables
+         WHERE table_schema = DATABASE()
+           AND table_name IN ('concept_diagnostic_profile', 'question_diagnostic_profile')
+        """
+    )
+    row = cursor.fetchone()
+    if not row or int(next(iter(row.values()))) < 2:
+        raise RuntimeError(
+            "진단 프로필 테이블이 없습니다. 스키마는 백엔드가 기동하면서 생성하므로\n"
+            "먼저 백엔드를 한 번 띄운 뒤 다시 실행하세요:\n"
+            "  cd infra && docker compose -f docker-compose.local.yml up -d"
+        )
+
+
 def _resolve_concept_id(cursor: Any, concept_code: str) -> int | None:
     cursor.execute(
         "SELECT concept_id FROM concept WHERE concept_code = %s",
@@ -164,6 +182,8 @@ def main() -> None:
     try:
         cursor = connection.cursor(dictionary=True)
         try:
+            _require_tables(cursor)
+
             for p in concept_profiles:
                 concept_id = _resolve_concept_id(cursor, p["concept_code"])
                 if concept_id is None:

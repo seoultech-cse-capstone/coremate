@@ -49,8 +49,9 @@ services:
       - "--collation-server=utf8mb4_unicode_ci"
       - "--default-time-zone=+09:00"
     volumes:
+      # 스키마는 백엔드의 JPA 엔티티(ddl-auto)가 전담한다. 초기화 SQL 로 테이블을 따로
+      # 만들면 같은 테이블이 두 곳에 정의돼 서로 어긋날 수 있어 없앴다.
       - mysql_data:/var/lib/mysql
-      - ../scripts/db/content_master_schema.sql:/docker-entrypoint-initdb.d/01_content_master_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s
