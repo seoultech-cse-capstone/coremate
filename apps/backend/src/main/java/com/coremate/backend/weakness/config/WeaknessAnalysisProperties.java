@@ -51,7 +51,8 @@ public class WeaknessAnalysisProperties {
 
     /** 요청 지문·호출 로그에 남길 버전 라벨. */
     private String scoringRuleVersion = "v1";
-    private String promptVersion = "v1";
+    /** v2: 진단 프로필 신호(skill_type·misconception_code·repeated_misconceptions) 활용 지침 추가. */
+    private String promptVersion = "v2";
     private String schemaVersion = "v1";
     /**
      * 사용할 진단 프로필 데이터 버전. 이 버전으로 승인(APPROVED)된 프로필만 AI 입력·리포트에 결합한다.
