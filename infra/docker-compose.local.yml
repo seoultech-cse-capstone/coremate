@@ -33,12 +33,16 @@ services:
     container_name: coremate-mysql
     restart: unless-stopped
     ports:
-      - "${MYSQL_HOST_PORT:-3306}:3306"
+      # 127.0.0.1 바인딩 = 이 PC 에서만 접속 가능(외부 네트워크 노출 금지).
+      # 백엔드 컨테이너는 이 포트가 아니라 내부 네트워크(mysql:3306)로 붙으므로 영향 없음.
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      # 비밀번호는 팀이 공유하는 infra/.env 에서 주입(git 미추적). .env.example 참고.
+      # 뒤의 값은 .env 가 없을 때만 쓰이는 개발용 기본값(안전망).
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: coremate
       MYSQL_USER: coremate
-      MYSQL_PASSWORD: coremate
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-coremate}
       TZ: Asia/Seoul
     command:
       - "--character-set-server=utf8mb4"
@@ -59,7 +63,8 @@ services:
     container_name: coremate-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # 127.0.0.1 바인딩 = 이 PC 에서만 접속 가능(외부 네트워크 노출 금지).
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -79,7 +84,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/coremate?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: coremate
-      SPRING_DATASOURCE_PASSWORD: coremate
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-coremate}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-coremate-local-dev-jwt-secret-change-me}
