@@ -18,7 +18,12 @@ import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.weakness.client.WeaknessAiClient;
 import com.coremate.backend.weakness.config.WeaknessAnalysisProperties;
+import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisRequest;
+import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisResponse;
 import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportRequest;
+import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
+import com.coremate.backend.weakness.dto.type.WeaknessType;
+import com.coremate.backend.weakness.service.model.ConceptCandidate;
 import com.coremate.backend.weakness.dto.type.AnalysisReportStatus;
 import com.coremate.backend.weakness.dto.type.AnalysisScopeType;
 import com.coremate.backend.weakness.entity.WeaknessAnalysisReport;
@@ -30,10 +35,13 @@ import com.coremate.backend.weakness.repository.WeaknessAnalysisReportViewLogRep
 import com.coremate.backend.weakness.repository.WeaknessAnalysisSessionRepository;
 import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
 import com.coremate.backend.content.repository.ConceptRepository;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -82,6 +90,65 @@ class WeaknessAnalysisServiceTest {
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.WEAKNESS_INSUFFICIENT_EVIDENCE);
         verify(aiClient, never()).analyze(any());
         verify(rewardService, never()).spendCoin(anyLong(), anyInt(), any(), any(), any());
+    }
+
+    /**
+     * 진단 프로필이 AI 입력에 실제로 실리는지 검증한다(C1 배선 회귀 방지).
+     * 같은 오개념 코드가 2회 나오면 repeated_misconceptions 로 집계돼야 한다.
+     */
+    @Test
+    void aiRequestCarriesDiagnosticProfileSignals() {
+        SolveSession session = mock(SolveSession.class);
+        when(selectionValidator.validateAndLoad(anyLong(), any())).thenReturn(List.of(session));
+
+        WeaknessEvidenceLogResponse wrongA = evidence(9501L, "WRONG", "B");
+        WeaknessEvidenceLogResponse wrongB = evidence(9502L, "WRONG", "C");
+        WeaknessEvidenceLogResponse slow = evidence(9503L, "LONG_TIME", "A");
+        ConceptCandidate candidate = new ConceptCandidate(9301L, "완전 이진 트리", "한 줄 정의",
+                5, 2, 1, 0, 40, new BigDecimal("0.800"), new BigDecimal("0.200"),
+                WeaknessType.CONCEPT_CONFUSION, List.of(wrongA, wrongB, slow));
+        when(scoringService.score(any()))
+                .thenReturn(new WeaknessScoringResult(List.of(candidate), 10, 2, 1, 0, true));
+        when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any()))
+                .thenReturn(Optional.empty());
+        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // 두 오답이 같은 오개념 코드를 가리키고, LONG_TIME 문항은 코드가 없다.
+        when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of(
+                9501L, profileView("RECALL", Map.of("B", "CPT_M01")),
+                9502L, profileView("APPLICATION", Map.of("C", "CPT_M01")),
+                9503L, profileView("ANALYSIS", Map.of())));
+        when(diagnosticProfileService.loadConceptProfile(9301L)).thenReturn(Optional.of(
+                new DiagnosticProfileService.ConceptProfileView("프로필 핵심", "프로필 설명",
+                        List.of(), List.of(), List.of(), null, null, List.of())));
+        when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of()));
+
+        service.createReport(1L, request());
+
+        ArgumentCaptor<AiWeaknessAnalysisRequest> captor =
+                ArgumentCaptor.forClass(AiWeaknessAnalysisRequest.class);
+        verify(aiClient).analyze(captor.capture());
+        AiWeaknessAnalysisRequest.Candidate sent = captor.getValue().weaknessCandidates().get(0);
+
+        assertThat(sent.conceptCore()).isEqualTo("프로필 핵심");
+        assertThat(sent.evidence()).extracting(AiWeaknessAnalysisRequest.Evidence::skillType)
+                .containsExactly("RECALL", "APPLICATION", "ANALYSIS");
+        assertThat(sent.evidence()).extracting(AiWeaknessAnalysisRequest.Evidence::misconceptionCode)
+                .containsExactly("CPT_M01", "CPT_M01", null);
+        assertThat(sent.repeatedMisconceptions()).hasSize(1);
+        assertThat(sent.repeatedMisconceptions().get(0).code()).isEqualTo("CPT_M01");
+        assertThat(sent.repeatedMisconceptions().get(0).count()).isEqualTo(2);
+    }
+
+    private WeaknessEvidenceLogResponse evidence(Long questionId, String type, String selectedAnswer) {
+        return new WeaknessEvidenceLogResponse(null, questionId, questionId, "문제",
+                type, 60, 60, 0, selectedAnswer, "A", !"WRONG".equals(type));
+    }
+
+    private DiagnosticProfileService.QuestionProfileView profileView(String skillType,
+            Map<String, String> misconceptionByOption) {
+        return new DiagnosticProfileService.QuestionProfileView(skillType, misconceptionByOption);
     }
 
     @Test

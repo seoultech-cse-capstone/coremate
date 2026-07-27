@@ -51,7 +51,7 @@ DELETE FROM solve_logs
     OR question_id BETWEEN 9501 AND 9520;
 DELETE FROM solve_sessions WHERE solve_session_id BETWEEN 9601 AND 9603;
 DELETE FROM question       WHERE question_id       BETWEEN 9501 AND 9520;
-DELETE FROM common_mistake WHERE common_mistake_id BETWEEN 9401 AND 9404;
+DELETE FROM common_mistake WHERE common_mistake_id BETWEEN 9401 AND 9412;
 DELETE FROM concept        WHERE concept_id        BETWEEN 9301 AND 9304;
 DELETE FROM category_lv2   WHERE category_lv2_id   BETWEEN 9201 AND 9202;
 DELETE FROM category_lv1   WHERE category_lv1_id   = 9101;
@@ -187,6 +187,40 @@ VALUES
     (9404, 9304, '힙 탐색이 빠르다고 오해',
      '힙에서 임의 값 탐색이 O(log n)이라 생각한다.',
      '힙은 최댓값/최솟값 접근만 O(1)이고 임의 원소 탐색은 O(n)이다. 삽입·삭제가 O(log n).',
+     'approved', NULL, 1, NOW(), NOW()),
+    -- 개념당 오개념을 3개로 늘려 문항 진단 프로필의 오답→오개념 매핑률을 높인다
+    -- (실제 콘텐츠는 개념당 4개 내외라 더미도 그에 맞춘다).
+    (9405, 9301, '배열 표현의 인덱스 계산을 혼동',
+     '완전 이진 트리를 배열로 표현할 때 부모/자식/마지막 내부 노드 인덱스 계산을 헷갈린다.',
+     '1-기반 배열에서 자식은 2i, 2i+1 이고 마지막 내부 노드는 floor(n/2) 이다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9406, 9301, '구조 조건과 값 정렬을 혼동',
+     '완전 이진 트리라는 구조 조건을 값이 정렬돼 있다는 뜻으로 받아들인다.',
+     '완전 이진 트리는 노드가 채워지는 모양에 대한 조건이며 값의 순서와는 무관하다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9407, 9302, '포화 이진 트리의 노드 수 공식을 잘못 적용',
+     '높이 h인 포화 이진 트리의 노드 수를 2h 나 h^2 같은 식으로 계산한다.',
+     '높이 h 포화 이진 트리의 노드 수는 2^(h+1)-1 이다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9408, 9302, '포화 이진 트리의 리프 구조를 오해',
+     '포화 이진 트리에 리프가 없거나 리프 레벨이 서로 다르다고 생각한다.',
+     '포화 이진 트리는 모든 리프가 같은 레벨에 있고 내부 노드는 항상 두 자식을 갖는다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9409, 9303, '힙을 이진 탐색 트리와 혼동',
+     '힙에도 왼쪽 < 부모 < 오른쪽 같은 좌우 대소 관계가 성립한다고 생각한다.',
+     '힙은 부모-자식 간 대소만 보장하며 형제나 좌우 사이에는 순서가 없다. 그건 이진 탐색 트리의 성질이다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9410, 9303, '힙의 배열 인덱스 규칙을 혼동',
+     '1-기반 배열 힙에서 자식 인덱스를 i-1, i/2, 2i+2 등으로 잘못 계산한다.',
+     '1-기반 배열에서 왼쪽 자식은 2i, 오른쪽 자식은 2i+1, 부모는 floor(i/2) 이다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9411, 9304, '힙 연산이 전체 정렬을 만든다고 오해',
+     'sift-up/sift-down 이 트리 전체를 정렬 상태로 만든다고 생각한다.',
+     '두 연산은 힙 성질(부모-자식 부분 순서)만 회복하며 전체 정렬을 만들지 않는다.',
+     'approved', NULL, 1, NOW(), NOW()),
+    (9412, 9304, 'sift-up 과 sift-down 의 쓰임을 혼동',
+     '삽입과 삭제에 어떤 연산이 쓰이는지 반대로 알거나 둘을 같은 것으로 본다.',
+     '삽입은 마지막에 넣고 sift-up, 루트 삭제는 마지막 원소를 올린 뒤 sift-down 이다.',
      'approved', NULL, 1, NOW(), NOW());
 
 -- 3-6) question x20 (concept_id FK NN, hint_common_mistake_id FK nullable -> 개념별 mistake 연결)
