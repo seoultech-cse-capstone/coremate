@@ -11,8 +11,8 @@ import java.util.List;
 @Schema(description = "약점 분석표 생성 요청 DTO")
 public record CreateWeaknessAnalysisReportRequest(
         @NotEmpty
-        @Size(min = 1, max = 10)
-        @Schema(description = "분석에 사용할 완료 풀이 세션 ID 목록. 1~10개", example = "[9001, 9002]", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Size(min = 1, max = 5)
+        @Schema(description = "분석에 사용할 완료 모의고사 회차 ID 목록. 1~5개(같은 과목)", example = "[9601, 9602]", requiredMode = Schema.RequiredMode.REQUIRED)
         List<Long> solveSessionIds,
 
         @NotNull
