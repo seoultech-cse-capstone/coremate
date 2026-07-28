@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
@@ -28,6 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * <p>{@code weakness.analysis.diagnostic-profile-version} 이 {@code none} 이면 전부 비활성이며,
  * 프로필이 없는 개념/문항은 조용히 건너뛴다(프로필 없이도 기존과 동일하게 동작).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -106,7 +108,11 @@ public class DiagnosticProfileService {
                 readList(profile.getBasicReviewPoints(), new TypeReference<List<String>>() {}));
     }
 
-    /** TEXT 컬럼에 담긴 JSON 배열을 읽는다. 비어 있거나 형식이 어긋나면 빈 목록으로 처리한다. */
+    /**
+     * TEXT 컬럼에 담긴 JSON 배열을 읽는다. 비어 있거나 형식이 어긋나면 빈 목록으로 처리한다.
+     * 프로필 하나가 깨졌다고 분석 전체를 실패시키지 않되, 조용히 사라지면 "왜 프로필이 안 붙지"를
+     * 추적할 수 없으므로 경고를 남긴다.
+     */
     private <T> List<T> readList(String json, TypeReference<List<T>> type) {
         if (json == null || json.isBlank()) {
             return List.of();
@@ -114,6 +120,8 @@ public class DiagnosticProfileService {
         try {
             return objectMapper.readValue(json, type);
         } catch (RuntimeException ex) {
+            log.warn("진단 프로필 JSON 파싱 실패로 해당 항목을 건너뜁니다. 값 앞부분: {}",
+                    json.substring(0, Math.min(json.length(), 80)), ex);
             return List.of();
         }
     }

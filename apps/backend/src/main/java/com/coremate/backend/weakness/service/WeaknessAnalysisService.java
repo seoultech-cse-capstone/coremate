@@ -49,6 +49,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -60,6 +61,7 @@ import tools.jackson.databind.ObjectMapper;
  * → 코인 차감 → AI 서버 호출 → 백엔드/AI 유형 교차검증 → 저장(report/sessions/concepts/evidence/ai_call_log).
  * 전 과정을 한 트랜잭션으로 묶어 AI 실패 시 코인 차감까지 롤백한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WeaknessAnalysisService {
@@ -140,6 +142,11 @@ public class WeaknessAnalysisService {
         try {
             aiResponse = aiClient.analyze(bundle.request());
         } catch (RuntimeException ex) {
+            // 사용자에겐 동일한 메시지가 나가므로, 원인(타임아웃·서버다운·스키마 불일치 등)은
+            // 여기서 남기지 않으면 사후에 구분할 방법이 없다.
+            log.error("약점분석 AI 호출 실패 (userId={}, reportId={}, candidates={}, latencyMs={})",
+                    userId, report.getAnalysisReportId(), scoring.candidates().size(),
+                    System.currentTimeMillis() - startedAt, ex);
             throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
         }
         int latencyMs = (int) (System.currentTimeMillis() - startedAt);
