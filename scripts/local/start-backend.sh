@@ -37,8 +37,12 @@ if ! docker info >/dev/null 2>&1; then
   echo " 준비 완료!"
 fi
 
-# 스크립트 위치(scripts/local) 기준으로 infra 디렉토리 이동
-cd "$(dirname "$0")/../../infra"
+# 스크립트 자신의 절대 경로(scripts/local). 아래에서 디렉토리를 옮겨다녀도
+# 안전하게 다시 참조할 수 있도록 cd 전에 미리 구해둔다.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# infra 디렉토리로 이동
+cd "$SCRIPT_DIR/../../infra"
 
 echo ">> 백엔드 스택 시작 (MySQL + Redis + Backend)"
 if [ "$1" = "--build" ]; then
@@ -46,6 +50,10 @@ if [ "$1" = "--build" ]; then
 else
   docker compose -f docker-compose.local.yml up -d
 fi
+
+echo ""
+echo ">> 모바일 앱 .env의 LAN IP 갱신"
+node "$SCRIPT_DIR/sync-ip.js"
 
 echo ""
 echo "================================================"

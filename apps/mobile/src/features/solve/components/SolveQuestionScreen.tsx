@@ -13,7 +13,8 @@ import { FONT } from "../../../../constants/fonts";
 
 export type SolveSessionType =
   | "SUBJECT_MOCK"
-  | "CHAPTER_MOCK"
+  | "CATEGORY_LV1_MOCK"
+  | "CATEGORY_LV2_MOCK"
   | "CONCEPT_PRACTICE"
   | "DAILY_QUIZ";
 
@@ -27,6 +28,7 @@ type SolveQuestion = {
 type SolveQuestionScreenProps = {
   sessionType: SolveSessionType;
   title: string;
+  hideBookmark?: boolean;
   onBack: () => void;
   onComplete: (
     correctCount: number,
@@ -37,7 +39,8 @@ type SolveQuestionScreenProps = {
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
   SUBJECT_MOCK: "과목 모의고사",
-  CHAPTER_MOCK: "챕터 모의고사",
+  CATEGORY_LV1_MOCK: "대분류 모의고사",
+  CATEGORY_LV2_MOCK: "중분류 모의고사",
   CONCEPT_PRACTICE: "개념 문제집",
   DAILY_QUIZ: "오늘의 CS 퀴즈",
 };
@@ -95,6 +98,7 @@ const questions: SolveQuestion[] = [
 export function SolveQuestionScreen({
   sessionType,
   title,
+  hideBookmark = false,
   onBack,
   onComplete,
 }: SolveQuestionScreenProps) {
@@ -114,7 +118,9 @@ export function SolveQuestionScreen({
   const sessionLabel = sessionTypeLabel[sessionType];
   const canContinue = currentAnswer !== null;
   const isTimedSession =
-    sessionType === "SUBJECT_MOCK" || sessionType === "CHAPTER_MOCK";
+    sessionType === "SUBJECT_MOCK" ||
+    sessionType === "CATEGORY_LV1_MOCK" ||
+    sessionType === "CATEGORY_LV2_MOCK";
   const elapsedTimeLabel = `${Math.floor(elapsedSeconds / 60)
     .toString()
     .padStart(2, "0")}:${(elapsedSeconds % 60).toString().padStart(2, "0")}`;
@@ -186,19 +192,23 @@ export function SolveQuestionScreen({
           <Text style={styles.headerSubtitle}>{sessionLabel}</Text>
         </View>
 
-        <Pressable
-          accessibilityLabel={isBookmarked ? "즐겨찾기 해제" : "즐겨찾기 등록"}
-          accessibilityRole="button"
-          style={styles.headerButton}
-          onPress={() => setIsBookmarked((currentValue) => !currentValue)}
-        >
-          <Bookmark
-            color="#ffffff"
-            fill={isBookmarked ? "#ffffff" : "transparent"}
-            size={22}
-            strokeWidth={2.1}
-          />
-        </Pressable>
+        {hideBookmark ? (
+          <View style={styles.headerButton} />
+        ) : (
+          <Pressable
+            accessibilityLabel={isBookmarked ? "즐겨찾기 해제" : "즐겨찾기 등록"}
+            accessibilityRole="button"
+            style={styles.headerButton}
+            onPress={() => setIsBookmarked((currentValue) => !currentValue)}
+          >
+            <Bookmark
+              color="#ffffff"
+              fill={isBookmarked ? "#ffffff" : "transparent"}
+              size={22}
+              strokeWidth={2.1}
+            />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
@@ -322,6 +332,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255, 255, 255, 0.18)",
     backgroundColor: "#6D5DFB",
     paddingHorizontal: 14,
+    paddingBottom: 7,
   },
   headerButton: {
     alignItems: "center",

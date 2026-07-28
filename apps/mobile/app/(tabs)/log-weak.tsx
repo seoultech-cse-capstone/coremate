@@ -15,7 +15,17 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth, useRequireMember } from "../../src/features/auth";
+import {
+  useCategoryLv1List,
+  useCategoryLv2List,
+  useSubjects,
+} from "../../src/features/content/useContentQueries";
+import { sessionTypeLabel } from "../../src/features/logWeak/types";
+import type { CompletedProblemSetSummary } from "../../src/features/logWeak/types";
+import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
+import { useLanguage } from "../../src/shared/language/LanguageContext";
 
 type LogWeakMode = "wrongNote" | "weakness";
 type DepthFilter = "subject" | "Chapter1" | "Chapter2" | "concept";
@@ -24,17 +34,63 @@ type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
 };
 
-type ExamHistoryItem = {
-  id: number;
+type FilterNode = { id: string; label: string };
+
+type ExamHistoryDisplayItem = {
+  solveSessionId: number;
   subject: string;
-  depth: DepthFilter;
   category: string;
-  examType: "과목 모의고사" | "챕터 모의고사" | "개념 문제집";
-  sessionType: "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE";
+  examType: string;
   scopePath: string[];
   date: string;
   wrong: string;
 };
+
+function formatCompletedDate(isoString: string): string {
+  return isoString.slice(0, 10).replace(/-/g, ".");
+}
+
+type LocalizedNameLookups = {
+  subjectNameById: Map<number, string>;
+  categoryLv1NameById: Map<number, string>;
+  categoryLv2NameById: Map<number, string>;
+};
+
+function toExamHistoryDisplayItem(
+  summary: CompletedProblemSetSummary,
+  lookups: LocalizedNameLookups,
+): ExamHistoryDisplayItem {
+  const subjectName =
+    (summary.subjectId !== null
+      ? lookups.subjectNameById.get(summary.subjectId)
+      : undefined) ?? summary.subjectName;
+  const categoryLv1Name =
+    (summary.categoryLv1Id !== null
+      ? lookups.categoryLv1NameById.get(summary.categoryLv1Id)
+      : undefined) ?? summary.categoryLv1Name;
+  const categoryLv2Name =
+    (summary.categoryLv2Id !== null
+      ? lookups.categoryLv2NameById.get(summary.categoryLv2Id)
+      : undefined) ?? summary.categoryLv2Name;
+  // 개념명은 이 화면에서 콘텐츠 카탈로그를 별도로 불러오지 않아 언어 설정을
+  // 적용하지 않는다(필터도 개념 단계까지는 내려가지 않는 것과 같은 범위).
+  const scopePath = [
+    subjectName,
+    categoryLv1Name,
+    categoryLv2Name,
+    summary.conceptName,
+  ].filter((name): name is string => Boolean(name));
+
+  return {
+    solveSessionId: summary.solveSessionId,
+    subject: subjectName ?? "",
+    category: scopePath[scopePath.length - 1] ?? "",
+    examType: sessionTypeLabel[summary.sessionType],
+    scopePath,
+    date: formatCompletedDate(summary.completedAt),
+    wrong: `${summary.wrongCount}/${summary.totalQuestionCount}`,
+  };
+}
 
 type WeaknessReportItem = {
   id: number;
@@ -52,99 +108,11 @@ const BRAND_PURPLE = "#6D5DFB";
 const WEAKNESS_PURPLE = "#4E44A4";
 const PANEL_GRAY = "#F3F3F3";
 
-const subjects = [
-  "Data Structure",
-  "Algorithm",
-  "Database",
-  "Network",
-  "Operating System",
-  "Computer Architecture",
-];
-const depthFilters: DepthFilter[] = [
-  "subject",
-  "Chapter1",
-  "Chapter2",
-  "concept",
-];
-
 // 총 개념 수는 DB 전체 하위 개념 수, 완료 수는 문제를 푼 하위 개념 수를 의미한다.
 const conceptStats = {
   totalCount: 500,
   solvedConceptCount: 100,
 };
-
-const examHistoryItems: ExamHistoryItem[] = [
-  {
-    id: 0,
-    subject: "Data Structure",
-    depth: "subject",
-    category: "All chapters",
-    examType: "과목 모의고사",
-    sessionType: "SUBJECT_MOCK",
-    scopePath: ["Data Structure"],
-    date: "26-04-26",
-    wrong: "3/20",
-  },
-  {
-    id: 1,
-    subject: "Data Structure",
-    depth: "Chapter1",
-    category: "Arrays",
-    examType: "챕터 모의고사",
-    sessionType: "CHAPTER_MOCK",
-    scopePath: ["Array"],
-    date: "26-04-25",
-    wrong: "6/10",
-  },
-  {
-    id: 2,
-    subject: "Data Structure",
-    depth: "Chapter1",
-    category: "Stacks",
-    examType: "챕터 모의고사",
-    sessionType: "CHAPTER_MOCK",
-    scopePath: ["Linear Structure"],
-    date: "26-04-25",
-    wrong: "6/10",
-  },
-  {
-    id: 3,
-    subject: "Data Structure",
-    depth: "Chapter2",
-    category: "Queues",
-    examType: "챕터 모의고사",
-    sessionType: "CHAPTER_MOCK",
-    scopePath: ["Linear Structure", "Queue"],
-    date: "26-04-24",
-    wrong: "4/10",
-  },
-  {
-    id: 4,
-    subject: "Algorithm",
-    depth: "Chapter1",
-    category: "Sorting",
-    examType: "챕터 모의고사",
-    sessionType: "CHAPTER_MOCK",
-    scopePath: ["Sorting"],
-    date: "26-04-23",
-    wrong: "7/10",
-  },
-  {
-    id: 5,
-    subject: "Data Structure",
-    depth: "concept",
-    category: "Dynamic Array",
-    examType: "개념 문제집",
-    sessionType: "CONCEPT_PRACTICE",
-    scopePath: [
-      "Linear Structure",
-      "Array",
-      "Dynamic Array",
-    ],
-    date: "26-04-22",
-    wrong: "2/12",
-  },
-];
 
 const weaknessReports: WeaknessReportItem[] = [
   {
@@ -186,6 +154,7 @@ const weaknessReportStats = {
 };
 
 export default function LogWeakScreen() {
+  useRequireMember();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -193,31 +162,177 @@ export default function LogWeakScreen() {
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const { setIsLogWeakSelecting } = useLogWeakSelection();
   const [mode, setMode] = useState<LogWeakMode>("wrongNote");
-  const [activeSubject, setActiveSubject] = useState(subjects[0]);
-  const [activeDepth, setActiveDepth] = useState<DepthFilter>(depthFilters[0]);
+  const [selectedPath, setSelectedPath] = useState<FilterNode[]>([]);
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
   const isWrongNote = mode === "wrongNote";
   const title = isWrongNote ? "Mistake Notes" : "Weakness Notes";
-  const tabLabel = isWrongNote ? "오답노트" : "약점분석";
   const headerHeight = HEADER_HEIGHT + insets.top;
   const activePurple = isWrongNote ? BRAND_PURPLE : WEAKNESS_PURPLE;
 
-  const filteredExamItems = useMemo(
-    () =>
-      examHistoryItems.filter(
-        (item) => item.subject === activeSubject && item.depth === activeDepth,
-      ),
-    [activeDepth, activeSubject],
-  );
+  const { accessToken } = useAuth();
+  const { language } = useLanguage();
+
+  // Row1(선택된 필터 목록)은 All + selectedPath. Row2(다음 단계 후보)는 selectedPath 깊이에 따라 달라진다.
+  const [selectedSubject, selectedChapter1, selectedChapter2] = selectedPath;
+  const selectedSubjectId = selectedSubject ? Number(selectedSubject.id) : null;
+  const selectedChapter1Id = selectedChapter1 ? Number(selectedChapter1.id) : null;
+  const selectedChapter2Id = selectedChapter2 ? Number(selectedChapter2.id) : null;
+
+  // 과목은 콘텐츠 카탈로그 기준으로 항상 전부 보여준다. 완료 기록이 하나도
+  // 없는 과목이라도 필터로는 선택할 수 있어야 하기 때문이다.
+  const { data: subjects = [] } = useSubjects();
+  // 완료 기록 API(CompletedProblemSetSummary)에는 영문명이 없어서, 언어
+  // 설정에 맞는 이름을 보여주려면 콘텐츠 카탈로그를 id 기준으로 별도 조회해
+  // 이름만 가져다 쓴다. 대분류/중분류를 "필터 후보로 보여줄지"는 여전히
+  // 완료 기록(subjectScopedSets) 기준으로 정한다 — 이 조회는 이름 조회용일 뿐이다.
+  const { data: categoryLv1List = [] } = useCategoryLv1List(selectedSubjectId);
+  const { data: categoryLv2List = [] } = useCategoryLv2List(selectedChapter1Id);
+  const { data: subjectScopedSets = [] } = useCompletedProblemSets(accessToken, {
+    subjectId: selectedSubjectId ?? undefined,
+  });
+
+  const subjectNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const subject of subjects) {
+      map.set(
+        subject.subjectId,
+        language === "en" ? subject.subjectNameEn : subject.subjectName,
+      );
+    }
+    return map;
+  }, [subjects, language]);
+
+  const categoryLv1NameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categoryLv1List) {
+      map.set(
+        category.categoryLv1Id,
+        language === "en" ? category.categoryLv1NameEn : category.categoryLv1Name,
+      );
+    }
+    return map;
+  }, [categoryLv1List, language]);
+
+  const categoryLv2NameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const category of categoryLv2List) {
+      map.set(
+        category.categoryLv2Id,
+        language === "en" ? category.categoryLv2NameEn : category.categoryLv2Name,
+      );
+    }
+    return map;
+  }, [categoryLv2List, language]);
+
+  const categoryLv1Options = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const item of subjectScopedSets) {
+      if (item.categoryLv1Id !== null && item.categoryLv1Name !== null) {
+        seen.set(
+          item.categoryLv1Id,
+          categoryLv1NameById.get(item.categoryLv1Id) ?? item.categoryLv1Name,
+        );
+      }
+    }
+    return [...seen.entries()].map(([id, label]) => ({ id: String(id), label }));
+  }, [subjectScopedSets, categoryLv1NameById]);
+
+  const categoryLv2Options = useMemo(() => {
+    const seen = new Map<number, string>();
+    for (const item of subjectScopedSets) {
+      if (
+        item.categoryLv1Id === selectedChapter1Id &&
+        item.categoryLv2Id !== null &&
+        item.categoryLv2Name !== null
+      ) {
+        seen.set(
+          item.categoryLv2Id,
+          categoryLv2NameById.get(item.categoryLv2Id) ?? item.categoryLv2Name,
+        );
+      }
+    }
+    return [...seen.entries()].map(([id, label]) => ({ id: String(id), label }));
+  }, [subjectScopedSets, selectedChapter1Id, categoryLv2NameById]);
+
+  const row1Items: FilterNode[] = [{ id: "all", label: "All" }, ...selectedPath];
+  const row2Level: "subject" | "chapter1" | "chapter2" = !selectedSubject
+    ? "subject"
+    : !selectedChapter1
+      ? "chapter1"
+      : "chapter2";
+  const row2Items: FilterNode[] = !selectedSubject
+    ? subjects.map((subject) => ({
+        id: String(subject.subjectId),
+        label: language === "en" ? subject.subjectNameEn : subject.subjectName,
+      }))
+    : !selectedChapter1
+      ? categoryLv1Options
+      : categoryLv2Options;
+
+  const selectFilterTrail = (index: number) => {
+    if (isSelecting) {
+      return;
+    }
+    setSelectedPath((currentPath) => currentPath.slice(0, index));
+  };
+
+  const selectFilterChoice = (node: FilterNode) => {
+    if (isSelecting) {
+      return;
+    }
+    // chapter2 단계에서는 형제 항목끼리 교체만 하고 더 깊이 들어가지 않는다(concept 제외).
+    setSelectedPath((currentPath) =>
+      row2Level === "chapter2"
+        ? [...currentPath.slice(0, 2), node]
+        : [...currentPath, node],
+    );
+  };
+
+  // 실제 카드 목록은 선택된 대분류/중분류로 한 번 더 좁힌다(서버는 subjectId까지만
+  // 걸러서 응답했으므로 나머지는 이미 받아온 데이터에서 걸러낸다).
+  const examHistoryItems = useMemo(() => {
+    const filtered = subjectScopedSets.filter((item) => {
+      if (selectedChapter1Id !== null && item.categoryLv1Id !== selectedChapter1Id) {
+        return false;
+      }
+      if (selectedChapter2Id !== null && item.categoryLv2Id !== selectedChapter2Id) {
+        return false;
+      }
+      return true;
+    });
+    return filtered.map((item) =>
+      toExamHistoryDisplayItem(item, {
+        subjectNameById,
+        categoryLv1NameById,
+        categoryLv2NameById,
+      }),
+    );
+  }, [
+    subjectScopedSets,
+    selectedChapter1Id,
+    selectedChapter2Id,
+    subjectNameById,
+    categoryLv1NameById,
+    categoryLv2NameById,
+  ]);
 
   const filteredWeaknessReports = useMemo(
     () =>
-      weaknessReports.filter(
-        (item) => item.subject === activeSubject && item.depth === activeDepth,
-      ),
-    [activeDepth, activeSubject],
+      weaknessReports.filter((item) => {
+        if (selectedSubject && item.subject !== selectedSubject.label) {
+          return false;
+        }
+        if (selectedPath.length === 2 && item.depth !== "Chapter1") {
+          return false;
+        }
+        if (selectedPath.length === 3 && item.depth !== "Chapter2") {
+          return false;
+        }
+        return true;
+      }),
+    [selectedSubject, selectedPath.length],
   );
 
   const updateMode = (nextMode: LogWeakMode) => {
@@ -257,20 +372,15 @@ export default function LogWeakScreen() {
     );
   };
 
-  const openExamReview = (item: ExamHistoryItem) => {
+  const openExamReview = (item: ExamHistoryDisplayItem) => {
     if (isSelecting) {
-      toggleSelectedExam(item.id);
+      toggleSelectedExam(item.solveSessionId);
       return;
     }
 
     router.push({
       pathname: "/mistake-exam-review",
-      params: {
-        subject: item.subject,
-        category: item.category,
-        examType: item.examType,
-        sessionType: item.sessionType,
-      },
+      params: { solveSessionId: item.solveSessionId.toString() },
     });
   };
 
@@ -301,10 +411,6 @@ export default function LogWeakScreen() {
       setMode("wrongNote");
     }
   }, [modeParam]);
-
-  useEffect(() => {
-    navigation.setOptions({ title, tabBarLabel: tabLabel });
-  }, [navigation, tabLabel, title]);
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
@@ -392,48 +498,45 @@ export default function LogWeakScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subjectTabs}
+            contentContainerStyle={styles.trailRow}
           >
-            {subjects.map((subject, index) => {
-              const isActive = activeSubject === subject;
-              const isFirst = index === 0;
-              const isLast = index === subjects.length - 1;
+            {row1Items.map((node, index) => {
+              const isAllChip = index === 0;
+              const isDimmedAll = isAllChip && selectedPath.length > 0;
 
               return (
                 <Pressable
                   disabled={isSelecting}
-                  key={subject}
+                  key={`${node.id}-${index}`}
                   style={[
-                    styles.subjectTab,
-                    isFirst && styles.subjectTabFirst,
-                    isLast && styles.subjectTabLast,
-                    isActive && styles.activeWhiteTab,
+                    styles.trailChip,
+                    isDimmedAll ? styles.trailChipAllDimmed : styles.trailChipActive,
                   ]}
-                  onPress={() => setActiveSubject(subject)}
+                  onPress={() => selectFilterTrail(index)}
                 >
-                  <Text
-                    style={[
-                      styles.filterText,
-                      isActive && { color: activePurple },
-                    ]}
-                  >
-                    {subject}
+                  <Text style={[styles.filterText, { color: activePurple }]}>
+                    {node.label}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
 
-          <View style={styles.categoryTabs}>
-            {depthFilters.map((depth) => {
-              const isActive = activeDepth === depth;
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.choiceRow}
+          >
+            {row2Items.map((node) => {
+              const isActive =
+                row2Level === "chapter2" && selectedChapter2?.id === node.id;
 
               return (
                 <Pressable
                   disabled={isSelecting}
-                  key={depth}
-                  style={[styles.categoryTab, isActive && styles.activeWhiteTab]}
-                  onPress={() => setActiveDepth(depth)}
+                  key={node.id}
+                  style={[styles.choiceChip, isActive && styles.activeWhiteTab]}
+                  onPress={() => selectFilterChoice(node)}
                 >
                   <Text
                     style={[
@@ -441,12 +544,12 @@ export default function LogWeakScreen() {
                       isActive && { color: activePurple },
                     ]}
                   >
-                    {depth === "subject" ? "Subject" : depth}
+                    {node.label}
                   </Text>
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
 
           {isSelecting && <View style={styles.selectionPurpleDim} />}
         </View>
@@ -466,13 +569,13 @@ export default function LogWeakScreen() {
 
           <View style={[styles.cardList, isSelecting && styles.activeCardList]}>
             {isWrongNote
-              ? filteredExamItems.map((item) => (
+              ? examHistoryItems.map((item) => (
                   <ExamHistoryCard
                     accentColor={activePurple}
                     isSelecting={isSelecting}
-                    isSelected={selectedExamIds.includes(item.id)}
+                    isSelected={selectedExamIds.includes(item.solveSessionId)}
                     item={item}
-                    key={item.id}
+                    key={item.solveSessionId}
                     onPress={() => openExamReview(item)}
                   />
                 ))
@@ -589,7 +692,7 @@ function ExamHistoryCard({
   accentColor: string;
   isSelecting: boolean;
   isSelected: boolean;
-  item: ExamHistoryItem;
+  item: ExamHistoryDisplayItem;
   onPress: () => void;
 }) {
   return (
@@ -721,7 +824,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#ffffff",
     fontFamily: FONT.pretendard,
-    fontSize: 17,
+    fontSize: 24,
     fontWeight: "700",
   },
   modeSwitchArea: {
@@ -762,25 +865,22 @@ const styles = StyleSheet.create({
     position: "relative",
     paddingBottom: 18,
   },
-  subjectTabs: {
+  trailRow: {
     paddingHorizontal: 12,
+    gap: 8,
   },
-  subjectTab: {
-    minWidth: 112,
-    height: 40,
+  trailChip: {
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.75)",
+    borderRadius: 999,
     paddingHorizontal: 16,
   },
-  subjectTabFirst: {
-    borderTopLeftRadius: 999,
-    borderBottomLeftRadius: 999,
+  trailChipActive: {
+    backgroundColor: "#ffffff",
   },
-  subjectTabLast: {
-    borderTopRightRadius: 999,
-    borderBottomRightRadius: 999,
+  trailChipAllDimmed: {
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
   },
   activeWhiteTab: {
     backgroundColor: "#ffffff",
@@ -792,23 +892,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  categoryTabs: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    overflow: "hidden",
-    marginTop: 18,
-    marginHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#ffffff",
-    borderRadius: 999,
+  choiceRow: {
+    paddingHorizontal: 12,
+    marginTop: 12,
+    gap: 8,
   },
-  categoryTab: {
-    minWidth: 106,
+  choiceChip: {
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.65)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.75)",
+    paddingHorizontal: 16,
   },
   grayPanel: {
     position: "relative",

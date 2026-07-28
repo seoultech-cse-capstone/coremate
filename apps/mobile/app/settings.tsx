@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Globe,
   LogOut,
   Pencil,
   Shield,
@@ -23,11 +24,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
+import { useLogoutMutation } from "../src/features/auth";
 
 type SettingRoute =
   | "/edit-profile"
   | "/edit-nickname"
   | "/notification-settings"
+  | "/language-settings"
   | "/terms-policies"
   | "/privacy-policy"
   | "/delete-account";
@@ -64,6 +67,7 @@ const settingSections: SettingSection[] = [
     title: "서비스",
     items: [
       { label: "알림 설정", Icon: Bell, route: "/notification-settings" },
+      { label: "언어 설정", Icon: Globe, route: "/language-settings" },
       { label: "약관 및 정책", Icon: FileText, route: "/terms-policies" },
       { label: "개인정보 처리방침", Icon: Shield, route: "/privacy-policy" },
     ],
@@ -79,6 +83,19 @@ const settingSections: SettingSection[] = [
 
 export default function SettingsScreen() {
   const [logoutVisible, setLogoutVisible] = useState(false);
+  const logoutMutation = useLogoutMutation();
+
+  const handleLogout = () => {
+    if (logoutMutation.isPending) {
+      return;
+    }
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        setLogoutVisible(false);
+        router.replace("/");
+      },
+    });
+  };
 
   const handlePress = (item: SettingItem) => {
     if (item.action === "logout") {
@@ -189,9 +206,12 @@ export default function SettingsScreen() {
 
               <Pressable
                 style={styles.logoutButton}
-                onPress={() => setLogoutVisible(false)}
+                onPress={handleLogout}
+                disabled={logoutMutation.isPending}
               >
-                <Text style={styles.logoutButtonText}>로그아웃</Text>
+                <Text style={styles.logoutButtonText}>
+                  {logoutMutation.isPending ? "로그아웃 중…" : "로그아웃"}
+                </Text>
               </Pressable>
             </View>
           </View>

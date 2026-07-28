@@ -12,6 +12,7 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -24,13 +25,32 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth } from "../../src/features/auth";
 import { ConceptCard } from "../../src/features/content/components/ConceptCard";
 import { ProblemSetCard } from "../../src/features/content/components/ProblemSetCard";
+import {
+  useCategoryLv1List,
+  useCategoryLv2List,
+  useChildCounts,
+  useConcepts,
+  useSubjects,
+} from "../../src/features/content";
+import type { ChildCountKind, Subject } from "../../src/features/content";
+import {
+  useLanguage,
+  type ContentLanguage,
+} from "../../src/shared/language/LanguageContext";
 
 type ContentDepth = "subject" | "category1" | "category2" | "concept";
 
+// 문제집 요약/진행률(chapterCount, progress, hasSolved)은 ProblemSetController/
+// ProgressController가 아직 더미 데이터인 데다 인증이 필요해 이번엔 연결하지 않는다.
+// 실제 서비스가 준비되면 이 자리를 채워 넣는다.
+const PLACEHOLDER_CHAPTER_COUNT = 0;
+const PLACEHOLDER_PROGRESS = 0;
+
 type ProblemSetItem = {
-  id: string;
+  id: number;
   title: string;
   chapterCount: number;
   iconColor?: string;
@@ -42,8 +62,60 @@ type ProblemSetItem = {
 
 type TrailItem = {
   depth: ContentDepth;
+  id?: number;
   title?: string;
 };
+
+const SUBJECT_VISUALS: Record<
+  string,
+  { Icon: LucideIcon; iconColor: string; thumbnailColor: string }
+> = {
+  DS: { Icon: BookOpen, iconColor: "#2563FF", thumbnailColor: "#E4EEFF" },
+  ALGO: { Icon: Brain, iconColor: "#A855F7", thumbnailColor: "#F2DEFF" },
+  DB: { Icon: Database, iconColor: "#F97316", thumbnailColor: "#FFF0DC" },
+  NETWORK: { Icon: Network, iconColor: "#14B8A6", thumbnailColor: "#D9FBF3" },
+  OS: { Icon: Cpu, iconColor: "#16C45B", thumbnailColor: "#DDFBEA" },
+  CA: { Icon: Monitor, iconColor: "#F43F5E", thumbnailColor: "#FFE2E5" },
+};
+
+function pickLocalizedName(
+  ko: string,
+  en: string,
+  language: ContentLanguage,
+): string {
+  if (language === "en") {
+    return en || ko;
+  }
+  return ko || en;
+}
+
+function mapSubject(
+  subject: Subject,
+  chapterCount: number,
+  language: ContentLanguage,
+): ProblemSetItem {
+  const visuals = SUBJECT_VISUALS[subject.subjectCode];
+  return {
+    id: subject.subjectId,
+    title: pickLocalizedName(subject.subjectName, subject.subjectNameEn, language),
+    chapterCount,
+    progress: PLACEHOLDER_PROGRESS,
+    hasSolved: false,
+    Icon: visuals?.Icon,
+    iconColor: visuals?.iconColor,
+    thumbnailColor: visuals?.thumbnailColor,
+  };
+}
+
+function mapNode(id: number, title: string, chapterCount: number): ProblemSetItem {
+  return {
+    id,
+    title,
+    chapterCount,
+    progress: PLACEHOLDER_PROGRESS,
+    hasSolved: false,
+  };
+}
 
 type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
@@ -60,161 +132,6 @@ const depthOrder: ContentDepth[] = [
   "category2",
   "concept",
 ];
-
-const listByDepth: Record<ContentDepth, ProblemSetItem[]> = {
-  subject: [
-    {
-      id: "data-structure",
-      title: "Data structure",
-      chapterCount: 12,
-      iconColor: "#2563FF",
-      Icon: BookOpen,
-      thumbnailColor: "#E4EEFF",
-      progress: 80,
-      hasSolved: true,
-    },
-    {
-      id: "algorithm",
-      title: "Algorithm",
-      chapterCount: 12,
-      iconColor: "#A855F7",
-      Icon: Brain,
-      thumbnailColor: "#F2DEFF",
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "database",
-      title: "Database",
-      chapterCount: 12,
-      iconColor: "#F97316",
-      Icon: Database,
-      thumbnailColor: "#FFF0DC",
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "network",
-      title: "Network",
-      chapterCount: 12,
-      iconColor: "#14B8A6",
-      Icon: Network,
-      thumbnailColor: "#D9FBF3",
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "operating-system",
-      title: "Operating System",
-      chapterCount: 12,
-      iconColor: "#16C45B",
-      Icon: Cpu,
-      thumbnailColor: "#DDFBEA",
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "computer-architecture",
-      title: "Computer Architecture",
-      chapterCount: 12,
-      iconColor: "#F43F5E",
-      Icon: Monitor,
-      thumbnailColor: "#FFE2E5",
-      progress: 80,
-      hasSolved: false,
-    },
-  ],
-  category1: [
-    {
-      id: "basic-concepts",
-      title: "Basic concepts",
-      chapterCount: 8,
-      progress: 64,
-      hasSolved: false,
-    },
-    {
-      id: "linear-structure",
-      title: "Linear structure",
-      chapterCount: 10,
-      progress: 72,
-      hasSolved: true,
-    },
-    {
-      id: "tree-structure",
-      title: "Tree structure",
-      chapterCount: 7,
-      progress: 45,
-      hasSolved: false,
-    },
-    {
-      id: "graph-structure",
-      title: "Graph structure",
-      chapterCount: 6,
-      progress: 38,
-      hasSolved: false,
-    },
-  ],
-  category2: [
-    {
-      id: "array",
-      title: "Array",
-      chapterCount: 5,
-      progress: 76,
-      hasSolved: true,
-    },
-    {
-      id: "linked-list",
-      title: "Linked List",
-      chapterCount: 6,
-      progress: 52,
-      hasSolved: false,
-    },
-    {
-      id: "stack-queue",
-      title: "Stack & Queue",
-      chapterCount: 6,
-      progress: 42,
-      hasSolved: false,
-    },
-  ],
-  concept: [
-    {
-      id: "static-array",
-      title: "Static Array",
-      chapterCount: 12,
-      progress: 100,
-      hasSolved: false,
-    },
-    {
-      id: "dynamic-array",
-      title: "Dynamic Array",
-      chapterCount: 12,
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "indexing",
-      title: "Indexing",
-      chapterCount: 12,
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "insertion",
-      title: "Insertion",
-      chapterCount: 12,
-      progress: 80,
-      hasSolved: false,
-    },
-    {
-      id: "deletion",
-      title: "Deletion",
-      chapterCount: 12,
-      progress: 80,
-      hasSolved: false,
-    },
-  ],
-};
 
 const thumbnailByDepth: Record<
   ContentDepth,
@@ -265,11 +182,11 @@ const startButtonLabelByDepth: Record<ContentDepth, string> = {
 
 const sessionTypeByDepth: Record<
   ContentDepth,
-  "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE"
+  "SUBJECT_MOCK" | "CATEGORY_LV1_MOCK" | "CATEGORY_LV2_MOCK" | "CONCEPT_PRACTICE"
 > = {
   subject: "SUBJECT_MOCK",
-  category1: "CHAPTER_MOCK",
-  category2: "CHAPTER_MOCK",
+  category1: "CATEGORY_LV1_MOCK",
+  category2: "CATEGORY_LV2_MOCK",
   concept: "CONCEPT_PRACTICE",
 };
 
@@ -283,17 +200,125 @@ export default function ContentScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { status } = useAuth();
+  const isGuest = status === "guest";
+  const { language } = useLanguage();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [trail, setTrail] = useState<TrailItem[]>([{ depth: "subject" }]);
   const currentTrail = trail[trail.length - 1];
   const currentDepth = currentTrail.depth;
+  const parentId = currentTrail.id ?? null;
   const selectedTitle = currentTrail.title;
-  const currentItems = listByDepth[currentDepth];
   const isConceptDepth = currentDepth === "concept";
   const currentThumbnail = thumbnailByDepth[currentDepth];
   const currentCountUnit = countUnitByDepth[currentDepth];
   const currentStartButtonLabel = startButtonLabelByDepth[currentDepth];
   const headerHeight = HEADER_HEIGHT + insets.top;
+
+  const subjectsQuery = useSubjects();
+  const categoryLv1Query = useCategoryLv1List(
+    currentDepth === "category1" ? parentId : null,
+  );
+  const categoryLv2Query = useCategoryLv2List(
+    currentDepth === "category2" ? parentId : null,
+  );
+  const conceptsQuery = useConcepts(currentDepth === "concept" ? parentId : null);
+
+  const activeQuery =
+    currentDepth === "subject"
+      ? subjectsQuery
+      : currentDepth === "category1"
+        ? categoryLv1Query
+        : currentDepth === "category2"
+          ? categoryLv2Query
+          : conceptsQuery;
+
+  // 카드에 보여줄 "바로 하위 단계 개수"(예: 과목 카드엔 대분류 개수)를 병렬 조회한다.
+  // 개념 카드의 "문제 개수"는 ProblemSetController가 필요해 이번 범위에서는 제외한다.
+  const childCountKind: ChildCountKind =
+    currentDepth === "subject"
+      ? "category-lv1"
+      : currentDepth === "category1"
+        ? "category-lv2"
+        : currentDepth === "category2"
+          ? "concepts"
+          : null;
+
+  const childCountIds = useMemo(() => {
+    switch (currentDepth) {
+      case "subject":
+        return (subjectsQuery.data ?? []).map((subject) => subject.subjectId);
+      case "category1":
+        return (categoryLv1Query.data ?? []).map((category) => category.categoryLv1Id);
+      case "category2":
+        return (categoryLv2Query.data ?? []).map((category) => category.categoryLv2Id);
+      default:
+        return [];
+    }
+  }, [currentDepth, subjectsQuery.data, categoryLv1Query.data, categoryLv2Query.data]);
+
+  const childCounts = useChildCounts(childCountKind, childCountIds);
+
+  const currentItems = useMemo<ProblemSetItem[]>(() => {
+    switch (currentDepth) {
+      case "subject":
+        return [...(subjectsQuery.data ?? [])]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((subject) =>
+            mapSubject(
+              subject,
+              childCounts.get(subject.subjectId) ?? PLACEHOLDER_CHAPTER_COUNT,
+              language,
+            ),
+          );
+      case "category1":
+        return [...(categoryLv1Query.data ?? [])]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((category) =>
+            mapNode(
+              category.categoryLv1Id,
+              pickLocalizedName(
+                category.categoryLv1Name,
+                category.categoryLv1NameEn,
+                language,
+              ),
+              childCounts.get(category.categoryLv1Id) ?? PLACEHOLDER_CHAPTER_COUNT,
+            ),
+          );
+      case "category2":
+        return [...(categoryLv2Query.data ?? [])]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((category) =>
+            mapNode(
+              category.categoryLv2Id,
+              pickLocalizedName(
+                category.categoryLv2Name,
+                category.categoryLv2NameEn,
+                language,
+              ),
+              childCounts.get(category.categoryLv2Id) ?? PLACEHOLDER_CHAPTER_COUNT,
+            ),
+          );
+      case "concept":
+        return [...(conceptsQuery.data ?? [])]
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((concept) =>
+            mapNode(
+              concept.conceptId,
+              pickLocalizedName(concept.conceptName, concept.conceptNameEn, language),
+              PLACEHOLDER_CHAPTER_COUNT,
+            ),
+          );
+    }
+  }, [
+    currentDepth,
+    subjectsQuery.data,
+    categoryLv1Query.data,
+    categoryLv2Query.data,
+    conceptsQuery.data,
+    childCounts,
+    language,
+  ]);
 
   const resetContent = useCallback(() => {
     setTrail([{ depth: "subject" }]);
@@ -320,7 +345,7 @@ export default function ContentScreen() {
   }, [navigation, resetContent]);
 
   const screenTitle = useMemo(() => {
-    return selectedTitle ?? "Practice Notes";
+    return selectedTitle ?? "문제집";
   }, [selectedTitle]);
 
   const openChildTree = (item: ProblemSetItem) => {
@@ -333,22 +358,46 @@ export default function ContentScreen() {
 
     setTrail((prevTrail) => [
       ...prevTrail,
-      { depth: nextDepth, title: item.title },
+      { depth: nextDepth, id: item.id, title: item.title },
     ]);
     scrollToTop();
   };
 
   const startProblemSet = (item: ProblemSetItem) => {
+    const sessionType = sessionTypeByDepth[currentDepth];
+
+    // 게스트는 개념 문제집만 풀 수 있고, 과목/챕터 모의고사는 로그인이 필요하다.
+    if (isGuest && sessionType !== "CONCEPT_PRACTICE") {
+      router.push("/login-required");
+      return;
+    }
+
     router.push({
       pathname: "/solve",
       params: {
         title: item.title,
-        sessionType: sessionTypeByDepth[currentDepth],
+        sessionType,
+        ...(sessionType === "CONCEPT_PRACTICE"
+          ? { conceptId: String(item.id) }
+          : { targetId: String(item.id) }),
       },
     });
   };
 
+  const viewConceptDetail = (item: ProblemSetItem) => {
+    router.push({
+      pathname: "/concept-detail",
+      params: { conceptId: String(item.id) },
+    });
+  };
+
   const openRecentReview = (item: ProblemSetItem) => {
+    // 해설/기록 확인은 회원 전용이라 게스트는 로그인 필요 안내로 보낸다.
+    if (isGuest) {
+      router.push("/login-required");
+      return;
+    }
+
     router.push({
       pathname: "/mistake-exam-review",
       params: {
@@ -403,20 +452,47 @@ export default function ContentScreen() {
           style={[styles.grayBackground, { minHeight: height - headerHeight }]}
         >
           <View style={styles.listContent}>
-              {currentItems.map((item) =>
+              {activeQuery.isLoading && (
+                <View style={styles.stateContainer}>
+                  <ActivityIndicator color={BRAND_PURPLE} size="large" />
+                </View>
+              )}
+
+              {!activeQuery.isLoading && activeQuery.isError && (
+                <View style={styles.stateContainer}>
+                  <Text style={styles.stateText}>
+                    목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+                  </Text>
+                </View>
+              )}
+
+              {!activeQuery.isLoading &&
+                !activeQuery.isError &&
+                currentItems.length === 0 && (
+                  <View style={styles.stateContainer}>
+                    <Text style={styles.stateText}>표시할 항목이 없습니다.</Text>
+                  </View>
+                )}
+
+              {!activeQuery.isLoading &&
+              !activeQuery.isError &&
+              currentItems.map((item) =>
                 isConceptDepth ? (
                   <ConceptCard
                     key={item.id}
                     chapterCount={item.chapterCount}
                     countUnit={currentCountUnit}
+                    hideProgress={isGuest}
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
+                    startButtonLabel={currentStartButtonLabel}
                     thumbnailColor={
                       item.thumbnailColor ?? currentThumbnail.thumbnailColor
                     }
                     title={item.title}
-                    onPress={() => startProblemSet(item)}
+                    onStart={() => startProblemSet(item)}
+                    onViewDetail={() => viewConceptDetail(item)}
                   />
                 ) : (
                   <ProblemSetCard
@@ -424,6 +500,7 @@ export default function ContentScreen() {
                     chapterCount={item.chapterCount}
                     countUnit={currentCountUnit}
                     hasSolved={item.hasSolved}
+                    hideProgress={isGuest}
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
@@ -537,5 +614,16 @@ const styles = StyleSheet.create({
     paddingTop: 45,
     paddingBottom: 32 + OVERSCROLL_BUFFER,
     gap: 21,
+  },
+  stateContainer: {
+    alignItems: "center",
+    paddingVertical: 48,
+  },
+  stateText: {
+    color: "#6b7280",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
   },
 });

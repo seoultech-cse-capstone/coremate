@@ -7,16 +7,29 @@ import type { SolveSessionType } from "../src/features/solve/components/SolveQue
 
 const sessionTypes: SolveSessionType[] = [
   "SUBJECT_MOCK",
-  "CHAPTER_MOCK",
+  "CATEGORY_LV1_MOCK",
+  "CATEGORY_LV2_MOCK",
   "CONCEPT_PRACTICE",
   "DAILY_QUIZ",
 ];
 
 export default function SolveResultRoute() {
-  const { correctCount, elapsedSeconds, sessionType, title, totalCount } = useLocalSearchParams<{
+  const {
+    conceptId,
+    correctCount,
+    elapsedSeconds,
+    reviewItemsJson,
+    sessionType,
+    targetId,
+    title,
+    totalCount,
+  } = useLocalSearchParams<{
+    conceptId?: string;
     correctCount?: string;
     elapsedSeconds?: string;
+    reviewItemsJson?: string;
     sessionType?: string;
+    targetId?: string;
     title?: string;
     totalCount?: string;
   }>();
@@ -41,19 +54,25 @@ export default function SolveResultRoute() {
       onRetry={() =>
         router.replace({
           pathname: "/solve",
-          params: { title: resolvedTitle, sessionType: resolvedSessionType },
+          params: {
+            title: resolvedTitle,
+            sessionType: resolvedSessionType,
+            ...(conceptId ? { conceptId } : {}),
+            ...(targetId ? { targetId } : {}),
+          },
         })
       }
-      onReview={() =>
+      onReview={() => {
         router.push({
           pathname: "/mistake-exam-review",
           params: {
             subject: "Data Structure",
             category: resolvedTitle,
             sessionType: resolvedSessionType,
+            ...(reviewItemsJson ? { reviewItemsJson } : {}),
           },
-        })
-      }
+        });
+      }}
     />
   );
 }

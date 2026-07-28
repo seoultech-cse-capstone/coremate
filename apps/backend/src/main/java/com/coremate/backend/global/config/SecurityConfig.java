@@ -41,7 +41,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/login",
                                 "/api/auth/signup",
-                                "/api/auth/reissue"
+                                "/api/auth/reissue",
+                                "/api/auth/find-email",
+                                "/api/auth/password/reset-code",
+                                "/api/auth/password/verify-code",
+                                "/api/auth/password/reset"
                         ).permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
@@ -53,7 +57,8 @@ public class SecurityConfig {
                                 "/api/v1/solve-sessions/guest/complete"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/content/**"
+                                "/api/v1/content/**",
+                                "/api/v1/solve/questions/*/hint"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

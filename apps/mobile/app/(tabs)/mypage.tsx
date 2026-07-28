@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useRequireMember } from "../../src/features/auth";
 import { MyProfile } from "../../src/features/mypage/components/MyProfile";
 import { MyProgressStats } from "../../src/features/mypage/components/MyProgressStats";
 
@@ -27,6 +28,7 @@ type TabPressNavigation = {
 };
 
 export default function MyPageScreen() {
+  useRequireMember();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);

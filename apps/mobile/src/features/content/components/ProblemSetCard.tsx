@@ -8,6 +8,7 @@ type ProblemSetCardProps = {
   chapterCount: number;
   countUnit: "chapter" | "concept" | "question";
   hasSolved: boolean;
+  hideProgress?: boolean;
   iconColor: string;
   Icon: LucideIcon;
   progress: number;
@@ -23,6 +24,7 @@ export function ProblemSetCard({
   chapterCount,
   countUnit,
   hasSolved,
+  hideProgress = false,
   iconColor,
   Icon,
   progress,
@@ -33,7 +35,7 @@ export function ProblemSetCard({
   onReview,
   onStart,
 }: ProblemSetCardProps) {
-  const isCompleted = progress >= 100;
+  const isCompleted = !hideProgress && progress >= 100;
   const ThumbnailIcon = isCompleted ? CircleCheckBig : Icon;
   const resolvedIconColor = isCompleted ? "#16C45B" : iconColor;
   const resolvedThumbnailColor = isCompleted ? "#E5F9ED" : thumbnailColor;
@@ -64,7 +66,7 @@ export function ProblemSetCard({
         </View>
       </View>
 
-      <ProgressLine progress={progress} />
+      {!hideProgress && <ProgressLine progress={progress} />}
 
       <View style={styles.actions}>
         {hasSolved ? (

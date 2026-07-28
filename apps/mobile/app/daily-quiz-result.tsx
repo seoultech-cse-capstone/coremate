@@ -1,8 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 
+import { useRequireMember } from "../src/features/auth";
 import { SolveResultScreen } from "../src/features/solve/components/SolveResultScreen";
 
 export default function DailyQuizResultScreen() {
+  useRequireMember();
+
   const { correctCount, totalCount } = useLocalSearchParams<{
     correctCount?: string;
     totalCount?: string;

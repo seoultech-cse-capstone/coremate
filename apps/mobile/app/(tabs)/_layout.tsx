@@ -7,10 +7,11 @@ import {
   UserRound,
   Users,
 } from "lucide-react-native";
-import { Pressable, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { useAuth } from "../../src/features/auth";
 import {
   LogWeakSelectionProvider,
   useLogWeakSelection,
@@ -20,9 +21,11 @@ const BRAND_PURPLE = "#6D5DFB";
 const TAB_GRAY = "#94a3b8";
 
 export default function TabsLayout() {
+  const { status } = useAuth();
   return (
     <LogWeakSelectionProvider>
-      <TabsNavigator />
+      {/* status가 바뀔 때마다 재마운트해 로그아웃 전 마지막 탭(예: 마이페이지) 기억을 초기화한다 */}
+      <TabsNavigator key={status} />
     </LogWeakSelectionProvider>
   );
 }
@@ -30,11 +33,23 @@ export default function TabsLayout() {
 function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const { isLogWeakSelecting } = useLogWeakSelection();
+  const { status } = useAuth();
+  const isMemberLocked = status !== "authenticated";
 
-  const tabBarButton = (props: BottomTabBarButtonProps) => {
-    const { ref: _ref, ...buttonProps } = props;
+  // 회원이 아니면(게스트든 로그아웃 상태든) 잠긴 탭(친구/오답노트/마이페이지)을 흐리게 표시하고 비활성화한다.
+  const createTabBarButton = (isMemberOnly: boolean) => {
+    return (props: BottomTabBarButtonProps) => {
+      const { ref: _ref, style, ...buttonProps } = props;
+      const locked = isMemberLocked && isMemberOnly;
 
-    return <Pressable {...buttonProps} disabled={isLogWeakSelecting} />;
+      return (
+        <Pressable
+          {...buttonProps}
+          disabled={isLogWeakSelecting || locked}
+          style={[style, locked && styles.lockedTabButton]}
+        />
+      );
+    };
   };
 
   return (
@@ -43,7 +58,6 @@ function TabsNavigator() {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: BRAND_PURPLE,
-          tabBarButton,
           tabBarInactiveTintColor: TAB_GRAY,
           tabBarStyle: {
             height: 58 + insets.bottom,
@@ -66,6 +80,7 @@ function TabsNavigator() {
           name="home"
           options={{
             title: "홈",
+            tabBarButton: createTabBarButton(false),
             tabBarIcon: ({ color }) => (
               <Home color={color} size={22} strokeWidth={2.1} />
             ),
@@ -75,6 +90,7 @@ function TabsNavigator() {
           name="friend"
           options={{
             title: "친구",
+            tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <Users color={color} size={22} strokeWidth={2.1} />
             ),
@@ -83,7 +99,8 @@ function TabsNavigator() {
         <Tabs.Screen
           name="content"
           options={{
-            title: "연습노트",
+            title: "문제집",
+            tabBarButton: createTabBarButton(false),
             tabBarIcon: ({ color }) => (
               <BookOpenCheck color={color} size={22} strokeWidth={2.1} />
             ),
@@ -92,7 +109,8 @@ function TabsNavigator() {
         <Tabs.Screen
           name="log-weak"
           options={{
-            title: "오답노트",
+            title: "복습",
+            tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <ChartNoAxesCombined color={color} size={22} strokeWidth={2.1} />
             ),
@@ -102,6 +120,7 @@ function TabsNavigator() {
           name="mypage"
           options={{
             title: "마이페이지",
+            tabBarButton: createTabBarButton(true),
             tabBarIcon: ({ color }) => (
               <UserRound color={color} size={22} strokeWidth={2.1} />
             ),
@@ -111,3 +130,9 @@ function TabsNavigator() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  lockedTabButton: {
+    opacity: 0.35,
+  },
+});

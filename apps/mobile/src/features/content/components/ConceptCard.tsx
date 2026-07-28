@@ -7,31 +7,37 @@ import { ProgressLine } from "./ProgressLine";
 type ConceptCardProps = {
   chapterCount: number;
   countUnit: "chapter" | "concept" | "question";
+  hideProgress?: boolean;
   iconColor: string;
   Icon: LucideIcon;
   progress: number;
+  startButtonLabel: string;
   thumbnailColor: string;
   title: string;
-  onPress: () => void;
+  onStart: () => void;
+  onViewDetail: () => void;
 };
 
 export function ConceptCard({
   chapterCount,
   countUnit,
+  hideProgress = false,
   iconColor,
   Icon,
   progress,
+  startButtonLabel,
   thumbnailColor,
   title,
-  onPress,
+  onStart,
+  onViewDetail,
 }: ConceptCardProps) {
-  const isCompleted = progress >= 100;
+  const isCompleted = !hideProgress && progress >= 100;
   const ThumbnailIcon = isCompleted ? CircleCheckBig : Icon;
   const resolvedIconColor = isCompleted ? "#16C45B" : iconColor;
   const resolvedThumbnailColor = isCompleted ? "#E5F9ED" : thumbnailColor;
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <View style={styles.card}>
       <View style={styles.body}>
         <View
           style={[
@@ -43,33 +49,42 @@ export function ConceptCard({
         </View>
 
         <View style={styles.content}>
-          <View style={styles.titleRow}>
-            <View>
-              <Text style={styles.title}>{title}</Text>
-              <Text style={styles.chapter}>
-                {chapterCount} {countUnit}
-              </Text>
-            </View>
-
-            <Text style={styles.chevron}>›</Text>
-          </View>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.chapter}>
+            {chapterCount} {countUnit}
+          </Text>
         </View>
       </View>
 
-      <ProgressLine progress={progress} />
-    </Pressable>
+      {!hideProgress && <ProgressLine progress={progress} />}
+
+      <View style={styles.actions}>
+        <Pressable
+          style={[styles.button, styles.grayButton]}
+          onPress={onViewDetail}
+        >
+          <Text style={styles.grayButtonText}>개념 파악하기</Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.button, styles.primaryButton]}
+          onPress={onStart}
+        >
+          <Text style={styles.primaryButtonText}>{startButtonLabel}</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     width: "100%",
-    minHeight: 136,
     borderRadius: 8,
     backgroundColor: "#ffffff",
     paddingHorizontal: 21,
     paddingTop: 19,
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
   body: {
     flexDirection: "row",
@@ -86,11 +101,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
   title: {
     color: "#111111",
@@ -107,11 +118,35 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 2,
   },
-  chevron: {
-    color: "#707070",
+  actions: {
+    flexDirection: "row",
+    gap: 11,
+    marginTop: 10,
+  },
+  button: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 30,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+  },
+  primaryButton: {
+    backgroundColor: "#6D5DFB",
+  },
+  grayButton: {
+    backgroundColor: "#828B92",
+  },
+  primaryButtonText: {
+    color: "#ffffff",
     fontFamily: FONT.pretendard,
-    fontSize: 30,
-    fontWeight: "400",
-    lineHeight: 32,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  grayButtonText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "500",
   },
 });

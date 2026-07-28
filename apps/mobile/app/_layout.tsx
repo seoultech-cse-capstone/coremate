@@ -1,9 +1,13 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
+import { AuthProvider } from "../src/features/auth";
+import { queryClient } from "../src/shared/api/queryClient";
+import { LanguageProvider } from "../src/shared/language/LanguageContext";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -16,10 +20,15 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <Stack
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LanguageProvider>
+        <SafeAreaProvider>
+          <Stack
         screenOptions={{
           gestureEnabled: false,
+          animation: "fade",
+          animationDuration: 120,
           headerStyle: { backgroundColor: "#ffffff" },
           headerTitleStyle: {
             fontFamily: FONT.pretendard,
@@ -30,8 +39,12 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ title: "회원가입" }} />
+        <Stack.Screen name="email-login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="login-required"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         <Stack.Screen name="edit-nickname" options={{ headerShown: false }} />
@@ -39,8 +52,16 @@ export default function RootLayout() {
           name="notification-settings"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="language-settings"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="terms-policies" options={{ headerShown: false }} />
         <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="marketing-consent"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="delete-account" options={{ headerShown: false }} />
         <Stack.Screen
           name="favorite-problems"
@@ -55,6 +76,10 @@ export default function RootLayout() {
           name="mistake-exam-review"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="concept-detail"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="solve" options={{ headerShown: false }} />
         <Stack.Screen name="solve-result" options={{ headerShown: false }} />
         <Stack.Screen name="daily-quiz" options={{ headerShown: false }} />
@@ -63,8 +88,11 @@ export default function RootLayout() {
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="dark" />
-    </SafeAreaProvider>
+          </Stack>
+          <StatusBar style="dark" />
+        </SafeAreaProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
