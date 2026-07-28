@@ -43,4 +43,22 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
             @Param("categoryLv1Id") Long categoryLv1Id,
             @Param("categoryLv2Id") Long categoryLv2Id
     );
+
+    /**
+     * 사용자가 현재 세션 외에 해당 개념을 이미 PASS(전 문제 정답)로 완료한 회차가 있는지 확인한다.
+     * Learning History의 "최초 PASS 시에만 완료 개념 +1" 판정에 사용한다.
+     */
+    @Query("""
+            SELECT (COUNT(s) > 0) FROM SolveSession s
+            WHERE s.userId = :userId
+              AND s.concept.conceptId = :conceptId
+              AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+              AND s.solveSessionId <> :excludeSessionId
+              AND s.totalQuestionCount > 0
+              AND s.correctCount = s.totalQuestionCount
+            """)
+    boolean existsPassedConceptSession(
+            @Param("userId") Long userId,
+            @Param("conceptId") Long conceptId,
+            @Param("excludeSessionId") Long excludeSessionId);
 }

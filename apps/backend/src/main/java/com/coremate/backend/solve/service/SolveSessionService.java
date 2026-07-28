@@ -12,6 +12,7 @@ import com.coremate.backend.content.repository.QuestionRepository;
 import com.coremate.backend.content.repository.SubjectRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.learninghistory.service.LearningHistoryService;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.progress.entity.UserConceptProgress;
 import com.coremate.backend.progress.repository.UserConceptProgressRepository;
@@ -57,6 +58,7 @@ public class SolveSessionService {
     private final SolveSessionRepository solveSessionRepository;
     private final SolveLogRepository solveLogRepository;
     private final UserConceptProgressRepository userConceptProgressRepository;
+    private final LearningHistoryService learningHistoryService;
     private final ObjectMapper objectMapper;
 
     public StartSolveSessionResponse startSolveSession(Long userId, CreateSolveSessionRequest request) {
@@ -260,7 +262,7 @@ public class SolveSessionService {
 
         if (session.getSessionType() == SolveSessionType.CONCEPT_PRACTICE && session.getConcept() != null) {
             updateConceptProgress(userId, session.getConcept().getConceptId(), session.getSolveSessionId());
-        } else if (isMockSession(session.getSessionType())) {
+        } else if (session.getSessionType().isMock()) {
             // 모의고사는 이미 완료된 개념만 progress를 최신 회차로 갱신한다.
             // 미완료 개념은 모의고사 참여만으로 완료 처리하지 않고 그대로 둔다.
             List<Long> conceptIdsInSession = logs.stream()
@@ -273,6 +275,9 @@ public class SolveSessionService {
                 updateConceptProgress(userId, cid, session.getSolveSessionId());
             }
         }
+
+        // Learning History 누적 (완료 시점, 세션당 1회)
+        learningHistoryService.accumulate(session, logs, correctCount);
 
         return new CompleteSolveSessionResponse(
                 session.getSolveSessionId(),
@@ -432,12 +437,6 @@ public class SolveSessionService {
                 session.getStartedAt(),
                 questionResponses
         );
-    }
-
-    private boolean isMockSession(SolveSessionType type) {
-        return type == SolveSessionType.CATEGORY_LV1_MOCK
-                || type == SolveSessionType.CATEGORY_LV2_MOCK
-                || type == SolveSessionType.SUBJECT_MOCK;
     }
 
     private void updateConceptProgress(Long userId, Long conceptId, Long solveSessionId) {

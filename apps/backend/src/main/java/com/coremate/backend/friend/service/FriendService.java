@@ -20,6 +20,8 @@ import com.coremate.backend.friend.repository.FriendRepository;
 import com.coremate.backend.friend.repository.FriendUserSearchRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.learninghistory.dto.response.LearningHistoryResponse;
+import com.coremate.backend.learninghistory.service.LearningHistoryService;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
@@ -46,6 +48,7 @@ public class FriendService {
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
     private final AvatarService avatarService;
+    private final LearningHistoryService learningHistoryService;
 
     public List<FriendSearchUserResponse> searchUsers(Long userId, String keyword) {
         findActiveUser(userId);
@@ -145,6 +148,13 @@ public class FriendService {
         validateAcceptedFriend(userId, friendUserId);
         // 과목별 통계 테이블이 연결되면 이 지점에서 공개 요약만 매핑한다.
         return List.of();
+    }
+
+    // 친구 상세 프로필 Learning History 섹션. 친구 관계(ACCEPTED)인 경우에만 조회 가능하다. (FR-FRIEND-05)
+    public LearningHistoryResponse getLearningHistory(Long userId, Long friendUserId) {
+        validateAcceptedFriend(userId, friendUserId);
+        findActiveUser(friendUserId);
+        return learningHistoryService.getStats(friendUserId);
     }
 
     @Transactional
