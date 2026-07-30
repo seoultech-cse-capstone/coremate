@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from schemas.common_mistake_schema import COMMON_MISTAKE_SCHEMA
 from src.ai_client import call_ai_json
+from src.resume import SAVE_EVERY, is_forced, load_existing, report_resume, save_progress
 
 
 if len(sys.argv) < 2:
@@ -77,9 +78,17 @@ def attach_mistake_codes(
     return normalized_mistakes
 
 
-results = []
+out_dir = Path(f"outputs/{subject_code}")
+out_path = out_dir / "common_mistakes.json"
 
-for concept_card in tqdm(concept_cards):
+# 이어하기: 이미 오개념을 만든 개념은 건너뛴다(--force 로 전체 재생성).
+results, done_codes = load_existing(
+    out_path, lambda group: group.get("concept_code"), force=is_forced(sys.argv)
+)
+pending_cards = [c for c in concept_cards if c["concept_code"] not in done_codes]
+report_resume("common_mistakes", len(done_codes), len(pending_cards))
+
+for index, concept_card in enumerate(tqdm(pending_cards), start=1):
     concept_code = concept_card["concept_code"]
     related_relations = find_relations_for_concept(concept_code)
 
@@ -109,13 +118,10 @@ for concept_card in tqdm(concept_cards):
         }
     )
 
-out_dir = Path(f"outputs/{subject_code}")
-out_dir.mkdir(parents=True, exist_ok=True)
+    if index % SAVE_EVERY == 0:
+        save_progress(out_path, results)
 
-out_path = out_dir / "common_mistakes.json"
-
-with open(out_path, "w", encoding="utf-8") as f:
-    json.dump(results, f, ensure_ascii=False, indent=2)
+save_progress(out_path, results)
 
 total_mistake_count = sum(len(item["mistakes"]) for item in results)
 

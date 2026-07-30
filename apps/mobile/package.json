@@ -40,7 +40,7 @@
     "typescript": "~5.9.2"
   },
   "scripts": {
-    "sync-ip": "node scripts/sync-ip.js",
+    "sync-ip": "node ../../scripts/local/sync-ip.js",
     "prestart": "npm run sync-ip",
     "preandroid": "npm run sync-ip",
     "preios": "npm run sync-ip",

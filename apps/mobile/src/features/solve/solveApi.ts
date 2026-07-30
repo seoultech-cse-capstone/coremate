@@ -25,9 +25,54 @@ export const solveApi = {
       .then((res) => res.data);
   },
 
+  startSubjectMockSession(
+    subjectId: number,
+    accessToken: string,
+  ): Promise<StartSolveSessionResponse> {
+    return httpClient
+      .post<ApiEnvelope<StartSolveSessionResponse>>(
+        "/api/v1/solve-sessions/mocks/subject",
+        { targetId: subjectId },
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+
+  startCategoryLv1MockSession(
+    categoryLv1Id: number,
+    accessToken: string,
+  ): Promise<StartSolveSessionResponse> {
+    return httpClient
+      .post<ApiEnvelope<StartSolveSessionResponse>>(
+        "/api/v1/solve-sessions/mocks/category-lv1",
+        { targetId: categoryLv1Id },
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+
+  startCategoryLv2MockSession(
+    categoryLv2Id: number,
+    accessToken: string,
+  ): Promise<StartSolveSessionResponse> {
+    return httpClient
+      .post<ApiEnvelope<StartSolveSessionResponse>>(
+        "/api/v1/solve-sessions/mocks/category-lv2",
+        { targetId: categoryLv2Id },
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+
   submitAnswer(
     sessionId: number,
-    body: { questionId: number; selectedAnswer: string; timeSpentSec: number },
+    body: {
+      questionId: number;
+      selectedAnswer: string;
+      timeSpentSec: number;
+      optionChangeCount: number;
+      isAnswerChanged: boolean;
+    },
     accessToken: string,
   ): Promise<SubmitAnswerResponse> {
     return httpClient

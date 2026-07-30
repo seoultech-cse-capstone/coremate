@@ -22,7 +22,11 @@ import { Toast } from "../../../shared/components/Toast";
 import { useToast } from "../../../shared/hooks/useToast";
 import { getApiErrorMessage } from "../../../shared/utils/apiError";
 import { solveApi } from "../solveApi";
-import type { SolveQuestion, SolveReviewItem } from "../types";
+import type {
+  SolveQuestion,
+  SolveReviewItem,
+  StartSolveSessionResponse,
+} from "../types";
 
 const BRAND_PURPLE = "#6D5DFB";
 
@@ -31,8 +35,57 @@ const BRAND_PURPLE = "#6D5DFB";
 const DUMMY_HINT_TEXT =
   "정답을 직접 알려주지는 않지만, 문제에서 다루는 핵심 개념을 다시 짚어보면 실마리를 찾을 수 있어요.";
 
+/** 개념 문제집은 게스트도 가능하고, 모의고사 3종은 전부 회원 전용이다. */
+export type SolveTarget =
+  | { type: "concept"; conceptId: number }
+  | { type: "subjectMock"; subjectId: number }
+  | { type: "categoryLv1Mock"; categoryLv1Id: number }
+  | { type: "categoryLv2Mock"; categoryLv2Id: number };
+
+const TARGET_SUBTITLE: Record<SolveTarget["type"], string> = {
+  concept: "개념 문제집",
+  subjectMock: "과목 모의고사",
+  categoryLv1Mock: "대분류 모의고사",
+  categoryLv2Mock: "중분류 모의고사",
+};
+
+function targetKey(target: SolveTarget): string {
+  switch (target.type) {
+    case "concept":
+      return `concept:${target.conceptId}`;
+    case "subjectMock":
+      return `subjectMock:${target.subjectId}`;
+    case "categoryLv1Mock":
+      return `categoryLv1Mock:${target.categoryLv1Id}`;
+    case "categoryLv2Mock":
+      return `categoryLv2Mock:${target.categoryLv2Id}`;
+  }
+}
+
+function startSession(
+  target: SolveTarget,
+  accessToken: string | null,
+): Promise<StartSolveSessionResponse> {
+  switch (target.type) {
+    case "concept":
+      return solveApi.startConceptSession(target.conceptId, accessToken ?? undefined);
+    case "subjectMock":
+      return solveApi.startSubjectMockSession(target.subjectId, accessToken as string);
+    case "categoryLv1Mock":
+      return solveApi.startCategoryLv1MockSession(
+        target.categoryLv1Id,
+        accessToken as string,
+      );
+    case "categoryLv2Mock":
+      return solveApi.startCategoryLv2MockSession(
+        target.categoryLv2Id,
+        accessToken as string,
+      );
+  }
+}
+
 type ConceptSolveScreenProps = {
-  conceptId: number;
+  target: SolveTarget;
   title: string;
   isGuest: boolean;
   accessToken: string | null;
@@ -50,7 +103,7 @@ type SessionState =
   | { status: "ready"; sessionId: number | null; questions: SolveQuestion[] };
 
 export function ConceptSolveScreen({
-  conceptId,
+  target,
   title,
   isGuest,
   accessToken,
@@ -69,16 +122,40 @@ export function ConceptSolveScreen({
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
+  // 문제별 풀이 시간 계산용. "이전"으로 갔다가 같은 문제로 다시 돌아와도
+  // 각 방문 시간이 모두 합산되도록, 문제 인덱스별 누적 시간(과거 방문분)과
+  // 지금 보고 있는 방문이 시작된 시각을 따로 추적한다.
+  const questionTimeAccumulatorRef = useRef<Map<number, number>>(new Map());
+  const questionVisitStartedAtRef = useRef<number>(0);
+  const previousIndexRef = useRef(currentIndex);
+  // 문제당 답을 바꾼 횟수. 다음 문제로 넘어가면 리셋된다("이전"으로 돌아간
+  // 문제는 이미 제출됐으므로 다시 세지 않는다).
+  const optionChangeCountRef = useRef(0);
+
+  useEffect(() => {
+    if (session.status !== "ready") {
+      return;
+    }
+    const now = Date.now();
+    if (questionVisitStartedAtRef.current !== 0) {
+      const prevIndex = previousIndexRef.current;
+      const elapsed = now - questionVisitStartedAtRef.current;
+      questionTimeAccumulatorRef.current.set(
+        prevIndex,
+        (questionTimeAccumulatorRef.current.get(prevIndex) ?? 0) + elapsed,
+      );
+    }
+    questionVisitStartedAtRef.current = now;
+    previousIndexRef.current = currentIndex;
+    optionChangeCountRef.current = 0;
+  }, [currentIndex, session.status]);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const response = await solveApi.startConceptSession(
-          conceptId,
-          accessToken ?? undefined,
-        );
+        const response = await startSession(target, accessToken);
         if (cancelled) {
           return;
         }
@@ -92,6 +169,7 @@ export function ConceptSolveScreen({
         if (cancelled) {
           return;
         }
+        console.error("[solve] 세션 시작 실패", error);
         setSession({
           status: "error",
           message: getApiErrorMessage(error, "문제를 불러오지 못했습니다."),
@@ -103,7 +181,7 @@ export function ConceptSolveScreen({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conceptId]);
+  }, [targetKey(target)]);
 
   // 게스트는 북마크 기능이 없다. 회원이면 이 세션의 문제들 중 이미
   // 북마크된 것이 있는지 한 번에 조회해둔다(문제별 개별 조회 API가 없음).
@@ -167,14 +245,47 @@ export function ConceptSolveScreen({
       return;
     }
 
+    if (sessionId !== null && !accessToken) {
+      setSession({
+        status: "error",
+        message: "로그인이 만료되어 이어서 풀이할 수 없어요. 다시 로그인한 뒤 처음부터 풀어주세요.",
+      });
+      return;
+    }
+
+    // "이전"으로 돌아갔다가 다시 고른 경우, 이미 제출된 문제라면 재제출하지 않고
+    // 다음으로만 이동한다(이미 서버/누적 목록에 답안이 반영돼 있음).
+    const answeredCount =
+      sessionId !== null && accessToken
+        ? reviewItemsRef.current.length
+        : answersRef.current.length;
+    if (currentIndex < answeredCount) {
+      setCurrentIndex((index) => index + 1);
+      setSelectedAnswer(null);
+      setIsHintVisible(false);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const timeSpentSec = Math.round((Date.now() - startedAtRef.current) / 1000);
+      const currentVisitElapsedMs = Date.now() - questionVisitStartedAtRef.current;
+      const accumulatedMs =
+        (questionTimeAccumulatorRef.current.get(currentIndex) ?? 0) +
+        currentVisitElapsedMs;
+      const timeSpentSec = Math.round(accumulatedMs / 1000);
+      const optionChangeCount = optionChangeCountRef.current;
+      const isAnswerChanged = optionChangeCount > 0;
 
       if (sessionId !== null && accessToken) {
         const result = await solveApi.submitAnswer(
           sessionId,
-          { questionId: currentQuestion.questionId, selectedAnswer, timeSpentSec },
+          {
+            questionId: currentQuestion.questionId,
+            selectedAnswer,
+            timeSpentSec,
+            optionChangeCount,
+            isAnswerChanged,
+          },
           accessToken,
         );
         reviewItemsRef.current.push({
@@ -215,8 +326,13 @@ export function ConceptSolveScreen({
           reviewItems: reviewItemsRef.current,
         });
       } else {
+        // 모의고사 3종은 전부 회원 전용이라 이 분기(게스트 완료)는 개념
+        // 문제집에서만 실제로 도달한다.
+        if (target.type !== "concept") {
+          throw new Error("게스트 풀이는 개념 문제집에서만 가능합니다.");
+        }
         const guestResults = await solveApi.completeGuestSession(
-          conceptId,
+          target.conceptId,
           answersRef.current,
         );
         const reviewItems: SolveReviewItem[] = guestResults.map((result) => {
@@ -241,6 +357,7 @@ export function ConceptSolveScreen({
         });
       }
     } catch (error) {
+      console.error("[solve] 답안 제출/완료 실패", error);
       setSession({
         status: "error",
         message: getApiErrorMessage(error, "제출에 실패했습니다. 다시 시도해주세요."),
@@ -303,10 +420,10 @@ export function ConceptSolveScreen({
           <Text numberOfLines={1} style={styles.headerTitle}>
             {title}
           </Text>
-          <Text style={styles.headerSubtitle}>개념 문제집</Text>
+          <Text style={styles.headerSubtitle}>{TARGET_SUBTITLE[target.type]}</Text>
         </View>
 
-        {isGuest ? (
+        {!accessToken ? (
           <View style={styles.headerButton} />
         ) : (
           <Pressable
@@ -355,7 +472,12 @@ export function ConceptSolveScreen({
                 <Pressable
                   key={choice.key}
                   style={[styles.choice, isSelected && styles.selectedChoice]}
-                  onPress={() => setSelectedAnswer(choice.key)}
+                  onPress={() => {
+                    if (selectedAnswer !== null && selectedAnswer !== choice.key) {
+                      optionChangeCountRef.current += 1;
+                    }
+                    setSelectedAnswer(choice.key);
+                  }}
                 >
                   <View
                     style={[
@@ -415,6 +537,7 @@ export function ConceptSolveScreen({
           style={[styles.previousButton, currentIndex === 0 && styles.disabledButton]}
           onPress={() => {
             setCurrentIndex((index) => index - 1);
+            setSelectedAnswer(null);
             setIsHintVisible(false);
           }}
         >

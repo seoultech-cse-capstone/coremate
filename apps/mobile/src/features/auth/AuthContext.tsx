@@ -3,11 +3,13 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 
+import { setAuthHandlers } from "../../shared/api/httpClient";
 import { tokenStorage } from "./tokenStorage";
 import type { AuthSession, AuthUser } from "./types";
 
@@ -77,6 +79,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
     setStatus("unauthenticated");
   }, []);
+
+  // 액세스 토큰 만료(401) 시 httpClient가 재발급받은 토큰을 반영한다.
+  const updateTokens = useCallback(
+    async (nextAccessToken: string, nextRefreshToken: string) => {
+      if (user) {
+        await tokenStorage.save({
+          accessToken: nextAccessToken,
+          refreshToken: nextRefreshToken,
+          user,
+        });
+      }
+      setAccessToken(nextAccessToken);
+    },
+    [user],
+  );
+
+  // httpClient는 features/auth를 직접 참조할 수 없으므로(순환 참조 방지),
+  // 실제 재발급/로그아웃 구현을 여기서 주입한다. user가 바뀐 렌더 커밋 직후
+  // 곧바로(다른 비동기 작업이 끼어들기 전에) 최신 updateTokens로 교체되도록
+  // useEffect가 아닌 useLayoutEffect를 사용한다.
+  useLayoutEffect(() => {
+    setAuthHandlers({
+      getRefreshToken: () => tokenStorage.getRefreshToken(),
+      onTokensRefreshed: updateTokens,
+      onRefreshFailed: signOut,
+    });
+
+    return () => {
+      setAuthHandlers(null);
+    };
+  }, [updateTokens, signOut]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

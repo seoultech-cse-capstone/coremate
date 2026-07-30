@@ -13,7 +13,8 @@ import { FONT } from "../../../../constants/fonts";
 
 export type SolveSessionType =
   | "SUBJECT_MOCK"
-  | "CHAPTER_MOCK"
+  | "CATEGORY_LV1_MOCK"
+  | "CATEGORY_LV2_MOCK"
   | "CONCEPT_PRACTICE"
   | "DAILY_QUIZ";
 
@@ -38,7 +39,8 @@ type SolveQuestionScreenProps = {
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
   SUBJECT_MOCK: "과목 모의고사",
-  CHAPTER_MOCK: "챕터 모의고사",
+  CATEGORY_LV1_MOCK: "대분류 모의고사",
+  CATEGORY_LV2_MOCK: "중분류 모의고사",
   CONCEPT_PRACTICE: "개념 문제집",
   DAILY_QUIZ: "오늘의 CS 퀴즈",
 };
@@ -116,7 +118,9 @@ export function SolveQuestionScreen({
   const sessionLabel = sessionTypeLabel[sessionType];
   const canContinue = currentAnswer !== null;
   const isTimedSession =
-    sessionType === "SUBJECT_MOCK" || sessionType === "CHAPTER_MOCK";
+    sessionType === "SUBJECT_MOCK" ||
+    sessionType === "CATEGORY_LV1_MOCK" ||
+    sessionType === "CATEGORY_LV2_MOCK";
   const elapsedTimeLabel = `${Math.floor(elapsedSeconds / 60)
     .toString()
     .padStart(2, "0")}:${(elapsedSeconds % 60).toString().padStart(2, "0")}`;

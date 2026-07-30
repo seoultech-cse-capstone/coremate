@@ -28,9 +28,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     (async () => {
-      const stored = await SecureStore.getItemAsync(LANGUAGE_KEY);
-      if (mounted && (stored === "ko" || stored === "en")) {
-        setLanguageState(stored);
+      try {
+        const stored = await SecureStore.getItemAsync(LANGUAGE_KEY);
+        if (mounted && (stored === "ko" || stored === "en")) {
+          setLanguageState(stored);
+        }
+      } catch (error) {
+        console.error("[language] 저장된 언어 설정 복원 실패", error);
       }
     })();
 
@@ -41,7 +45,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback((next: ContentLanguage) => {
     setLanguageState(next);
-    SecureStore.setItemAsync(LANGUAGE_KEY, next);
+    SecureStore.setItemAsync(LANGUAGE_KEY, next).catch((error) => {
+      console.error("[language] 언어 설정 저장 실패", error);
+    });
   }, []);
 
   const value = useMemo<LanguageContextValue>(

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WeaknessAnalysisOutput",
+  "description": "OpenAI Structured Outputs schema for the AI weakness-analysis response (AiWeaknessAnalysisResponse).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "overview": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "concept_analyses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "concept_id": {
+            "type": "integer"
+          },
+          "analysis_status": {
+            "type": "string",
+            "enum": ["SUPPORTED", "AMBIGUOUS", "INSUFFICIENT"]
+          },
+          "primary_type": {
+            "type": "string",
+            "enum": ["CONCEPT_CONFUSION", "APPLICATION_GAP", "SPEED_FLUENCY", "EXECUTION_ERROR"]
+          },
+          "secondary_signals": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "enum": [
+                "REPEATED_MISCONCEPTION",
+                "CONCEPT_RELATION_CONFUSION",
+                "HINT_DEPENDENCY",
+                "SLOW_FLUENCY",
+                "INCONSISTENT_EXECUTION"
+              ]
+            }
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "TERM_CONFUSION",
+              "RELATIONSHIP_MAPPING_GAP",
+              "APPLICATION_GAP",
+              "PROCEDURE_FLUENCY_GAP",
+              "REPEATED_MISCONCEPTION",
+              "CARELESS_EXECUTION"
+            ]
+          },
+          "confused_relation": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "diagnosis": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "likely_cause": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "concept_tip": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "evidence_refs": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "concept_id",
+          "analysis_status",
+          "primary_type",
+          "secondary_signals",
+          "cause_code",
+          "confused_relation",
+          "diagnosis",
+          "likely_cause",
+          "concept_tip",
+          "evidence_refs"
+        ]
+      }
+    }
+  },
+  "required": ["overview", "concept_analyses"]
+}

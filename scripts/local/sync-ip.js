@@ -2,7 +2,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const ENV_PATH = path.join(__dirname, "..", ".env");
+const ENV_PATH = path.join(__dirname, "..", "..", "apps", "mobile", ".env");
 const PREFERRED_INTERFACE_NAMES = ["Wi-Fi", "WLAN", "Ethernet", "이더넷"];
 const IGNORED_NAME_PATTERN = /virtualbox|vmware|vethernet|loopback|tailscale|wsl/i;
 

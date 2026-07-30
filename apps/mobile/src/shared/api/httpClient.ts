@@ -23,10 +23,67 @@ export class HttpError extends Error {
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
+/**
+ * 액세스 토큰 만료(401) 시 자동 재발급을 위해 auth 기능이 등록하는 훅.
+ * httpClient는 features/auth를 직접 import하지 않고(순환 참조 방지),
+ * AuthProvider가 앱 시작 시 setAuthHandlers로 실제 구현을 주입한다.
+ */
+type AuthHandlers = {
+  getRefreshToken: () => Promise<string | null>;
+  onTokensRefreshed: (accessToken: string, refreshToken: string) => Promise<void> | void;
+  onRefreshFailed: () => Promise<void> | void;
+};
+
+let authHandlers: AuthHandlers | null = null;
+
+export function setAuthHandlers(handlers: AuthHandlers | null): void {
+  authHandlers = handlers;
+}
+
+// 겹치는 401 사이에는 재발급 요청을 이 Promise로 공유한다. 단, 이 Promise가
+// 끝나 null로 초기화된 뒤에 뒤늦게 도착한 401은 재발급을 다시 호출한다.
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!authHandlers) {
+    return null;
+  }
+  // authHandlers는 진행 중에 null로 바뀔 수 있으므로(AuthProvider 언마운트 등),
+  // 이번 재발급에 쓸 참조를 로컬로 고정해 이후 await 도중 사라지지 않게 한다.
+  const handlers = authHandlers;
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshToken = await handlers.getRefreshToken();
+        if (!refreshToken) {
+          return null;
+        }
+
+        const tokens = await request<{ accessToken: string; refreshToken: string }>(
+          'POST',
+          '/api/auth/reissue',
+          { body: { refreshToken } },
+        );
+        await handlers.onTokensRefreshed(tokens.accessToken, tokens.refreshToken);
+        return tokens.accessToken;
+      } catch {
+        await handlers.onRefreshFailed();
+        return null;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+}
+
 async function request<TResponse>(
   method: HttpMethod,
   path: string,
   options: BodyRequestOptions = {},
+  isRetry = false,
 ): Promise<TResponse> {
   const url = `${API_BASE_URL ?? ''}${path}`;
   const headers: Record<string, string> = {
@@ -49,6 +106,13 @@ async function request<TResponse>(
   });
 
   const data = await parseJson(response);
+
+  if (response.status === 401 && options.accessToken && !isRetry) {
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      return request<TResponse>(method, path, { ...options, accessToken: newAccessToken }, true);
+    }
+  }
 
   if (!response.ok) {
     throw new HttpError(response.status, data);

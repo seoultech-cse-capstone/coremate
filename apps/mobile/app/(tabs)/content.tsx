@@ -182,11 +182,11 @@ const startButtonLabelByDepth: Record<ContentDepth, string> = {
 
 const sessionTypeByDepth: Record<
   ContentDepth,
-  "SUBJECT_MOCK" | "CHAPTER_MOCK" | "CONCEPT_PRACTICE"
+  "SUBJECT_MOCK" | "CATEGORY_LV1_MOCK" | "CATEGORY_LV2_MOCK" | "CONCEPT_PRACTICE"
 > = {
   subject: "SUBJECT_MOCK",
-  category1: "CHAPTER_MOCK",
-  category2: "CHAPTER_MOCK",
+  category1: "CATEGORY_LV1_MOCK",
+  category2: "CATEGORY_LV2_MOCK",
   concept: "CONCEPT_PRACTICE",
 };
 
@@ -377,7 +377,9 @@ export default function ContentScreen() {
       params: {
         title: item.title,
         sessionType,
-        ...(sessionType === "CONCEPT_PRACTICE" ? { conceptId: String(item.id) } : {}),
+        ...(sessionType === "CONCEPT_PRACTICE"
+          ? { conceptId: String(item.id) }
+          : { targetId: String(item.id) }),
       },
     });
   };

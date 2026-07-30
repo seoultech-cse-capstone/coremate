@@ -9,6 +9,7 @@ from tqdm import tqdm
 from schemas.concept_card_schema import CONCEPT_CARD_SCHEMA
 from src.chunk_retriever import retrieve_chunks_by_keywords
 from src.ai_client import call_ai_json
+from src.resume import SAVE_EVERY, is_forced, load_existing, report_resume, save_progress
 
 
 if len(sys.argv) < 2:
@@ -45,9 +46,16 @@ def iter_concepts(taxonomy_data: dict):
                 }
 
 
-concept_cards = []
+out_path = Path(f"outputs/{subject_code}/concept_cards.json")
 
-for concept in tqdm(list(iter_concepts(taxonomy))):
+# 이어하기: 이미 만든 개념 카드는 건너뛴다(--force 로 전체 재생성).
+concept_cards, done_codes = load_existing(
+    out_path, lambda card: card.get("concept_code"), force=is_forced(sys.argv)
+)
+pending_concepts = [c for c in iter_concepts(taxonomy) if c["concept_code"] not in done_codes]
+report_resume("concept_cards", len(done_codes), len(pending_concepts))
+
+for index, concept in enumerate(tqdm(pending_concepts), start=1):
     related_chunks = retrieve_chunks_by_keywords(
         chunks=chunks,
         concept_name=concept["concept_name"],
@@ -71,10 +79,10 @@ for concept in tqdm(list(iter_concepts(taxonomy))):
 
     concept_cards.append(result["concept_card"])
 
-out_path = Path(f"outputs/{subject_code}/concept_cards.json")
+    if index % SAVE_EVERY == 0:
+        save_progress(out_path, concept_cards)
 
-with open(out_path, "w", encoding="utf-8") as f:
-    json.dump(concept_cards, f, ensure_ascii=False, indent=2)
+save_progress(out_path, concept_cards)
 
 print(f"concept_cards 생성 완료: {out_path}")
 print(f"생성된 concept card 수: {len(concept_cards)}")
