@@ -17,6 +17,37 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
+-- [0] 선언되지 않은 정책 비활성화
+--
+-- 이 파일이 "현재 살아 있는 정책의 전부"가 되게 만드는 단계다.
+-- 아래 목록에 없는 reward_type 은 is_active = FALSE 로 끈다.
+-- RewardService 는 findByRewardTypeAndActiveTrue 로 조회하므로 꺼진 정책은
+-- 즉시 무시되고, 해당 보상은 POLICY_NOT_FOUND 로 스킵된다.
+--
+-- 행을 DELETE 하지 않는 이유: reward_logs / xp_logs 의 reward_policy_id 가
+-- "이 지급이 어떤 정책 때문이었는지"를 가리킨다. 지우면 과거 지급 근거가 끊긴다.
+-- (DR-REWARD-06 의 "기존 정책은 비활성화하고 새 정책을 추가" 방침과 같다.)
+--
+-- ⚠️ 로컬·개발 단계 전용이다. 시드 목록에 없는 정책은 예외 없이 꺼지므로,
+--    DB 에서 직접 만든 정책도 다음 기동에 비활성화된다.
+--    AR-ADMIN-04(관리자가 reward_policies 를 관리) 기능이 생기거나 운영에
+--    배포할 때는 이 [0] 단계를 제거해야 한다. 관리자가 화면에서 만든 정책이
+--    배포·재기동 때 조용히 꺼지기 때문이다.
+--    배포 준비 시 Flyway 로 옮기면서 함께 정리할 항목이다.
+-- ---------------------------------------------------------------------------
+UPDATE reward_policies
+   SET is_active = FALSE, updated_at = NOW()
+ WHERE is_active = TRUE
+   AND reward_type NOT IN (
+       'CONCEPT_PRACTICE_XP', 'CATEGORY_MOCK_XP', 'SUBJECT_MOCK_XP',
+       'CATEGORY_MOCK_FIRST_PASS_COIN', 'SUBJECT_MOCK_FIRST_PASS_COIN',
+       'DAILY_QUIZ_COMPLETE', 'ATTENDANCE_REWARD',
+       'LEVEL_UP_5', 'LEVEL_UP_10', 'LEVEL_UP_20',
+       'LEVEL_UP_30', 'LEVEL_UP_40', 'LEVEL_UP_50',
+       'STARTER_PACK', 'AD_REWARD', 'PREMIUM_DAILY_COIN', 'PREMIUM_SIGNUP_BONUS'
+   );
+
+-- ---------------------------------------------------------------------------
 -- XP 보상 (정답률 무관, 완료 + 일일 한도로만 판정)
 -- ---------------------------------------------------------------------------
 INSERT INTO reward_policies
