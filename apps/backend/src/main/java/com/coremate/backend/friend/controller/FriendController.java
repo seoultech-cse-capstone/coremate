@@ -11,6 +11,7 @@ import com.coremate.backend.friend.dto.response.FriendSearchUserResponse;
 import com.coremate.backend.friend.dto.response.FriendSubjectStatResponse;
 import com.coremate.backend.friend.service.FriendService;
 import com.coremate.backend.global.config.OpenApiConfig;
+import com.coremate.backend.learninghistory.dto.response.LearningHistoryResponse;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -108,6 +109,17 @@ public class FriendController {
             @PathVariable Long friendUserId
     ) {
         return friendService.getSubjectStats(userDetails.getUserId(), friendUserId);
+    }
+
+    @Operation(summary = "친구 Learning History 조회",
+            description = "친구 상세 프로필의 Learning History 섹션. 친구 관계(ACCEPTED)인 경우에만 조회 가능하며, "
+                    + "모의고사 총 풀이 시간/개념 문제집 distinct 정답 수/PASS한 개념 수를 반환한다. 기록이 없으면 0.")
+    @GetMapping("/{friendUserId}/learning-history")
+    public LearningHistoryResponse getLearningHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long friendUserId
+    ) {
+        return friendService.getLearningHistory(userDetails.getUserId(), friendUserId);
     }
 
     @Operation(summary = "친구 찌르기")
