@@ -34,4 +34,7 @@ public interface SolveLogRepository extends JpaRepository<SolveLog, Long> {
             @Param("userId") Long userId,
             @Param("questionIds") Collection<Long> questionIds,
             @Param("excludeSessionId") Long excludeSessionId);
+
+    // 약점분석: 선택된 여러 회차의 문항별 로그를 한 번에 조회
+    List<SolveLog> findAllBySolveSession_SolveSessionIdInOrderByQuestionOrder(Collection<Long> solveSessionIds);
 }

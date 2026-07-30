@@ -1,0 +1,23 @@
+{
+  "scope": { "subject": "데이터베이스" },
+  "totals": { "question_count": 40, "wrong_count": 8, "slow_count": 4, "hint_used_count": 3 },
+  "weakness_candidates": [
+    {
+      "concept_id": 312,
+      "concept_name": "트랜잭션 격리 수준",
+      "concept_core": "격리 수준에 따라 허용되거나 방지되는 동시성 이상 현상을 구분한다.",
+      "weakness_score": 87,
+      "evidence_strength": 0.84,
+      "type_separation": 0.42,
+      "stats": { "wrong_rate": 0.5, "slow_rate": 0.33, "hint_rate": 0.33 },
+      "repeated_misconceptions": [
+        { "code": "ISOLATION_LEVEL_ANOMALY_CONFUSION", "count": 2 }
+      ],
+      "evidence": [
+        { "ref": "e1", "type": "WRONG", "skill_type": "CONCEPT_APPLICATION", "misconception_code": "PHANTOM_READ_RANGE_LOCK_CONFUSION", "time_ratio": null },
+        { "ref": "e2", "type": "WRONG", "skill_type": "CONCEPT_COMPARISON", "misconception_code": "ISOLATION_LEVEL_ANOMALY_CONFUSION", "time_ratio": null },
+        { "ref": "e3", "type": "SLOW", "skill_type": null, "misconception_code": null, "time_ratio": 2.3 }
+      ]
+    }
+  ]
+}

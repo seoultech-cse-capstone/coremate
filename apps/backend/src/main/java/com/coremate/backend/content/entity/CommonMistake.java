@@ -9,13 +9,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "common_mistake")
+@Table(
+        name = "common_mistake",
+        indexes = @Index(name = "idx_common_mistake_concept_title",
+                columnList = "concept_id, mistake_title"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CommonMistake {
@@ -47,9 +51,12 @@ public class CommonMistake {
     @Column(name = "is_active", nullable = false)
     private boolean active;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    // 콘텐츠 테이블은 AI 파이프라인(09/11 임포터)도 직접 INSERT 하므로 DB 기본값을 둔다.
+    @Column(name = "created_at", nullable = false, updatable = false,
+            columnDefinition = "datetime(6) not null default current_timestamp(6)")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false,
+            columnDefinition = "datetime(6) not null default current_timestamp(6) on update current_timestamp(6)")
     private LocalDateTime updatedAt;
 }

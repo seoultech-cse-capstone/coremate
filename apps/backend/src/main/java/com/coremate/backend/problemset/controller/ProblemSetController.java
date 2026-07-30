@@ -7,7 +7,6 @@ import com.coremate.backend.problemset.dto.response.CompletedProblemSetDetailRes
 import com.coremate.backend.problemset.dto.response.CompletedProblemSetSummaryResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetDetailResponse;
 import com.coremate.backend.problemset.dto.response.ProblemSetQuestionResponse;
-import com.coremate.backend.problemset.dto.response.ProblemSetSummaryResponse;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.problemset.dto.type.QuestionFormat;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Tag(name = "ProblemSet", description = "개념 문제집, 챕터 모의고사, 과목 모의고사 조회 API")
@@ -71,27 +69,6 @@ public class ProblemSetController {
         return ApiResponse.success("완료된 문제집 상세 조회 성공",
                 completedProblemSetService.getCompletedProblemSetDetail(
                         userDetails.getUserId(), solveSessionId));
-    }
-
-    // 문제집 목록 요약 정보 조회
-    @Operation(summary = "문제집 요약 목록 조회", description = "문제집 페이지에서 완료/미완료 상태와 함께 문제집 목록을 보여준다.")
-    @GetMapping("/summaries")
-    public ApiResponse<List<ProblemSetSummaryResponse>> getProblemSetSummaries(
-            @Parameter(description = "문제집 유형", example = "CONCEPT_PRACTICE")
-            @RequestParam ProblemSetType problemSetType,
-
-            @Parameter(description = "대상 상위 ID. 예: subjectId, categoryLv1Id, categoryLv2Id", example = "101")
-            @RequestParam Long parentId,
-
-            @Parameter(description = "임시 사용자 ID. 비로그인 체험이면 생략 가능", example = "1")
-            @RequestParam(required = false) Long userId
-    ) {
-
-        // DB 연동 전 완료/미완료 상태 확인용 더미 데이터
-        return ApiResponse.success("문제집 요약 목록 조회 성공", List.of(
-                new ProblemSetSummaryResponse(problemSetType, "CONCEPT", 1001L, "포화 이진 트리 개념 문제집", 5, false, 0, null, 0),
-                new ProblemSetSummaryResponse(problemSetType, "CONCEPT", 1002L, "완전 이진 트리 개념 문제집", 5, true, 2, LocalDateTime.now().minusDays(1), 1)
-        ));
     }
 
     // 하위 개념 기준 문제집 상세 조회

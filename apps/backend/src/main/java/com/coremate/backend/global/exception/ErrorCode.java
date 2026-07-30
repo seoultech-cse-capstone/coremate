@@ -14,6 +14,7 @@ public enum ErrorCode {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다"),
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다"),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다"),
+    NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "아직 구현되지 않은 기능입니다"),
 
     // Auth
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다"),
@@ -86,6 +87,14 @@ public enum ErrorCode {
     // Weakness
     WEAKNESS_REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "약점 분석 리포트를 찾을 수 없습니다"),
     WEAKNESS_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "약점 분석 중 오류가 발생했습니다"),
+    WEAKNESS_SELECTION_EMPTY(HttpStatus.BAD_REQUEST, "분석 대상 회차를 1개 이상 선택해야 합니다"),
+    WEAKNESS_SELECTION_TOO_MANY(HttpStatus.BAD_REQUEST, "분석 대상은 최대 5개까지 선택할 수 있습니다"),
+    WEAKNESS_DUPLICATE_SESSION(HttpStatus.BAD_REQUEST, "중복된 풀이 회차를 선택했습니다"),
+    WEAKNESS_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "선택한 풀이 회차를 찾을 수 없습니다"),
+    WEAKNESS_SESSION_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "완료되지 않은 풀이 회차는 분석할 수 없습니다"),
+    WEAKNESS_SESSION_NOT_MOCK(HttpStatus.BAD_REQUEST, "모의고사 회차만 분석 대상으로 선택할 수 있습니다"),
+    WEAKNESS_MIXED_SUBJECT(HttpStatus.BAD_REQUEST, "서로 다른 과목의 회차를 함께 분석할 수 없습니다"),
+    WEAKNESS_INSUFFICIENT_EVIDENCE(HttpStatus.BAD_REQUEST, "아직 반복적으로 확인된 약점이 없습니다. 같은 범위의 문제집을 조금 더 완료한 뒤 다시 분석해 주세요"),
 
     // Reward
     REWARD_POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "보상 정책을 찾을 수 없습니다"),

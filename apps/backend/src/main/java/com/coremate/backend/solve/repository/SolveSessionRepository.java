@@ -1,7 +1,9 @@
 package com.coremate.backend.solve.repository;
 
 import com.coremate.backend.solve.dto.type.SolveSessionStatus;
+import com.coremate.backend.solve.dto.type.SolveSessionType;
 import com.coremate.backend.solve.entity.SolveSession;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +17,13 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
     Optional<SolveSession> findByUserIdAndConcept_ConceptIdAndStatus(Long userId, Long conceptId, SolveSessionStatus status);
 
     boolean existsByUserIdAndConcept_ConceptIdAndStatus(Long userId, Long conceptId, SolveSessionStatus status);
+
+    /**
+     * 특정 유저의, 주어진 개념들에 대한 특정 유형(개념 문제집 등) 세션을 일괄 조회한다.
+     * 개념 문제집 목록의 풀이 상태(미풀이/진행중/완료, 최고 점수 회차 등)를 집계하는 데 사용한다.
+     */
+    List<SolveSession> findByUserIdAndSessionTypeAndConcept_ConceptIdIn(
+            Long userId, SolveSessionType sessionType, List<Long> conceptIds);
 
     /**
      * 사용자의 완료된 회차 목록을 필터별로 조회한다.
@@ -61,4 +70,11 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
             @Param("userId") Long userId,
             @Param("conceptId") Long conceptId,
             @Param("excludeSessionId") Long excludeSessionId);
+
+    // 약점분석 대상 후보: 사용자의 완료된 모의고사 회차(개념 문제집·오늘의 퀴즈 제외)
+    List<SolveSession> findByUserIdAndStatusAndSessionTypeInOrderByCompletedAtDesc(
+            Long userId, SolveSessionStatus status, Collection<SolveSessionType> sessionTypes);
+
+    // 선택 검증: 사용자 소유의 특정 회차들 조회
+    List<SolveSession> findBySolveSessionIdInAndUserId(Collection<Long> solveSessionIds, Long userId);
 }
