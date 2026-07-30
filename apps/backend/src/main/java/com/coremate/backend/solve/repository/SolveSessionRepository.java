@@ -19,6 +19,13 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
     boolean existsByUserIdAndConcept_ConceptIdAndStatus(Long userId, Long conceptId, SolveSessionStatus status);
 
     /**
+     * 특정 유저의, 주어진 개념들에 대한 특정 유형(개념 문제집 등) 세션을 일괄 조회한다.
+     * 개념 문제집 목록의 풀이 상태(미풀이/진행중/완료, 최고 점수 회차 등)를 집계하는 데 사용한다.
+     */
+    List<SolveSession> findByUserIdAndSessionTypeAndConcept_ConceptIdIn(
+            Long userId, SolveSessionType sessionType, List<Long> conceptIds);
+
+    /**
      * 사용자의 완료된 회차 목록을 필터별로 조회한다.
      * 각 필터(subject/categoryLv1/categoryLv2)는 null 이면 조건에서 제외된다.
      * 완료 시간 내림차순으로 정렬한다.
