@@ -34,6 +34,8 @@ import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
 import java.util.Collections;
 import java.util.List;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -59,6 +61,7 @@ public class SolveSessionService {
     private final SolveLogRepository solveLogRepository;
     private final UserConceptProgressRepository userConceptProgressRepository;
     private final LearningHistoryService learningHistoryService;
+    private final SolveRewardService solveRewardService;
     private final ObjectMapper objectMapper;
 
     public StartSolveSessionResponse startSolveSession(Long userId, CreateSolveSessionRequest request) {
@@ -279,6 +282,9 @@ public class SolveSessionService {
         // Learning History 누적 (완료 시점, 세션당 1회)
         learningHistoryService.accumulate(session, logs, correctCount);
 
+        BigDecimal correctRate = calculateCorrectRate(correctCount, logs.size());
+        SolveRewardResult reward = solveRewardService.grantForCompletedSession(session, correctRate);
+
         return new CompleteSolveSessionResponse(
                 session.getSolveSessionId(),
                 session.getTitle(),
@@ -289,9 +295,22 @@ public class SolveSessionService {
                 session.getTotalTimeSpentSec(),
                 session.getStatus(),
                 session.getCompletedAt(),
-                0,
-                0
+                reward.earnedXp(),
+                reward.earnedCoin(),
+                correctRate,
+                reward.xpSkipReason(),
+                reward.coinSkipReason()
         );
+    }
+
+    // 정답률(%)을 소수점 2자리로 계산한다. 코인 지급 기준(min_correct_rate)과 비교된다.
+    private BigDecimal calculateCorrectRate(int correctCount, int totalCount) {
+        if (totalCount <= 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.valueOf(correctCount)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(BigDecimal.valueOf(totalCount), 2, RoundingMode.HALF_UP);
     }
 
     @Transactional(readOnly = true)
