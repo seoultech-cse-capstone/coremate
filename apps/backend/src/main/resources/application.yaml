@@ -27,7 +27,7 @@ spring:
       # 정책 시드. 서비스 동작에 필요한 데이터이므로 매 기동마다 적용한다.
       # 모든 파일은 멱등(ON DUPLICATE KEY UPDATE)해야 한다 — db/seed/README.md 참고.
       mode: always
-      data-locations: classpath:db/seed/01_reward_policies.sql
+      data-locations: classpath:db/seed/01_reward_policies.sql,classpath:db/seed/02_paid_products.sql
       encoding: UTF-8
       # 시드 실패로 앱 기동이 막히지 않게 하되, 실패는 로그로 남는다.
       continue-on-error: false

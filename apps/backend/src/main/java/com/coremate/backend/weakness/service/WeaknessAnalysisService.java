@@ -8,6 +8,7 @@ import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
+import com.coremate.backend.paid.service.FeatureAccessPricingService;
 import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.weakness.client.WeaknessAiClient;
@@ -77,6 +78,7 @@ public class WeaknessAnalysisService {
     private final WeaknessAiClient aiClient;
     private final RewardService rewardService;
     private final WeaknessAnalysisProperties props;
+    private final FeatureAccessPricingService featureAccessPricingService;
     private final ObjectMapper objectMapper;
     private final WeaknessAnalysisReportRepository reportRepository;
     private final WeaknessAnalysisSessionRepository sessionRepository;
@@ -110,6 +112,12 @@ public class WeaknessAnalysisService {
         Long subjectId = subject != null ? subject.getSubjectId() : null;
         String scopeName = subject != null ? subject.getSubjectName() : null;
 
+        // 생성 비용은 feature_access_products 정책에서 읽는다. 정책 행이 없으면
+        // weakness.analysis.coin-cost 설정값으로 떨어진다(시드 미적용 환경 대비).
+        // 프리미엄 구독 판정은 구독 도메인이 생기면 붙인다. 지금은 무과금 가격을 쓴다.
+        int coinCost = featureAccessPricingService.priceCoinOf(
+                FeatureAccessPricingService.WEAKNESS_ANALYSIS_CREATE, false, props.getCoinCost());
+
         // 리포트 저장(REQUESTED) 후 코인 차감(참조 연결). AI 실패 시 트랜잭션 롤백으로 코인 원복.
         WeaknessAnalysisReport report = reportRepository.save(WeaknessAnalysisReport.builder()
                 .userId(userId)
@@ -126,13 +134,13 @@ public class WeaknessAnalysisService {
                 .totalWrongCount(scoring.totalWrongCount())
                 .totalLongTimeCount(scoring.totalLongTimeCount())
                 .totalHintUsedCount(scoring.totalHintUsedCount())
-                .coinCost(props.getCoinCost())
+                .coinCost(coinCost)
                 .requestFingerprint(fingerprint)
                 .build());
         report.markGenerating();
         saveSessions(report, sessions);
 
-        rewardService.spendCoin(userId, props.getCoinCost(), CurrencyReason.WEAKNESS_ANALYSIS_CREATE,
+        rewardService.spendCoin(userId, coinCost, CurrencyReason.WEAKNESS_ANALYSIS_CREATE,
                 REFERENCE_TYPE, report.getAnalysisReportId());
 
         // AI 호출
