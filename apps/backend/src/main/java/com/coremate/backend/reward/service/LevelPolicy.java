@@ -56,4 +56,15 @@ public final class LevelPolicy {
                 .filter(level -> level > before && level <= after)
                 .toList();
     }
+
+    /**
+     * {@code level}까지 도달하면서 지나온 모든 보상 구간.
+     *
+     * <p>이미 지급했는지는 호출부가 판단한다. 놓친 보상을 나중에 정산할 때 쓴다.
+     */
+    public static List<Integer> rewardLevelsUpTo(int level) {
+        return REWARD_LEVELS.stream()
+                .filter(rewardLevel -> rewardLevel <= level)
+                .toList();
+    }
 }

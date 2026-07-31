@@ -171,15 +171,25 @@ public class RewardService {
         return xpLog;
     }
 
-    // 레벨이 오르면서 넘어선 보상 구간마다 정책 보상을 지급한다.
-    // 한 번에 여러 레벨이 올라도 해당 구간을 모두 지급한다.
+    // 레벨이 올랐을 때, 도달한 보상 구간 중 아직 못 받은 것을 지급한다.
     //
+    // "이번에 넘어선 구간"이 아니라 "도달한 구간 전체 중 미지급분"을 보는 이유는
+    // 한 번 놓친 보상이 영영 못 받는 상태로 남지 않게 하기 위해서다. 예를 들어
+    // 정책 시드가 없던 시점에 5레벨에 도달하면 POLICY_NOT_FOUND 로 스킵되는데,
+    // 넘어선 구간만 보면 이미 5레벨이라 다시는 지급 기회가 오지 않는다.
+    // 이렇게 두면 다음 레벨업 때 밀린 보상까지 함께 정산된다.
+    //
+    // 이미 지급된 구간은 조회로 걸러 SKIPPED 로그가 쌓이지 않게 한다.
     // 레벨업 정책의 xp_amount 는 0 이라 여기서 grantXp 가 다시 불리지 않는다.
-    // 누군가 레벨업 정책에 XP 를 넣으면 재귀가 생기므로 정책 시드에서 0 을 유지해야 한다.
+    // 누군가 레벨업 정책에 XP 를 넣으면 재귀가 생기므로 시드에서 0 을 유지해야 한다.
     private void grantLevelUpRewards(Long userId, int levelBefore, int levelAfter) {
-        for (Integer level : LevelPolicy.rewardLevelsBetween(levelBefore, levelAfter)) {
+        if (levelAfter <= levelBefore) {
+            return;
+        }
+
+        for (Integer level : LevelPolicy.rewardLevelsUpTo(levelAfter)) {
             RewardType rewardType = resolveLevelUpRewardType(level);
-            if (rewardType == null) {
+            if (rewardType == null || isLevelRewardGranted(userId, rewardType, level)) {
                 continue;
             }
             grantPolicyReward(
@@ -192,6 +202,11 @@ public class RewardService {
                     null
             );
         }
+    }
+
+    private boolean isLevelRewardGranted(Long userId, RewardType rewardType, Integer level) {
+        return rewardLogRepository.existsByUserIdAndRewardTypeAndTargetTypeAndTargetIdAndRewardStatus(
+                userId, rewardType, RewardTargetType.LEVEL, level.longValue(), RewardStatus.GRANTED);
     }
 
     private RewardType resolveLevelUpRewardType(int level) {

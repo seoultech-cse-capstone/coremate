@@ -8,10 +8,7 @@ import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
-import com.coremate.backend.reward.entity.type.RewardSource;
-import com.coremate.backend.reward.entity.type.RewardTargetType;
-import com.coremate.backend.reward.entity.type.RewardType;
-import com.coremate.backend.reward.service.RewardService;
+import com.coremate.backend.reward.event.UserSignedUpEvent;
 import com.coremate.backend.global.security.JwtProvider;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserRole;
@@ -21,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,7 +36,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
-    private final RewardService rewardService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -59,21 +57,10 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        // 신규 가입 스타터팩. 정책이 PER_USER + first_reward_only 라 계정당 1회만 나간다.
-        // 실패해도 가입 자체는 확정되어야 하므로 예외를 삼키고 로그만 남긴다.
-        try {
-            rewardService.grantPolicyReward(
-                    user.getUserId(),
-                    RewardType.STARTER_PACK,
-                    RewardSource.STARTER_PACK,
-                    null,
-                    RewardTargetType.USER,
-                    user.getUserId(),
-                    null
-            );
-        } catch (Exception e) {
-            log.error("스타터팩 지급 실패. 가입은 유지한다. userId={}", user.getUserId(), e);
-        }
+        // 스타터팩은 가입이 커밋된 뒤에 지급한다(AccountRewardService).
+        // 가입 트랜잭션 안에서 지급하면 보상 실패가 가입까지 되돌릴 수 있고,
+        // 새 트랜잭션으로 분리하면 아직 커밋되지 않은 이 사용자를 찾지 못한다.
+        eventPublisher.publishEvent(new UserSignedUpEvent(user.getUserId()));
 
         return SignupResponse.builder()
                 .userId(user.getUserId())

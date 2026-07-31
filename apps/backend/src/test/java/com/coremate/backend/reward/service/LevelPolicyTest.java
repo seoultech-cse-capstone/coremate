@@ -89,4 +89,27 @@ class LevelPolicyTest {
                     .isEqualTo(List.of(5, 10, 20, 30, 40, 50));
         }
     }
+
+    @Nested
+    @DisplayName("도달한 보상 구간 (놓친 보상 정산용)")
+    class RewardLevelsUpTo {
+
+        @Test
+        @DisplayName("도달한 레벨까지의 보상 구간을 모두 돌려준다")
+        void 도달한_구간_전체() {
+            assertThat(LevelPolicy.rewardLevelsUpTo(12)).containsExactly(5, 10);
+        }
+
+        @Test
+        @DisplayName("보상 구간에 도달하지 못했으면 비어 있다")
+        void 도달_전에는_비어_있다() {
+            assertThat(LevelPolicy.rewardLevelsUpTo(4)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("경계 레벨은 포함한다")
+        void 경계_포함() {
+            assertThat(LevelPolicy.rewardLevelsUpTo(5)).containsExactly(5);
+        }
+    }
 }
