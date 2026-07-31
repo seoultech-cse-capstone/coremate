@@ -18,9 +18,18 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 /**
  * 프리미엄 구독 상품.
  *
- * <p>일일 코인, 가입/월간 보너스, 분석표 할인·월간 한도, 랜덤박스 할인율을 담는다.
+ * <p>일일 코인, 월간 보너스 코인, 랜덤박스 할인율을 담는다.
  * 실제 결제(PG) 연동은 후순위라 원화 금액({@code price_krw})은 아직 확정되지 않았고,
  * 스토어 수수료·부가세 정책이 정해지면 채운다.
+ *
+ * <p>여기에 담지 않는 것이 둘 있다.
+ * <ul>
+ *   <li><b>가입 보너스</b> — {@code reward_policies} 의 {@code PREMIUM_SIGNUP_BONUS} 행으로
+ *       관리한다. 다른 일회성 보상과 같은 경로(지급 로그·중복 방지)를 타야 하기 때문이다.</li>
+ *   <li><b>분석표 할인가와 월간 한도</b> — {@code feature_access_products} 의
+ *       {@code premium_price_coin} / {@code premium_monthly_limit} 로 관리한다.
+ *       가격과 한도를 기능 쪽 한 곳에 모아 두어야 유료 기능이 늘어도 같은 구조로 확장된다.</li>
+ * </ul>
  */
 @Entity
 @Table(name = "subscription_plans")
@@ -45,12 +54,8 @@ public class SubscriptionPlan {
     private Integer priceKrw;
 
     /** 구독자에게 매일 지급하는 코인. */
-    @Column(name = "daily_coin", nullable = false)
-    private int dailyCoin;
-
-    /** 최초 가입 시 1회 지급 코인. */
-    @Column(name = "signup_bonus_coin", nullable = false)
-    private int signupBonusCoin;
+    @Column(name = "daily_coin_amount", nullable = false)
+    private int dailyCoinAmount;
 
     /** 구독 유지 시 월 1회 지급 코인. */
     @Column(name = "monthly_bonus_coin", nullable = false)
@@ -59,6 +64,9 @@ public class SubscriptionPlan {
     /** 랜덤박스 할인율(%). */
     @Column(name = "random_box_discount_rate", nullable = false)
     private int randomBoxDiscountRate;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     @Column(name = "is_active", nullable = false)
     private boolean active;

@@ -439,7 +439,7 @@ public class RewardService {
             case LEVEL_UP_5, LEVEL_UP_10, LEVEL_UP_20, LEVEL_UP_30, LEVEL_UP_40, LEVEL_UP_50
                     -> CurrencyReason.LEVEL_UP_REWARD;
             case STARTER_PACK -> CurrencyReason.STARTER_PACK;
-            case AD_REWARD, AD_REWARD_COIN -> CurrencyReason.AD_REWARD;
+            case AD_REWARD -> CurrencyReason.AD_REWARD;
             case PREMIUM_DAILY_COIN -> CurrencyReason.PREMIUM_DAILY_COIN;
             case PREMIUM_SIGNUP_BONUS -> CurrencyReason.PREMIUM_SIGNUP_BONUS;
             case PAYMENT_COIN_PACKAGE -> CurrencyReason.COIN_PACKAGE_PURCHASE;

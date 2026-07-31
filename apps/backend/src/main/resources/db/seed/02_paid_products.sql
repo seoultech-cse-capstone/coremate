@@ -34,15 +34,22 @@ ON DUPLICATE KEY UPDATE
 --
 -- price_krw 는 NULL 로 둔다. 스토어 수수료·부가세·PG 정책이 정해져야 확정할 수 있다.
 -- 코인 혜택은 확정값이라 먼저 넣는다.
+--
+-- 가입 보너스(500코인)는 여기가 아니라 reward_policies 의 PREMIUM_SIGNUP_BONUS 행에 있다.
+-- 분석표 할인가(50)와 월간 한도(30)는 feature_access_products 에 있다.
+-- 한 값이 두 테이블에 있으면 어느 쪽이 정본인지 모호해지므로 나누지 않는다.
 -- ---------------------------------------------------------------------------
 INSERT INTO subscription_plans
-    (plan_code, plan_name, price_krw, daily_coin, signup_bonus_coin, monthly_bonus_coin,
-     random_box_discount_rate, is_active, created_at, updated_at)
+    (plan_code, plan_name, price_krw, daily_coin_amount, monthly_bonus_coin,
+     random_box_discount_rate, description, is_active, created_at, updated_at)
 VALUES
-    ('PREMIUM_MONTHLY', 'CoreMate 프리미엄', NULL, 50, 500, 300, 10, TRUE, NOW(), NOW())
+    ('PREMIUM_MONTHLY', 'CoreMate 프리미엄', NULL, 50, 300, 10,
+     '일일 50코인, 월간 보너스 300코인, 랜덤박스 10% 할인. 분석표 할인·월간 한도는 feature_access_products 참조',
+     TRUE, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     plan_name = VALUES(plan_name), price_krw = VALUES(price_krw),
-    daily_coin = VALUES(daily_coin), signup_bonus_coin = VALUES(signup_bonus_coin),
+    daily_coin_amount = VALUES(daily_coin_amount),
     monthly_bonus_coin = VALUES(monthly_bonus_coin),
     random_box_discount_rate = VALUES(random_box_discount_rate),
+    description = VALUES(description),
     is_active = VALUES(is_active), updated_at = NOW();
