@@ -75,8 +75,13 @@ INSERT INTO reward_policies
     (reward_type, reward_kind, coin_amount, xp_amount, daily_limit, monthly_limit,
      min_correct_rate, first_reward_only, reward_scope, description, is_active, created_at, updated_at)
 VALUES
-    ('CATEGORY_MOCK_FIRST_PASS_COIN', 'COIN', 30, 0, 7, NULL, 70.00, TRUE, 'PER_CATEGORY_LV2',
-     '챕터 모의고사 최초 통과 코인. 정답률 70% 이상 + 해당 챕터 최초 1회. 하루 7회까지', TRUE, NOW(), NOW()),
+    -- reward_scope 를 NULL 로 둔다. 챕터 모의고사는 대분류(PER_CATEGORY_LV1)와
+    -- 중분류(PER_CATEGORY_LV2) 두 범위를 함께 쓰므로 한 값으로 고를 수 없다.
+    -- 실제 중복 판정은 SolveRewardService 가 세션 유형에 따라 target_type 을 정해서 한다.
+    -- 정책을 하나로 유지하는 이유는 일일 한도 7회를 대분류/중분류가 "함께" 써야 하기 때문이다.
+    -- 타입을 둘로 쪼개면 하루 7 + 7 = 14회가 되어 확정 정책과 어긋난다.
+    ('CATEGORY_MOCK_FIRST_PASS_COIN', 'COIN', 30, 0, 7, NULL, 70.00, TRUE, NULL,
+     '챕터 모의고사 최초 통과 코인. 정답률 70% 이상 + 해당 챕터 최초 1회. 하루 7회까지(대분류/중분류 합산). 중복 판정 범위는 회차 유형에 따라 대분류 또는 중분류', TRUE, NOW(), NOW()),
     ('SUBJECT_MOCK_FIRST_PASS_COIN', 'COIN', 100, 0, 5, NULL, 60.00, TRUE, 'PER_SUBJECT',
      '과목 모의고사 최초 통과 코인. 정답률 60% 이상 + 해당 과목 최초 1회. 하루 5회까지', TRUE, NOW(), NOW())
 ON DUPLICATE KEY UPDATE

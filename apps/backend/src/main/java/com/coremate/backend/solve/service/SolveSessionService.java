@@ -38,6 +38,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
@@ -45,12 +46,14 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class SolveSessionService {
 
-    // 문제 수 정책 (추후 조정 가능)
+    // 모의고사 문항 수 (2026-07-30 팀 확정)
+    // 출제 가능한 문항이 부족하면 selectMockQuestions가 있는 만큼만 담는다.
     private static final int CHAPTER_MOCK_TOTAL = 20;
-    private static final int SUBJECT_MOCK_TOTAL = 50;
+    private static final int SUBJECT_MOCK_TOTAL = 30;
 
     private final SubjectRepository subjectRepository;
     private final CategoryLv1Repository categoryLv1Repository;
@@ -283,7 +286,7 @@ public class SolveSessionService {
         learningHistoryService.accumulate(session, logs, correctCount);
 
         BigDecimal correctRate = calculateCorrectRate(correctCount, logs.size());
-        SolveRewardResult reward = solveRewardService.grantForCompletedSession(session, correctRate);
+        SolveRewardResult reward = grantRewardSafely(session, correctRate);
 
         return new CompleteSolveSessionResponse(
                 session.getSolveSessionId(),
@@ -301,6 +304,20 @@ public class SolveSessionService {
                 reward.xpSkipReason(),
                 reward.coinSkipReason()
         );
+    }
+
+    // 보상 지급이 실패해도 풀이 완료는 그대로 확정한다.
+    // 보상은 학습 기록보다 부수적이라, 보상 로직 문제로 사용자가 푼 기록이 사라지면 안 된다.
+    // SolveRewardService가 REQUIRES_NEW로 별도 트랜잭션을 쓰므로 여기서 잡아도
+    // 완료 트랜잭션이 rollback-only로 오염되지 않는다.
+    private SolveRewardResult grantRewardSafely(SolveSession session, BigDecimal correctRate) {
+        try {
+            return solveRewardService.grantForCompletedSession(session, correctRate);
+        } catch (Exception e) {
+            log.error("보상 지급 실패. 풀이 완료는 유지한다. solveSessionId={}, userId={}",
+                    session.getSolveSessionId(), session.getUserId(), e);
+            return SolveRewardResult.none();
+        }
     }
 
     // 정답률(%)을 소수점 2자리로 계산한다. 코인 지급 기준(min_correct_rate)과 비교된다.

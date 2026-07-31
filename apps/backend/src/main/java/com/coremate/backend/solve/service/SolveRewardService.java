@@ -11,6 +11,7 @@ import com.coremate.backend.solve.dto.type.SolveSessionType;
 import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -34,9 +35,13 @@ public class SolveRewardService {
     /**
      * 완료된 회차에 XP와(대상이면) 코인을 지급한다.
      *
+     * <p>풀이 완료 트랜잭션과 분리한다(REQUIRES_NEW). 보상은 학습 기록보다 부수적이라
+     * 보상 지급이 실패해도 사용자가 푼 기록까지 사라져서는 안 된다. 같은 트랜잭션에서
+     * 돌면 여기서 난 예외가 완료 트랜잭션까지 롤백시킨다.
+     *
      * @param correctRate 회차 정답률(%). 코인 지급 기준과 비교된다.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SolveRewardResult grantForCompletedSession(SolveSession session, BigDecimal correctRate) {
         RewardType xpType = resolveXpRewardType(session.getSessionType());
         if (xpType == null) {
@@ -44,13 +49,17 @@ public class SolveRewardService {
             return SolveRewardResult.none();
         }
 
+        // XP 는 범위별 중복 판정을 하지 않으므로 target 을 넘기지 않는다.
+        // target 을 넘겨두면 XP 정책의 first_reward_only 가 TRUE 로 바뀌는 순간
+        // "개념당 XP 1회" 로 동작이 조용히 바뀐다. 어떤 회차에서 발생했는지는
+        // source_id(= solve_session_id) 로 이미 추적된다.
         RewardLog xpLog = rewardService.grantPolicyReward(
                 session.getUserId(),
                 xpType,
                 RewardSource.SOLVE_SESSION,
                 session.getSolveSessionId(),
-                resolveXpTargetType(session),
-                resolveXpTargetId(session),
+                null,
+                null,
                 session.getSolveSessionId()
         );
 
@@ -96,27 +105,6 @@ public class SolveRewardService {
         };
     }
 
-    // XP는 일일 한도만 보므로 범위별 중복 판정 타겟이 필요 없다.
-    // 다만 어떤 대상에서 발생한 보상인지 추적할 수 있도록 타겟을 남긴다.
-    private RewardTargetType resolveXpTargetType(SolveSession session) {
-        return switch (session.getSessionType()) {
-            case CONCEPT_PRACTICE -> RewardTargetType.CONCEPT;
-            case CATEGORY_LV1_MOCK -> RewardTargetType.CATEGORY_LV1;
-            case CATEGORY_LV2_MOCK -> RewardTargetType.CATEGORY_LV2;
-            case SUBJECT_MOCK -> RewardTargetType.SUBJECT;
-            case DAILY_QUIZ -> RewardTargetType.DAILY;
-        };
-    }
-
-    private Long resolveXpTargetId(SolveSession session) {
-        return switch (session.getSessionType()) {
-            case CONCEPT_PRACTICE -> session.getConcept() == null ? null : session.getConcept().getConceptId();
-            case CATEGORY_LV1_MOCK -> session.getCategoryLv1() == null ? null : session.getCategoryLv1().getCategoryLv1Id();
-            case CATEGORY_LV2_MOCK -> session.getCategoryLv2() == null ? null : session.getCategoryLv2().getCategoryLv2Id();
-            case SUBJECT_MOCK -> session.getSubject() == null ? null : session.getSubject().getSubjectId();
-            case DAILY_QUIZ -> null;
-        };
-    }
 
     // 코인의 "범위별 평생 1회"를 판정하는 단위. 챕터는 대분류/중분류, 과목은 과목이다.
     private RewardTargetType resolveCoinTargetType(SolveSessionType type) {

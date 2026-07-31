@@ -49,12 +49,7 @@ public class RewardService {
     // 조회 API에서 한 번에 내려줄 최근 로그 개수.
     private static final int DEFAULT_LOG_LIMIT = 50;
 
-    // 레벨 공식 (2026-07-30 확정)
-    // 레벨 n -> n+1 에 필요한 XP = LEVEL_UP_BASE_XP + LEVEL_UP_STEP_XP * (n - 1)
-    // 레벨 L 달성에 필요한 누적 XP = 25L^2 + 25L - 50
-    private static final int LEVEL_UP_BASE_XP = 100;
-    private static final int LEVEL_UP_STEP_XP = 50;
-    private static final int MAX_LEVEL = 50;
+    // 레벨 곡선과 보상 구간은 LevelPolicy 에 모아 두었다.
 
     private final UserRepository userRepository;
     private final RewardUserProgressRepository rewardUserProgressRepository;
@@ -168,8 +163,47 @@ public class RewardService {
             throw new CoreMateException(ErrorCode.USER_NOT_FOUND);
         }
 
-        return xpLogRepository.save(new XpLog(userId, rewardPolicyId, amount, totalXpAfter, reason,
+        XpLog xpLog = xpLogRepository.save(new XpLog(userId, rewardPolicyId, amount, totalXpAfter, reason,
                 referenceType, referenceId));
+
+        grantLevelUpRewards(userId, calculateLevel(user.getTotalXp()), levelAfter);
+
+        return xpLog;
+    }
+
+    // 레벨이 오르면서 넘어선 보상 구간마다 정책 보상을 지급한다.
+    // 한 번에 여러 레벨이 올라도 해당 구간을 모두 지급한다.
+    //
+    // 레벨업 정책의 xp_amount 는 0 이라 여기서 grantXp 가 다시 불리지 않는다.
+    // 누군가 레벨업 정책에 XP 를 넣으면 재귀가 생기므로 정책 시드에서 0 을 유지해야 한다.
+    private void grantLevelUpRewards(Long userId, int levelBefore, int levelAfter) {
+        for (Integer level : LevelPolicy.rewardLevelsBetween(levelBefore, levelAfter)) {
+            RewardType rewardType = resolveLevelUpRewardType(level);
+            if (rewardType == null) {
+                continue;
+            }
+            grantPolicyReward(
+                    userId,
+                    rewardType,
+                    RewardSource.LEVEL_UP,
+                    null,
+                    RewardTargetType.LEVEL,
+                    level.longValue(),
+                    null
+            );
+        }
+    }
+
+    private RewardType resolveLevelUpRewardType(int level) {
+        return switch (level) {
+            case 5 -> RewardType.LEVEL_UP_5;
+            case 10 -> RewardType.LEVEL_UP_10;
+            case 20 -> RewardType.LEVEL_UP_20;
+            case 30 -> RewardType.LEVEL_UP_30;
+            case 40 -> RewardType.LEVEL_UP_40;
+            case 50 -> RewardType.LEVEL_UP_50;
+            default -> null;
+        };
     }
 
     // 출석/퀴즈/모의고사처럼 일일 제한이 있는 행동의 횟수를 소비한다.
@@ -362,18 +396,8 @@ public class RewardService {
         }
     }
 
-    // 누적 XP로 레벨을 구한다. 다음 레벨 요구량이 레벨마다 커지므로
-    // 1레벨부터 누적 요구량을 더해 올라가는 방식으로 계산한다(상한 MAX_LEVEL).
     private int calculateLevel(int totalXp) {
-        int level = 1;
-        int required = LEVEL_UP_BASE_XP;
-        int accumulated = 0;
-        while (level < MAX_LEVEL && totalXp >= accumulated + required) {
-            accumulated += required;
-            required += LEVEL_UP_STEP_XP;
-            level++;
-        }
-        return level;
+        return LevelPolicy.levelOf(totalXp);
     }
 
     // reward_type을 XP 로그의 reason 값으로 매핑한다.

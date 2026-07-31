@@ -8,6 +8,10 @@ import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.reward.entity.type.RewardSource;
+import com.coremate.backend.reward.entity.type.RewardTargetType;
+import com.coremate.backend.reward.entity.type.RewardType;
+import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.global.security.JwtProvider;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserRole;
@@ -16,6 +20,7 @@ import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class AuthService {
 
@@ -32,6 +38,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
+    private final RewardService rewardService;
 
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -51,6 +58,22 @@ public class AuthService {
                 .build();
 
         user = userRepository.save(user);
+
+        // 신규 가입 스타터팩. 정책이 PER_USER + first_reward_only 라 계정당 1회만 나간다.
+        // 실패해도 가입 자체는 확정되어야 하므로 예외를 삼키고 로그만 남긴다.
+        try {
+            rewardService.grantPolicyReward(
+                    user.getUserId(),
+                    RewardType.STARTER_PACK,
+                    RewardSource.STARTER_PACK,
+                    null,
+                    RewardTargetType.USER,
+                    user.getUserId(),
+                    null
+            );
+        } catch (Exception e) {
+            log.error("스타터팩 지급 실패. 가입은 유지한다. userId={}", user.getUserId(), e);
+        }
 
         return SignupResponse.builder()
                 .userId(user.getUserId())
