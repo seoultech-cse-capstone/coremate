@@ -1,9 +1,11 @@
 package com.coremate.backend.solve.dto.response;
 
+import com.coremate.backend.reward.entity.type.RewardSkipReason;
 import com.coremate.backend.solve.dto.type.SolveSessionStatus;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Schema(description = "풀이 완료 결과 응답 DTO")
@@ -35,10 +37,21 @@ public record CompleteSolveSessionResponse(
         @Schema(description = "완료 시간")
         LocalDateTime completedAt,
 
-        @Schema(description = "지급 XP. Swagger 더미 값", example = "20")
+        @Schema(description = "이번 회차로 지급된 XP. 일일 한도를 넘겼으면 0", example = "10")
         Integer earnedXp,
 
-        @Schema(description = "지급 코인. Swagger 더미 값", example = "10")
-        Integer earnedCoin
+        @Schema(description = "이번 회차로 지급된 코인. 조건 미충족이면 0", example = "0")
+        Integer earnedCoin,
+
+        @Schema(description = "회차 정답률(%). 코인 지급 기준과 비교되는 값", example = "66.67")
+        BigDecimal correctRate,
+
+        @Schema(description = "XP 미지급 사유. 지급됐으면 null",
+                example = "DAILY_LIMIT_EXCEEDED")
+        RewardSkipReason xpSkipReason,
+
+        @Schema(description = "코인 미지급 사유. 지급됐거나 대상이 아니면 null",
+                example = "LOW_CORRECT_RATE")
+        RewardSkipReason coinSkipReason
 ) {
 }

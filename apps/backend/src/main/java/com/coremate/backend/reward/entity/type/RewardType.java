@@ -11,10 +11,16 @@ public enum RewardType {
     ATTENDANCE_REWARD,
     CATEGORY_MOCK_FIRST_PASS_COIN,
     SUBJECT_MOCK_FIRST_PASS_COIN,
-    LEVEL_UP_REWARD,
+    // 레벨업 보상은 구간마다 지급량이 달라 정책 행을 나눠 관리한다.
+    // reward_policies.reward_type이 UNIQUE라 단일 값으로는 구간별 값을 담을 수 없다.
+    LEVEL_UP_5,
+    LEVEL_UP_10,
+    LEVEL_UP_20,
+    LEVEL_UP_30,
+    LEVEL_UP_40,
+    LEVEL_UP_50,
     STARTER_PACK,
     RANDOM_BOX_REWARD,
-    SUBJECT_MOCK_ATTEMPT,
     AD_REWARD,
     AD_REWARD_COIN,
     PREMIUM_DAILY_COIN,
