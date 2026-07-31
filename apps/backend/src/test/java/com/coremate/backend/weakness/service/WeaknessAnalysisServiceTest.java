@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.paid.service.FeatureAccessPricingService;
 import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.weakness.client.WeaknessAiClient;
@@ -60,6 +61,7 @@ class WeaknessAnalysisServiceTest {
     @Mock private WeaknessAiClient aiClient;
     @Mock private RewardService rewardService;
     @Mock private WeaknessAnalysisProperties props;
+    @Mock private FeatureAccessPricingService featureAccessPricingService;
     @Mock private ObjectMapper objectMapper;
     @Mock private WeaknessAnalysisReportRepository reportRepository;
     @Mock private WeaknessAnalysisSessionRepository sessionRepository;

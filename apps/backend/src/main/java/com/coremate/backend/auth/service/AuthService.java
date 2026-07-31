@@ -8,6 +8,7 @@ import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.reward.event.UserSignedUpEvent;
 import com.coremate.backend.global.security.JwtProvider;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserRole;
@@ -16,6 +17,8 @@ import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class AuthService {
 
@@ -32,6 +36,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -51,6 +56,11 @@ public class AuthService {
                 .build();
 
         user = userRepository.save(user);
+
+        // 스타터팩은 가입이 커밋된 뒤에 지급한다(AccountRewardService).
+        // 가입 트랜잭션 안에서 지급하면 보상 실패가 가입까지 되돌릴 수 있고,
+        // 새 트랜잭션으로 분리하면 아직 커밋되지 않은 이 사용자를 찾지 못한다.
+        eventPublisher.publishEvent(new UserSignedUpEvent(user.getUserId()));
 
         return SignupResponse.builder()
                 .userId(user.getUserId())

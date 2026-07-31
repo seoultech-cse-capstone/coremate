@@ -49,12 +49,7 @@ public class RewardService {
     // 조회 API에서 한 번에 내려줄 최근 로그 개수.
     private static final int DEFAULT_LOG_LIMIT = 50;
 
-    // 레벨 공식 (2026-07-30 확정)
-    // 레벨 n -> n+1 에 필요한 XP = LEVEL_UP_BASE_XP + LEVEL_UP_STEP_XP * (n - 1)
-    // 레벨 L 달성에 필요한 누적 XP = 25L^2 + 25L - 50
-    private static final int LEVEL_UP_BASE_XP = 100;
-    private static final int LEVEL_UP_STEP_XP = 50;
-    private static final int MAX_LEVEL = 50;
+    // 레벨 곡선과 보상 구간은 LevelPolicy 에 모아 두었다.
 
     private final UserRepository userRepository;
     private final RewardUserProgressRepository rewardUserProgressRepository;
@@ -168,8 +163,62 @@ public class RewardService {
             throw new CoreMateException(ErrorCode.USER_NOT_FOUND);
         }
 
-        return xpLogRepository.save(new XpLog(userId, rewardPolicyId, amount, totalXpAfter, reason,
+        XpLog xpLog = xpLogRepository.save(new XpLog(userId, rewardPolicyId, amount, totalXpAfter, reason,
                 referenceType, referenceId));
+
+        grantLevelUpRewards(userId, calculateLevel(user.getTotalXp()), levelAfter);
+
+        return xpLog;
+    }
+
+    // 레벨이 올랐을 때, 도달한 보상 구간 중 아직 못 받은 것을 지급한다.
+    //
+    // "이번에 넘어선 구간"이 아니라 "도달한 구간 전체 중 미지급분"을 보는 이유는
+    // 한 번 놓친 보상이 영영 못 받는 상태로 남지 않게 하기 위해서다. 예를 들어
+    // 정책 시드가 없던 시점에 5레벨에 도달하면 POLICY_NOT_FOUND 로 스킵되는데,
+    // 넘어선 구간만 보면 이미 5레벨이라 다시는 지급 기회가 오지 않는다.
+    // 이렇게 두면 다음 레벨업 때 밀린 보상까지 함께 정산된다.
+    //
+    // 이미 지급된 구간은 조회로 걸러 SKIPPED 로그가 쌓이지 않게 한다.
+    // 레벨업 정책의 xp_amount 는 0 이라 여기서 grantXp 가 다시 불리지 않는다.
+    // 누군가 레벨업 정책에 XP 를 넣으면 재귀가 생기므로 시드에서 0 을 유지해야 한다.
+    private void grantLevelUpRewards(Long userId, int levelBefore, int levelAfter) {
+        if (levelAfter <= levelBefore) {
+            return;
+        }
+
+        for (Integer level : LevelPolicy.rewardLevelsUpTo(levelAfter)) {
+            RewardType rewardType = resolveLevelUpRewardType(level);
+            if (rewardType == null || isLevelRewardGranted(userId, rewardType, level)) {
+                continue;
+            }
+            grantPolicyReward(
+                    userId,
+                    rewardType,
+                    RewardSource.LEVEL_UP,
+                    null,
+                    RewardTargetType.LEVEL,
+                    level.longValue(),
+                    null
+            );
+        }
+    }
+
+    private boolean isLevelRewardGranted(Long userId, RewardType rewardType, Integer level) {
+        return rewardLogRepository.existsByUserIdAndRewardTypeAndTargetTypeAndTargetIdAndRewardStatus(
+                userId, rewardType, RewardTargetType.LEVEL, level.longValue(), RewardStatus.GRANTED);
+    }
+
+    private RewardType resolveLevelUpRewardType(int level) {
+        return switch (level) {
+            case 5 -> RewardType.LEVEL_UP_5;
+            case 10 -> RewardType.LEVEL_UP_10;
+            case 20 -> RewardType.LEVEL_UP_20;
+            case 30 -> RewardType.LEVEL_UP_30;
+            case 40 -> RewardType.LEVEL_UP_40;
+            case 50 -> RewardType.LEVEL_UP_50;
+            default -> null;
+        };
     }
 
     // 출석/퀴즈/모의고사처럼 일일 제한이 있는 행동의 횟수를 소비한다.
@@ -362,18 +411,8 @@ public class RewardService {
         }
     }
 
-    // 누적 XP로 레벨을 구한다. 다음 레벨 요구량이 레벨마다 커지므로
-    // 1레벨부터 누적 요구량을 더해 올라가는 방식으로 계산한다(상한 MAX_LEVEL).
     private int calculateLevel(int totalXp) {
-        int level = 1;
-        int required = LEVEL_UP_BASE_XP;
-        int accumulated = 0;
-        while (level < MAX_LEVEL && totalXp >= accumulated + required) {
-            accumulated += required;
-            required += LEVEL_UP_STEP_XP;
-            level++;
-        }
-        return level;
+        return LevelPolicy.levelOf(totalXp);
     }
 
     // reward_type을 XP 로그의 reason 값으로 매핑한다.
@@ -400,7 +439,7 @@ public class RewardService {
             case LEVEL_UP_5, LEVEL_UP_10, LEVEL_UP_20, LEVEL_UP_30, LEVEL_UP_40, LEVEL_UP_50
                     -> CurrencyReason.LEVEL_UP_REWARD;
             case STARTER_PACK -> CurrencyReason.STARTER_PACK;
-            case AD_REWARD, AD_REWARD_COIN -> CurrencyReason.AD_REWARD;
+            case AD_REWARD -> CurrencyReason.AD_REWARD;
             case PREMIUM_DAILY_COIN -> CurrencyReason.PREMIUM_DAILY_COIN;
             case PREMIUM_SIGNUP_BONUS -> CurrencyReason.PREMIUM_SIGNUP_BONUS;
             case PAYMENT_COIN_PACKAGE -> CurrencyReason.COIN_PACKAGE_PURCHASE;
