@@ -29,6 +29,7 @@ config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 
 question_rules = config.get("question_rules", {})
 question_count = question_rules.get("questions_per_concept", 2)
+difficulty_mix = question_rules.get("difficulty_mix", [])
 
 difficulty_source_default = question_rules.get("difficulty_source_default", "ai_initial")
 source_type_default = question_rules.get("source_type_default", "ai_generated")
@@ -181,14 +182,67 @@ def normalize_question(
 out_dir = Path(f"outputs/{subject_code}")
 out_path = out_dir / "questions.json"
 
-# 이어하기: 이미 문항을 만든 개념은 통째로 건너뛴다(개념당 여러 문항이 나오므로 개념 단위).
-all_questions, done_codes = load_existing(
+
+def summarize_existing(questions: list[dict]) -> list[dict]:
+    """중복 방지용으로 기존 문항의 논점만 추린다(전문을 넣으면 토큰이 과하게 든다)."""
+    return [
+        {
+            "question_text": question.get("question_text"),
+            "question_type": question.get("question_type"),
+            "difficulty_level": question.get("difficulty_level"),
+        }
+        for question in questions
+    ]
+
+
+def request_difficulties(existing: list[dict], need: int) -> list[int]:
+    """difficulty_mix에서 기존 문항이 이미 채운 난이도를 뺀 나머지를 이번 회차로 요청한다."""
+    if not difficulty_mix:
+        return []
+
+    remaining = list(difficulty_mix)
+
+    for question in existing:
+        level = question.get("difficulty_level")
+        if level in remaining:
+            remaining.remove(level)
+
+    # mix보다 더 많이 만들어야 하면 어려운 난이도부터 반복해 채운다.
+    while len(remaining) < need:
+        remaining.append(max(difficulty_mix))
+
+    return sorted(remaining[:need])
+
+
+# 이어하기: 개념별로 이미 만든 문항 수를 세어 부족한 만큼만 추가 생성한다.
+all_questions, _ = load_existing(
     out_path, lambda q: q.get("concept_code"), force=is_forced(sys.argv)
 )
-pending_cards = [c for c in concept_cards if c["concept_code"] not in done_codes]
-report_resume("questions", len(done_codes), len(pending_cards))
 
-for index, concept_card in enumerate(tqdm(pending_cards), start=1):
+existing_by_concept: dict[str, list[dict]] = {}
+existing_hashes = set()
+for question in all_questions:
+    existing_by_concept.setdefault(question.get("concept_code"), []).append(question)
+    if question.get("content_hash"):
+        existing_hashes.add(question["content_hash"])
+
+pending_cards = []
+for concept_card in concept_cards:
+    existing = existing_by_concept.get(concept_card["concept_code"], [])
+    shortfall = question_count - len(existing)
+    if shortfall > 0:
+        pending_cards.append((concept_card, existing, shortfall))
+
+done_count = len(concept_cards) - len(pending_cards)
+total_to_generate = sum(shortfall for _, _, shortfall in pending_cards)
+report_resume("questions", done_count, len(pending_cards))
+print(
+    f"questions: 기존 {len(all_questions)}문항, "
+    f"개념 {len(pending_cards)}개에 {total_to_generate}문항 추가 생성 예정 "
+    f"(목표 개념당 {question_count}문항)"
+)
+
+for index, (concept_card, existing_questions, shortfall) in enumerate(tqdm(pending_cards), start=1):
     concept_code = concept_card["concept_code"]
 
     current_mistake_group = mistake_map.get(concept_code, {"mistakes": []})
@@ -208,7 +262,16 @@ for index, concept_card in enumerate(tqdm(pending_cards), start=1):
             ensure_ascii=False,
             indent=2,
         ),
-        question_count=question_count,
+        question_count=shortfall,
+        existing_questions_json=json.dumps(
+            summarize_existing(existing_questions),
+            ensure_ascii=False,
+            indent=2,
+        ),
+        requested_difficulties=json.dumps(
+            request_difficulties(existing_questions, shortfall),
+            ensure_ascii=False,
+        ),
     )
 
     result = call_ai_json(
@@ -224,6 +287,12 @@ for index, concept_card in enumerate(tqdm(pending_cards), start=1):
             question=question,
             concept_card=concept_card,
         )
+
+        # 추가 생성이라 기존 문항과 같은 내용이 다시 나올 수 있다. content_hash로 걸러낸다.
+        content_hash = normalized_question.get("content_hash")
+        if content_hash in existing_hashes:
+            continue
+        existing_hashes.add(content_hash)
 
         validation_errors = validate_question(normalized_question)
 
