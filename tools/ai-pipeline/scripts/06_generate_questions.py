@@ -2,7 +2,9 @@ import _bootstrap
 
 import copy
 import json
+import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import yaml
@@ -30,6 +32,9 @@ config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
 question_rules = config.get("question_rules", {})
 question_count = question_rules.get("questions_per_concept", 2)
 difficulty_mix = question_rules.get("difficulty_mix", [])
+
+# 동시 호출 수. 레이트리밋에 걸리면 낮춰서 다시 실행하면 된다(이어하기로 이어서 만든다).
+GENERATE_WORKERS = int(os.getenv("GENERATE_WORKERS", "6"))
 
 difficulty_source_default = question_rules.get("difficulty_source_default", "ai_initial")
 source_type_default = question_rules.get("source_type_default", "ai_generated")
@@ -242,13 +247,13 @@ print(
     f"(목표 개념당 {question_count}문항)"
 )
 
-for index, (concept_card, existing_questions, shortfall) in enumerate(tqdm(pending_cards), start=1):
+def generate_for_concept(task: tuple[dict, list[dict], int]) -> tuple[dict, list[dict]]:
+    """개념 하나에 대한 AI 호출. 워커 스레드에서 돈다(공유 상태를 건드리지 않는다)."""
+    concept_card, existing_questions, shortfall = task
     concept_code = concept_card["concept_code"]
 
     current_mistake_group = mistake_map.get(concept_code, {"mistakes": []})
     current_mistakes = current_mistake_group.get("mistakes", [])
-
-    question_schema = build_question_schema_for_mistakes(current_mistakes)
 
     user_prompt = prompt_template.format(
         concept_card_json=json.dumps(concept_card, ensure_ascii=False, indent=2),
@@ -278,42 +283,67 @@ for index, (concept_card, existing_questions, shortfall) in enumerate(tqdm(pendi
         system_prompt="너는 CS 전공 지식 문제를 정확하게 생성하는 전문가다.",
         user_prompt=user_prompt,
         schema_name="question_schema",
-        schema=question_schema,
+        schema=build_question_schema_for_mistakes(current_mistakes),
         reasoning_effort="medium",
     )
 
-    for question in result["questions"]:
-        normalized_question = normalize_question(
-            question=question,
-            concept_card=concept_card,
-        )
+    return concept_card, result["questions"]
 
-        # 추가 생성이라 기존 문항과 같은 내용이 다시 나올 수 있다. content_hash로 걸러낸다.
-        content_hash = normalized_question.get("content_hash")
-        if content_hash in existing_hashes:
+
+# 개념 469개를 순차로 돌면 8시간 가까이 걸려서 동시에 호출한다.
+# 저장과 중복 판정은 메인 스레드에서만 하므로 워커끼리 공유 상태를 건드리지 않는다.
+failed_concepts: list[str] = []
+
+with ThreadPoolExecutor(max_workers=GENERATE_WORKERS) as executor:
+    futures = {executor.submit(generate_for_concept, task): task for task in pending_cards}
+
+    for index, future in enumerate(tqdm(as_completed(futures), total=len(futures)), start=1):
+        try:
+            concept_card, generated_questions = future.result()
+        except Exception as error:
+            failed_task = futures[future]
+            failed_concepts.append(failed_task[0]["concept_code"])
+            print(f"\n생성 실패(건너뜀): {failed_task[0]['concept_code']} - {error}")
             continue
-        existing_hashes.add(content_hash)
 
-        validation_errors = validate_question(normalized_question)
-
-        hint_mistake_code = normalized_question.get("hint_mistake_code")
-
-        if hint_mistake_code is not None and hint_mistake_code not in mistake_code_map:
-            error_message = (
-                f"hint_mistake_code가 common_mistakes.json에 존재하지 않음: "
-                f"{hint_mistake_code}"
+        for question in generated_questions:
+            normalized_question = normalize_question(
+                question=question,
+                concept_card=concept_card,
             )
 
-            validation_errors.append(error_message)
+            # 추가 생성이라 기존 문항과 같은 내용이 다시 나올 수 있다. content_hash로 걸러낸다.
+            content_hash = normalized_question.get("content_hash")
+            if content_hash in existing_hashes:
+                continue
+            existing_hashes.add(content_hash)
 
-        normalized_question["validation_errors"] = validation_errors
+            validation_errors = validate_question(normalized_question)
 
-        all_questions.append(normalized_question)
+            hint_mistake_code = normalized_question.get("hint_mistake_code")
 
-    if index % SAVE_EVERY == 0:
-        save_progress(out_path, all_questions)
+            if hint_mistake_code is not None and hint_mistake_code not in mistake_code_map:
+                error_message = (
+                    f"hint_mistake_code가 common_mistakes.json에 존재하지 않음: "
+                    f"{hint_mistake_code}"
+                )
+
+                validation_errors.append(error_message)
+
+            normalized_question["validation_errors"] = validation_errors
+
+            all_questions.append(normalized_question)
+
+        if index % SAVE_EVERY == 0:
+            save_progress(out_path, all_questions)
 
 save_progress(out_path, all_questions)
+
+if failed_concepts:
+    print(
+        f"\n생성에 실패한 개념 {len(failed_concepts)}개: {failed_concepts}\n"
+        "같은 명령을 다시 실행하면 모자란 개념만 이어서 생성한다."
+    )
 
 # hint 참조 오류는 이어하기로 건너뛴 문항까지 포함해야 하므로 전체 기준으로 다시 모은다.
 hint_reference_errors = [
