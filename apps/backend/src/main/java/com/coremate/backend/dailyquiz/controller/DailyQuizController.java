@@ -1,6 +1,7 @@
 package com.coremate.backend.dailyquiz.controller;
 
 import com.coremate.backend.dailyquiz.dto.request.SubmitDailyQuizRequest;
+import com.coremate.backend.dailyquiz.dto.response.DailyQuizResultResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizRewardResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizSetResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizSubmitResponse;
@@ -68,5 +69,17 @@ public class DailyQuizController {
     ) {
         DailyQuizRewardResponse response = dailyQuizService.getTodayDailyQuizReward(userDetails.getUserId());
         return ApiResponse.success("오늘의 CS 퀴즈 보상 조회 성공", response);
+    }
+
+    // 오늘 내가 제출한 오늘의 퀴즈 문항별 정답/해설 + 내가 선택한 선지 조회. 오늘 제출 기록이 있어야 한다.
+    @Operation(summary = "오늘의 CS 퀴즈 결과/해설 조회",
+            description = "오늘 내가 푼 오늘의 CS 퀴즈의 문항별 정답·해설과 내가 선택한 선지를 조회한다. "
+                    + "오늘 제출한 기록이 있어야 한다.")
+    @GetMapping("/result")
+    public ApiResponse<DailyQuizResultResponse> getDailyQuizResult(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        DailyQuizResultResponse response = dailyQuizService.getDailyQuizResult(userDetails.getUserId());
+        return ApiResponse.success("오늘의 CS 퀴즈 결과 조회 성공", response);
     }
 }
