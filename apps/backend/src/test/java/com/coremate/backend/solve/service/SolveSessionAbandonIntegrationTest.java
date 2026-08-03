@@ -76,6 +76,21 @@ class SolveSessionAbandonIntegrationTest {
     }
 
     @Test
+    void 중단된_회차는_제한시간이_남아있어도_완료를_거부한다() {
+        // 새 모의고사를 시작해 중단된 회차. 클라이언트가 옛 회차 ID로 완료를 시도할 수 있다.
+        SolveSession session = saveSession(SolveSessionType.CATEGORY_LV1_MOCK, 1);
+        session.abandon();
+        solveSessionRepository.save(session);
+
+        assertThatThrownBy(() -> complete(session))
+                .isInstanceOf(CoreMateException.class)
+                .extracting(e -> ((CoreMateException) e).getErrorCode())
+                .isEqualTo(ErrorCode.SOLVE_SESSION_ABANDONED);
+
+        assertThat(reload(session).getStatus()).isEqualTo(SolveSessionStatus.ABANDONED);
+    }
+
+    @Test
     void 진행_중_회차_조회는_모의고사만_대상으로_한다() {
         saveSession(SolveSessionType.CATEGORY_LV1_MOCK, 0);
         saveSession(SolveSessionType.SUBJECT_MOCK, 0);

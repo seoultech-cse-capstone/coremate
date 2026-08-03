@@ -199,10 +199,7 @@ public class SolveSessionService {
         SolveSession session = solveSessionRepository.findBySolveSessionIdAndUserId(solveSessionId, userId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
-        if (session.getStatus() == SolveSessionStatus.COMPLETED) {
-            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_COMPLETED);
-        }
-
+        requireInProgress(session);
         rejectIfExpired(session);
 
         if (solveLogRepository.existsBySolveSessionAndQuestion_QuestionId(session, request.questionId())) {
@@ -265,10 +262,7 @@ public class SolveSessionService {
         SolveSession session = solveSessionRepository.findBySolveSessionIdAndUserId(solveSessionId, userId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
-        if (session.getStatus() == SolveSessionStatus.COMPLETED) {
-            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_COMPLETED);
-        }
-
+        requireInProgress(session);
         rejectIfExpired(session);
 
         List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
@@ -458,6 +452,19 @@ public class SolveSessionService {
         solveSessionRepository.save(session);
 
         return buildStartResponse(session, title, SolveSessionType.SUBJECT_MOCK, questions);
+    }
+
+    /**
+     * 진행 중인 회차에만 답안 제출과 완료 처리를 허용한다.
+     * 중단된 회차는 클라이언트가 옛 회차 ID를 들고 있어도 더 이상 받지 않는다.
+     */
+    private void requireInProgress(SolveSession session) {
+        if (session.getStatus() == SolveSessionStatus.COMPLETED) {
+            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_COMPLETED);
+        }
+        if (session.getStatus() == SolveSessionStatus.ABANDONED) {
+            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ABANDONED);
+        }
     }
 
     /**

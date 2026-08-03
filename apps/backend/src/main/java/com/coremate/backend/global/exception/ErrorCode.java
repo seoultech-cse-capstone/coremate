@@ -83,6 +83,7 @@ public enum ErrorCode {
     ANSWER_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "이미 제출된 문제입니다"),
     SOLVE_NOT_ALL_ANSWERED(HttpStatus.BAD_REQUEST, "아직 제출하지 않은 문제가 있습니다"),
     SOLVE_SESSION_EXPIRED(HttpStatus.CONFLICT, "제한 시간이 지나 종료된 모의고사입니다. 새로 시작해주세요"),
+    SOLVE_SESSION_ABANDONED(HttpStatus.CONFLICT, "이미 중단된 풀이 세션입니다"),
     UNSUPPORTED_SESSION_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 풀이 세션 유형입니다"),
 
     // Weakness
