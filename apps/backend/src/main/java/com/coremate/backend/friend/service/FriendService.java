@@ -1,5 +1,6 @@
 package com.coremate.backend.friend.service;
 
+import com.coremate.backend.attendance.entity.Attendance;
 import com.coremate.backend.attendance.repository.AttendanceRepository;
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import com.coremate.backend.avatar.service.AvatarService;
@@ -261,6 +262,7 @@ public class FriendService {
                 friendUser.getStatus().name(),
                 hasAttendedToday(friendUser.getUserId()),
                 attendanceRepository.countByUser_UserId(friendUser.getUserId()),
+                lastAttendanceDate(friendUser.getUserId()),
                 avatarProfile,
                 List.of()
         );
@@ -297,6 +299,13 @@ public class FriendService {
 
     private boolean hasAttendedToday(Long userId) {
         return attendanceRepository.existsByUser_UserIdAndAttendanceDate(userId, LocalDate.now());
+    }
+
+    // 친구 프로필 "최근 출석" 표시용: 가장 최근 출석일(없으면 null)
+    private LocalDate lastAttendanceDate(Long userId) {
+        return attendanceRepository.findTopByUser_UserIdOrderByAttendanceDateDesc(userId)
+                .map(Attendance::getAttendanceDate)
+                .orElse(null);
     }
 
     private void validateNotSelf(Long userId, Long targetUserId) {

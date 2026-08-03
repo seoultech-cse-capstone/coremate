@@ -1,6 +1,7 @@
 package com.coremate.backend.user.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -48,4 +49,13 @@ public class MyProfileResponse {
 
     @Schema(example = "2026-05-12T09:10:11")
     private LocalDateTime lastLoginAt;
+
+    @Schema(example = "true", description = "오늘 출석(오늘의 퀴즈 완료) 여부")
+    private Boolean attendedToday;
+
+    @Schema(example = "12", description = "누적 출석 일수")
+    private Long attendanceCount;
+
+    @Schema(example = "2026-05-12", description = "가장 최근 출석일 (없으면 null)")
+    private LocalDate lastAttendanceDate;
 }
