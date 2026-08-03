@@ -37,6 +37,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final ApplicationEventPublisher eventPublisher;
+    private final SignupEmailVerificationService signupEmailVerificationService;
 
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -45,6 +46,9 @@ public class AuthService {
         if (userRepository.existsByNickname(request.getNickname())) {
             throw new CoreMateException(ErrorCode.DUPLICATE_NICKNAME);
         }
+
+        // 이메일 인증이 완료된 이메일만 가입 허용(인증 상태는 여기서 소진).
+        signupEmailVerificationService.assertVerifiedAndConsume(request.getEmail());
 
         User user = User.builder()
                 .email(request.getEmail())

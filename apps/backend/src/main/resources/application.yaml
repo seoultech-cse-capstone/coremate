@@ -60,3 +60,10 @@ password-reset:
   resend-cooldown-sec: 60     # 재발송 쿨다운 60초
   code-length: 6              # 인증번호 자릿수
   max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
+
+signup-email:
+  code-ttl-sec: 300           # 인증번호 유효시간 5분
+  verified-ttl-sec: 1800      # 인증 완료 상태 유효시간 30분(이 안에 회원가입 완료해야 함)
+  resend-cooldown-sec: 60     # 재발송 쿨다운 60초
+  code-length: 6              # 인증번호 자릿수
+  max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
