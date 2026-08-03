@@ -2,6 +2,8 @@ import _bootstrap
 
 import argparse
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from tqdm import tqdm
@@ -16,6 +18,9 @@ from src.resume import SAVE_EVERY, load_existing, report_resume, save_progress
 
 # 진단 프로필 데이터 버전. 백엔드 weakness.analysis.diagnostic-profile-version 와 맞춘다.
 DIAGNOSTIC_PROFILE_VERSION = "v1"
+
+# 동시 호출 수. 레이트리밋에 걸리면 낮춰서 다시 실행하면 된다(이어하기로 이어서 생성한다).
+PROFILE_WORKERS = int(os.getenv("PROFILE_WORKERS", "8"))
 
 
 def parse_args() -> argparse.Namespace:
@@ -130,7 +135,9 @@ def main() -> None:
         ]
         report_resume("문항 프로필", len(done_questions), len(target_questions))
         cards_by_code = {card["concept_code"]: card for card in concept_cards}
-        for index, question in enumerate(tqdm(target_questions, desc="question profiles"), start=1):
+
+        def build_question_profile(question: dict) -> dict:
+            """문항 하나의 진단 프로필. 워커 스레드에서 돈다(공유 상태를 건드리지 않는다)."""
             concept_code = question["concept_code"]
             user_prompt = question_prompt.format(
                 question_json=json.dumps(question, ensure_ascii=False, indent=2),
@@ -157,9 +164,35 @@ def main() -> None:
             result["expected_solve_sec"] = question.get("expected_solve_sec")
             result["difficulty"] = question.get("difficulty_level")
             result["diagnostic_profile_version"] = DIAGNOSTIC_PROFILE_VERSION
-            question_profiles.append(result)
-            if index % SAVE_EVERY == 0:
-                save_progress(question_path, question_profiles)
+            return result
+
+        # 문항 수천 개를 순차로 돌면 몇 시간이 걸려서 동시에 호출한다.
+        # 저장은 메인 스레드에서만 하므로 워커끼리 공유 상태를 건드리지 않는다.
+        failed_count = 0
+
+        with ThreadPoolExecutor(max_workers=PROFILE_WORKERS) as executor:
+            futures = {
+                executor.submit(build_question_profile, q): q for q in target_questions
+            }
+
+            for index, future in enumerate(
+                tqdm(as_completed(futures), total=len(futures), desc="question profiles"), start=1
+            ):
+                try:
+                    question_profiles.append(future.result())
+                except Exception as error:
+                    failed_count += 1
+                    print(f"\n문항 프로필 실패(건너뜀): {futures[future].get('concept_code')} - {error}")
+                    continue
+
+                if index % SAVE_EVERY == 0:
+                    save_progress(question_path, question_profiles)
+
+        if failed_count:
+            print(
+                f"문항 프로필 실패 {failed_count}건. "
+                "같은 명령을 다시 실행하면 실패한 문항만 이어서 생성한다."
+            )
     save_progress(question_path, question_profiles)
 
     print(f"진단 프로필 생성 완료: {concept_path} ({len(concept_profiles)}개)")
