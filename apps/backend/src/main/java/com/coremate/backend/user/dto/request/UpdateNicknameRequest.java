@@ -14,8 +14,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateNicknameRequest {
-    @Schema(example = "coremate")
+    @Schema(example = "코어", description = "닉네임 (최대 6글자)")
     @NotBlank
-    @Size(max = 50)
+    @Size(max = 6, message = "닉네임은 최대 6글자까지 가능합니다")
     private String nickname;
 }
