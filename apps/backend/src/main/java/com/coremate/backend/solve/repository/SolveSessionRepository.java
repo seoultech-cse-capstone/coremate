@@ -26,11 +26,12 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
             Long userId, SolveSessionType sessionType, List<Long> conceptIds);
 
     /**
-     * 사용자의 완료된 회차 목록을 필터별로 조회한다.
+     * 사용자의 완료된 "문제집(모의고사)" 회차 목록을 필터별로 조회한다.
+     * 복습 탭의 "내가 푼 문제집"은 모의고사 회차만 노출하므로 개념 문제집(CONCEPT_PRACTICE)은 제외한다.
      * 각 필터(subject/categoryLv1/categoryLv2)는 null 이면 조건에서 제외된다.
      * 완료 시간 내림차순으로 정렬한다.
      *
-     * 개념 문제집(CONCEPT_PRACTICE) 세션은 subject/categoryLv1/categoryLv2 가 null 이므로
+     * 과목 모의고사 등은 subject 는 있으나 categoryLv1/categoryLv2 가 null 이므로
      * 경로 표현식이 유도하는 INNER JOIN 을 피하기 위해 LEFT JOIN 으로 명시적으로 조인한다.
      */
     @Query("""
@@ -40,6 +41,7 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
             LEFT JOIN s.categoryLv2 lv2
             WHERE s.userId = :userId
               AND s.status = :status
+              AND s.sessionType <> com.coremate.backend.solve.dto.type.SolveSessionType.CONCEPT_PRACTICE
               AND (:subjectId IS NULL OR subj.subjectId = :subjectId)
               AND (:categoryLv1Id IS NULL OR lv1.categoryLv1Id = :categoryLv1Id)
               AND (:categoryLv2Id IS NULL OR lv2.categoryLv2Id = :categoryLv2Id)
