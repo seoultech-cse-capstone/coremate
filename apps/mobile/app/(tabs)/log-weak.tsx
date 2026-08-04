@@ -1,6 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
-import { CalendarDays, Check, ChevronRight, X } from "lucide-react-native";
+import { CalendarDays, Check, ChevronRight, Trash2, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
@@ -28,14 +29,18 @@ import { useCompletedProblemSets } from "../../src/features/logWeak/useCompleted
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
 import { getApiErrorMessage } from "../../src/shared/utils/apiError";
-import { useEligibleSolveSessions, weaknessApi } from "../../src/features/weakness";
+import {
+  useEligibleSolveSessions,
+  useWeaknessReports,
+  weaknessApi,
+} from "../../src/features/weakness";
 import type {
   AnalysisScopeType,
   EligibleSolveSession,
+  WeaknessAnalysisReportSummary,
 } from "../../src/features/weakness";
 
 type LogWeakMode = "wrongNote" | "weakness";
-type DepthFilter = "subject" | "Chapter1" | "Chapter2" | "concept";
 
 type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
@@ -152,16 +157,6 @@ function deriveAnalysisScope(sessions: EligibleSolveSession[]): AnalysisScope | 
   };
 }
 
-type WeaknessReportItem = {
-  id: number;
-  subject: string;
-  depth: DepthFilter;
-  date: string;
-  examNames: string[];
-  // 분석표를 끝까지 읽었는지 여부. 읽은 분석표만 초록 체크로 표시한다.
-  isRead: boolean;
-};
-
 const HEADER_HEIGHT = 60;
 const OVERSCROLL_BUFFER = 96;
 const BRAND_PURPLE = "#6D5DFB";
@@ -172,45 +167,6 @@ const PANEL_GRAY = "#F3F3F3";
 const conceptStats = {
   totalCount: 500,
   solvedConceptCount: 100,
-};
-
-const weaknessReports: WeaknessReportItem[] = [
-  {
-    id: 1,
-    subject: "Data Structure",
-    depth: "Chapter1",
-    date: "26-04-25",
-    examNames: ["Linear Structure", "Array", "Linked List"],
-    isRead: true,
-  },
-  {
-    id: 2,
-    subject: "Data Structure",
-    depth: "Chapter1",
-    date: "26-04-25",
-    examNames: ["Linear Structure", "Stack", "Queue"],
-    isRead: true,
-  },
-  {
-    id: 3,
-    subject: "Data Structure",
-    depth: "Chapter2",
-    date: "26-04-24",
-    examNames: [
-      "Array",
-      "Dynamic Array",
-      "Static Array",
-      "Indexing",
-      "Linked List",
-    ],
-    isRead: false,
-  },
-];
-
-// 약점 분석표 통계는 분석표를 정독한 횟수(isRead)를 기준으로 계산한다.
-const weaknessReportStats = {
-  totalCount: weaknessReports.length,
-  readCount: weaknessReports.filter((report) => report.isRead).length,
 };
 
 export default function LogWeakScreen() {
@@ -228,6 +184,8 @@ export default function LogWeakScreen() {
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
   const [isCreatingReport, setIsCreatingReport] = useState(false);
   const [createReportError, setCreateReportError] = useState<string | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
   const isWrongNote = mode === "wrongNote";
   const title = isWrongNote ? "Mistake Notes" : "Weakness Notes";
   const headerHeight = HEADER_HEIGHT + insets.top;
@@ -414,21 +372,24 @@ export default function LogWeakScreen() {
     categoryLv2NameById,
   ]);
 
+  const weaknessReportsQuery = useWeaknessReports(accessToken);
+  const weaknessReports = useMemo(
+    () => weaknessReportsQuery.data ?? [],
+    [weaknessReportsQuery.data],
+  );
+
+  // analysisScopeNameSnapshot은 현재 과목명만 담고 있어(백엔드가 아직 대분류/
+  // 중분류까지는 스냅샷하지 않음), 대분류/중분류 필터는 적용할 수 없고 과목
+  // 단위로만 좁힐 수 있다.
   const filteredWeaknessReports = useMemo(
     () =>
       weaknessReports.filter((item) => {
-        if (selectedSubject && item.subject !== selectedSubject.label) {
-          return false;
-        }
-        if (selectedPath.length === 2 && item.depth !== "Chapter1") {
-          return false;
-        }
-        if (selectedPath.length === 3 && item.depth !== "Chapter2") {
+        if (selectedSubject && item.analysisScopeNameSnapshot !== selectedSubject.label) {
           return false;
         }
         return true;
       }),
-    [selectedSubject, selectedPath.length],
+    [weaknessReports, selectedSubject],
   );
 
   const updateMode = (nextMode: LogWeakMode) => {
@@ -532,6 +493,25 @@ export default function LogWeakScreen() {
     setIsSelecting(false);
     setSelectedExamIds([]);
     setCreateReportError(null);
+  };
+
+  const handleDeleteReport = async (analysisReportId: number) => {
+    if (!accessToken || deletingReportId !== null) {
+      return;
+    }
+    setDeletingReportId(analysisReportId);
+    try {
+      await weaknessApi.deleteReport(analysisReportId, accessToken);
+      queryClient.setQueryData<WeaknessAnalysisReportSummary[]>(
+        ["weakness", "reports"],
+        (current) =>
+          current?.filter((report) => report.analysisReportId !== analysisReportId),
+      );
+    } catch (error) {
+      console.error("[weakness] 분석표 삭제 실패", error);
+    } finally {
+      setDeletingReportId(null);
+    }
   };
 
   useEffect(() => {
@@ -698,7 +678,11 @@ export default function LogWeakScreen() {
         >
           {isWrongNote && isSelecting && <View style={styles.selectionDim} />}
 
-          <StatsSummary accentColor={activePurple} isWrongNote={isWrongNote} />
+          <StatsSummary
+            accentColor={activePurple}
+            isWrongNote={isWrongNote}
+            weaknessReports={weaknessReports}
+          />
 
           <View style={styles.divider} />
 
@@ -734,12 +718,14 @@ export default function LogWeakScreen() {
                   ))
               : filteredWeaknessReports.map((item) => (
                   <WeaknessReportCard
+                    isDeleting={deletingReportId === item.analysisReportId}
                     item={item}
-                    key={item.id}
+                    key={item.analysisReportId}
+                    onDelete={() => handleDeleteReport(item.analysisReportId)}
                     onPress={() =>
                       router.push({
                         pathname: "/weakness-report",
-                        params: { reportId: item.id.toString() },
+                        params: { reportId: item.analysisReportId.toString() },
                       })
                     }
                   />
@@ -797,10 +783,21 @@ export default function LogWeakScreen() {
 function StatsSummary({
   accentColor,
   isWrongNote,
+  weaknessReports,
 }: {
   accentColor: string;
   isWrongNote: boolean;
+  weaknessReports: WeaknessAnalysisReportSummary[];
 }) {
+  const totalAnalyzedQuestions = weaknessReports.reduce(
+    (sum, report) => sum + report.totalQuestionCount,
+    0,
+  );
+  const totalWeaknessesFound = weaknessReports.reduce(
+    (sum, report) => sum + report.totalWrongCount,
+    0,
+  );
+
   const stats = isWrongNote
     ? [
         { value: conceptStats.totalCount.toString(), label: "총 개념" },
@@ -817,16 +814,11 @@ function StatsSummary({
       ]
     : [
         {
-          value: weaknessReportStats.totalCount.toString(),
+          value: weaknessReports.length.toString(),
           label: "내 약점 분석표",
         },
-        { value: weaknessReportStats.readCount.toString(), label: "완벽해요" },
-        {
-          value: (
-            weaknessReportStats.totalCount - weaknessReportStats.readCount
-          ).toString(),
-          label: "아직 모자라요",
-        },
+        { value: totalAnalyzedQuestions.toString(), label: "분석한 문제" },
+        { value: totalWeaknessesFound.toString(), label: "발견한 약점" },
       ];
 
   return (
@@ -965,63 +957,62 @@ function EligibleSessionCard({
 }
 
 function WeaknessReportCard({
+  isDeleting,
   item,
+  onDelete,
   onPress,
 }: {
-  item: WeaknessReportItem;
+  isDeleting: boolean;
+  item: WeaknessAnalysisReportSummary;
+  onDelete: () => void;
   onPress: () => void;
 }) {
-  const primaryExamNames = item.examNames.slice(0, 3);
-  const secondaryExamNames = item.examNames.slice(3, 5);
+  const generatedDate = item.generatedAt
+    ? item.generatedAt.slice(0, 10).replace(/-/g, ".")
+    : null;
 
   return (
-    <Pressable style={styles.weaknessCard} onPress={onPress}>
+    <Pressable
+      disabled={isDeleting}
+      style={[styles.weaknessCard, isDeleting && styles.deletingCard]}
+      onPress={onPress}
+    >
       <View style={styles.cardHeader}>
-        <Text style={styles.reportNumber}>#{item.id}</Text>
+        <Text numberOfLines={1} style={styles.reportTitleText}>
+          {item.title}
+        </Text>
 
-        <ChevronRight color="#6b7280" size={22} strokeWidth={2.2} />
+        <Pressable
+          accessibilityLabel="분석표 삭제"
+          accessibilityRole="button"
+          disabled={isDeleting}
+          hitSlop={8}
+          onPress={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Trash2 color="#9ca3af" size={20} strokeWidth={2} />
+        </Pressable>
       </View>
 
-      <View style={styles.dateRow}>
-        <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
-        <Text style={styles.dateText}>{item.date}</Text>
-      </View>
-
-      <View style={styles.reportExamRow}>
-        <View style={styles.reportExamColumn}>
-          {primaryExamNames.map((examName) => (
-            <Text
-              adjustsFontSizeToFit
-              key={`primary-${examName}`}
-              minimumFontScale={0.82}
-              numberOfLines={1}
-              style={styles.reportExamName}
-            >
-              {examName}
-            </Text>
-          ))}
+      {generatedDate ? (
+        <View style={styles.dateRow}>
+          <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
+          <Text style={styles.dateText}>{generatedDate}</Text>
         </View>
-        {secondaryExamNames.length > 0 && (
-          <View style={styles.reportExamColumn}>
-            {secondaryExamNames.map((examName) => (
-              <Text
-                adjustsFontSizeToFit
-                key={`secondary-${examName}`}
-                minimumFontScale={0.82}
-                numberOfLines={1}
-                style={styles.reportExamName}
-              >
-                {examName}
-              </Text>
-            ))}
-          </View>
-        )}
-        <Check
-          color={item.isRead ? "#20D63A" : "#9ca3af"}
-          size={24}
-          strokeWidth={3}
-        />
+      ) : null}
+
+      <View style={styles.reportStatsRow}>
+        <Text style={styles.reportScopeText}>{item.analysisScopeNameSnapshot}</Text>
+        <Text style={styles.reportWrongText}>
+          오답 {item.totalWrongCount}/{item.totalQuestionCount}
+        </Text>
       </View>
+
+      <Text style={styles.reportSessionCountText}>
+        분석에 사용한 문제집 {item.selectedSessionCount}개
+      </Text>
     </Pressable>
   );
 }
@@ -1230,11 +1221,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  reportNumber: {
-    color: "#6D5DFB",
+  reportTitleText: {
+    flex: 1,
+    marginRight: 12,
+    color: "#1f2937",
     fontFamily: FONT.kufam,
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "700",
+  },
+  deletingCard: {
+    opacity: 0.5,
   },
   dateRow: {
     flexDirection: "row",
@@ -1255,23 +1251,30 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
   },
-  reportExamRow: {
+  reportStatsRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 14,
   },
-  reportExamColumn: {
-    flex: 1,
-    gap: 4,
+  reportScopeText: {
+    color: "#6D5DFB",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "700",
   },
-  reportExamName: {
-    alignSelf: "flex-start",
+  reportWrongText: {
     color: "#475569",
     fontFamily: FONT.kufam,
     fontSize: 13,
+    fontWeight: "600",
+  },
+  reportSessionCountText: {
+    marginTop: 6,
+    color: "#9ca3af",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
     fontWeight: "500",
-    lineHeight: 19,
   },
   wrongLabel: {
     color: "#6b7280",
