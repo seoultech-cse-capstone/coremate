@@ -15,6 +15,7 @@ import {
 
 import { FONT } from "../../constants/fonts";
 import { useAuth } from "../../src/features/auth";
+import { dailyQuizApi } from "../../src/features/dailyQuiz";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -30,9 +31,10 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
-  const { status } = useAuth();
+  const { status, accessToken } = useAuth();
   const isGuest = status === "guest";
   const panelTopOffset = Math.round(height * 0.46);
+  const [dailyQuizSolved, setDailyQuizSolved] = useState(false);
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
@@ -42,6 +44,27 @@ export default function HomeScreen() {
 
     return unsubscribe;
   }, [navigation]);
+
+  useEffect(() => {
+    if (isGuest || !accessToken) {
+      return;
+    }
+    let cancelled = false;
+    dailyQuizApi.getToday(accessToken).then(
+      (quizSet) => {
+        if (!cancelled) {
+          setDailyQuizSolved(quizSet.solvedToday);
+        }
+      },
+      (error) => {
+        // 홈 진입 자체를 막을 이유는 없으니 조회 실패는 조용히 미완료로 둔다.
+        console.error("[home] 오늘의 퀴즈 상태 조회 실패", error);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [isGuest, accessToken]);
 
   // FR-GUEST-02: 게스트가 회원 전용 기능을 선택하면 로그인 필요 안내로 보낸다.
   const goToMemberFeature = (memberHref: Parameters<typeof router.push>[0]) => {
@@ -100,21 +123,31 @@ export default function HomeScreen() {
             style={[
               styles.primaryButton,
               styles.dailyQuizButton,
-              styles.dailyQuizCompletedButton,
+              dailyQuizSolved && styles.dailyQuizCompletedButton,
             ]}
           >
             <View style={styles.dailyQuizButtonContent}>
               <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
-              <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+              {dailyQuizSolved ? (
+                <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+              ) : null}
             </View>
           </Pressable>
           <Pressable
             accessibilityLabel="오늘의 퀴즈 다시보기"
             accessibilityRole="button"
+            disabled={!dailyQuizSolved}
             onPress={() => goToMemberFeature("/daily-quiz-review")}
-            style={styles.dailyQuizReviewButton}
+            style={[
+              styles.dailyQuizReviewButton,
+              !dailyQuizSolved && styles.dailyQuizReviewButtonDisabled,
+            ]}
           >
-            <ListChecks color="#475569" size={22} strokeWidth={2.1} />
+            <ListChecks
+              color={dailyQuizSolved ? "#475569" : "#cbd5e1"}
+              size={22}
+              strokeWidth={2.1}
+            />
           </Pressable>
           </View>
 
@@ -212,6 +245,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 18,
     backgroundColor: "#FFFFFF",
+  },
+  dailyQuizReviewButtonDisabled: {
+    backgroundColor: "#F1F5F9",
   },
   primaryButtonText: {
     color: "#ffffff",
