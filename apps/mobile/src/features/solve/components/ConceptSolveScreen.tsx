@@ -296,11 +296,16 @@ export function ConceptSolveScreen({
 
   // elapsedSeconds가 매초 갱신되며 리렌더를 일으키므로, 그 타이밍에 맞춰
   // 서버 시작 시각(wall clock) 기준으로 남은 시간을 다시 계산한다.
+  // 기기 시계가 서버보다 몇 초 느리면 "경과 시간"이 음수로 계산돼 남은
+  // 시간이 제한 시간보다 커질 수 있으므로 상한도 같이 걸어둔다.
   const remainingSeconds =
     timeLimitSec !== null && sessionStartedAtMsRef.current > 0
-      ? Math.max(
-          0,
-          timeLimitSec - Math.floor((Date.now() - sessionStartedAtMsRef.current) / 1000),
+      ? Math.min(
+          timeLimitSec,
+          Math.max(
+            0,
+            timeLimitSec - Math.floor((Date.now() - sessionStartedAtMsRef.current) / 1000),
+          ),
         )
       : null;
   const isNearDeadline =
