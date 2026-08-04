@@ -240,24 +240,6 @@ function Reveal({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 입력을 다 채웠다는 확인 동작(다음 버튼)을 눌러야 다음 입력칸이 나타난다.
-function NextButton({
-  enabled,
-  onPress,
-}: {
-  enabled: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={[styles.fieldNextButton, !enabled && styles.buttonDisabled]}
-      onPress={onPress}
-      disabled={!enabled}
-    >
-      <Text style={styles.buttonText}>다음</Text>
-    </Pressable>
-  );
-}
 
 export default function RegisterScreen() {
   const [stepIndex, setStepIndex] = useState(0);
@@ -427,6 +409,49 @@ export default function RegisterScreen() {
   const showGenericError =
     signupMutation.isError && !nicknameTaken && !emailTaken;
 
+  // 동의 스텝의 "다음"과 동일한 위치의 버튼 하나가 폼의 각 필드를 순서대로
+  // "다음"으로 확정시키다가, 모든 필드가 끝나면 "가입하기"로 바뀐다.
+  const bottomAction: { label: string; enabled: boolean; onPress: () => void } =
+    step === "consent"
+      ? { label: "다음", enabled: requiredConsentChecked, onPress: goToForm }
+      : !confirmedName
+        ? {
+            label: "다음",
+            enabled: nameValid,
+            onPress: () => setConfirmedName(true),
+          }
+        : !confirmedNickname
+          ? {
+              label: "다음",
+              enabled: nicknameValid,
+              onPress: () => setConfirmedNickname(true),
+            }
+          : !confirmedPhone
+            ? {
+                label: "다음",
+                enabled: phoneValid,
+                onPress: () => setConfirmedPhone(true),
+              }
+            : !confirmedEmail
+              ? {
+                  label: "다음",
+                  enabled: emailValid,
+                  onPress: () => setConfirmedEmail(true),
+                }
+              : !emailVerified
+                ? { label: "다음", enabled: false, onPress: () => {} }
+                : !confirmedPassword
+                  ? {
+                      label: "다음",
+                      enabled: passwordValid,
+                      onPress: () => setConfirmedPassword(true),
+                    }
+                  : {
+                      label: isBusy ? "가입 중…" : "가입하기",
+                      enabled: confirmValid && !isBusy,
+                      onPress: handleSubmit,
+                    };
+
   if (isSuccess) {
     return (
       <View style={styles.screen}>
@@ -554,12 +579,6 @@ export default function RegisterScreen() {
                             {NAME_RULE_MESSAGE}
                           </Text>
                         ) : null}
-                        {!confirmedName ? (
-                          <NextButton
-                            enabled={nameValid}
-                            onPress={() => setConfirmedName(true)}
-                          />
-                        ) : null}
                       </Reveal>
 
                       {showNickname ? (
@@ -581,12 +600,6 @@ export default function RegisterScreen() {
                             <Text style={styles.errorText}>
                               이미 사용 중인 닉네임입니다.
                             </Text>
-                          ) : null}
-                          {!confirmedNickname ? (
-                            <NextButton
-                              enabled={nicknameValid}
-                              onPress={() => setConfirmedNickname(true)}
-                            />
                           ) : null}
                         </Reveal>
                       ) : null}
@@ -610,12 +623,6 @@ export default function RegisterScreen() {
                             <Text style={styles.errorText}>
                               {PHONE_RULE_MESSAGE}
                             </Text>
-                          ) : null}
-                          {!confirmedPhone ? (
-                            <NextButton
-                              enabled={phoneValid}
-                              onPress={() => setConfirmedPhone(true)}
-                            />
                           ) : null}
                         </Reveal>
                       ) : null}
@@ -663,12 +670,6 @@ export default function RegisterScreen() {
                             <Text style={styles.errorText}>
                               올바른 이메일 형식이 아닙니다.
                             </Text>
-                          ) : null}
-                          {!confirmedEmail ? (
-                            <NextButton
-                              enabled={emailValid}
-                              onPress={() => setConfirmedEmail(true)}
-                            />
                           ) : null}
                         </Reveal>
                       ) : null}
@@ -763,12 +764,6 @@ export default function RegisterScreen() {
                           >
                             {PASSWORD_RULE_MESSAGE}
                           </Text>
-                          {!confirmedPassword ? (
-                            <NextButton
-                              enabled={passwordValid}
-                              onPress={() => setConfirmedPassword(true)}
-                            />
-                          ) : null}
                         </Reveal>
                       ) : null}
 
@@ -792,25 +787,11 @@ export default function RegisterScreen() {
                         </Reveal>
                       ) : null}
 
-                      {showSubmit ? (
+                      {showSubmit && showGenericError ? (
                         <Reveal>
-                          <Pressable
-                            style={[
-                              styles.button,
-                              isBusy && styles.buttonDisabled,
-                            ]}
-                            onPress={handleSubmit}
-                            disabled={isBusy}
-                          >
-                            <Text style={styles.buttonText}>
-                              {isBusy ? "가입 중…" : "가입하기"}
-                            </Text>
-                          </Pressable>
-                          {showGenericError ? (
-                            <Text style={styles.errorText}>
-                              {getApiErrorMessage(signupMutation.error)}
-                            </Text>
-                          ) : null}
+                          <Text style={styles.errorText}>
+                            {getApiErrorMessage(signupMutation.error)}
+                          </Text>
                         </Reveal>
                       ) : null}
                     </View>
@@ -819,18 +800,18 @@ export default function RegisterScreen() {
               )}
             </AnimatedStep>
 
-            {step === "consent" ? (
-              <Pressable
-                style={[
-                  styles.button,
-                  !requiredConsentChecked && styles.buttonDisabled,
-                ]}
-                onPress={goToForm}
-                disabled={!requiredConsentChecked}
-              >
-                <Text style={styles.buttonText}>다음</Text>
-              </Pressable>
-            ) : null}
+            {/* 동의 스텝의 "다음"과 같은 위치·스타일의 버튼 하나로 폼의 각 필드를
+                "다음"으로 확정해 나가다가, 마지막에는 "가입하기"로 바뀐다. */}
+            <Pressable
+              style={[
+                styles.button,
+                !bottomAction.enabled && styles.buttonDisabled,
+              ]}
+              onPress={bottomAction.onPress}
+              disabled={!bottomAction.enabled}
+            >
+              <Text style={styles.buttonText}>{bottomAction.label}</Text>
+            </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -1015,13 +996,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
     paddingVertical: 16,
     marginTop: 24,
-  },
-  fieldNextButton: {
-    alignItems: "center",
-    borderRadius: 16,
-    backgroundColor: "#6D5DFB",
-    paddingVertical: 14,
-    marginTop: 12,
   },
   buttonDisabled: {
     opacity: 0.5,
