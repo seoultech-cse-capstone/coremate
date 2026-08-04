@@ -88,6 +88,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-coremate}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      # Dockerfile 에도 같은 값이 들어 있다. 여기 한 번 더 적어 두는 건 mysql 과 짝을
+      # 맞춰, 스택의 타임존을 이 파일 한 곳에서 확인할 수 있게 하기 위해서다.
+      TZ: Asia/Seoul
       JWT_SECRET: ${JWT_SECRET:-coremate-local-dev-jwt-secret-change-me}
       SPRING_MAIL_HOST: smtp.gmail.com
       SPRING_MAIL_PORT: 587
