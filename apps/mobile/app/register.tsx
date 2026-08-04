@@ -552,6 +552,8 @@ export default function RegisterScreen() {
                         <TextInput
                           ref={primaryInputRef}
                           editable={isReady}
+                          autoComplete="name"
+                          textContentType="name"
                           placeholder="이름"
                           placeholderTextColor="#94a3b8"
                           style={styles.input}
@@ -571,6 +573,8 @@ export default function RegisterScreen() {
                           <TextInput
                             autoFocus
                             editable={isReady}
+                            autoComplete="nickname"
+                            textContentType="nickname"
                             placeholder="닉네임"
                             placeholderTextColor="#94a3b8"
                             style={styles.input}
@@ -594,6 +598,8 @@ export default function RegisterScreen() {
                           <TextInput
                             autoFocus
                             editable={isReady}
+                            autoComplete="tel"
+                            textContentType="telephoneNumber"
                             keyboardType="phone-pad"
                             maxLength={13}
                             placeholder="010-0000-0000"
@@ -618,7 +624,8 @@ export default function RegisterScreen() {
                             autoFocus
                             editable={isReady}
                             autoCapitalize="none"
-                            autoComplete="email"
+                            autoComplete="username"
+                            textContentType="username"
                             keyboardType="email-address"
                             placeholder="Email"
                             placeholderTextColor="#94a3b8"
@@ -737,6 +744,8 @@ export default function RegisterScreen() {
                           <TextInput
                             autoFocus
                             editable={isReady}
+                            autoComplete="new-password"
+                            textContentType="newPassword"
                             placeholder="Password"
                             placeholderTextColor="#94a3b8"
                             secureTextEntry
@@ -756,6 +765,8 @@ export default function RegisterScreen() {
 
                           <TextInput
                             editable={isReady}
+                            autoComplete="new-password"
+                            textContentType="newPassword"
                             placeholder="Confirm Password"
                             placeholderTextColor="#94a3b8"
                             secureTextEntry
