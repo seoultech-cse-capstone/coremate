@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,12 @@ import type { CompletedProblemSetSummary } from "../../src/features/logWeak/type
 import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
+import { getApiErrorMessage } from "../../src/shared/utils/apiError";
+import { useEligibleSolveSessions, weaknessApi } from "../../src/features/weakness";
+import type {
+  AnalysisScopeType,
+  EligibleSolveSession,
+} from "../../src/features/weakness";
 
 type LogWeakMode = "wrongNote" | "weakness";
 type DepthFilter = "subject" | "Chapter1" | "Chapter2" | "concept";
@@ -89,6 +96,59 @@ function toExamHistoryDisplayItem(
     scopePath,
     date: formatCompletedDate(summary.completedAt),
     wrong: `${summary.wrongCount}/${summary.totalQuestionCount}`,
+  };
+}
+
+type AnalysisScope = {
+  analysisScopeType: AnalysisScopeType;
+  subjectId: number;
+  categoryLv1Id: number | null;
+  categoryLv2Id: number | null;
+  conceptId: number | null;
+};
+
+// 선택한 회차들이 공유하는 가장 좁은 범위를 찾는다. 과목이 다르면(백엔드가
+// 어차피 WEAKNESS_MIXED_SUBJECT로 막지만) 여기서 먼저 걸러 안내한다.
+function deriveAnalysisScope(sessions: EligibleSolveSession[]): AnalysisScope | null {
+  const [first, ...rest] = sessions;
+  if (!first || first.subjectId === null) {
+    return null;
+  }
+  if (!rest.every((session) => session.subjectId === first.subjectId)) {
+    return null;
+  }
+
+  const categoryLv1Id = rest.every(
+    (session) => session.categoryLv1Id === first.categoryLv1Id,
+  )
+    ? first.categoryLv1Id
+    : null;
+  const categoryLv2Id =
+    categoryLv1Id !== null &&
+    rest.every((session) => session.categoryLv2Id === first.categoryLv2Id)
+      ? first.categoryLv2Id
+      : null;
+  const conceptId =
+    categoryLv2Id !== null &&
+    rest.every((session) => session.conceptId === first.conceptId)
+      ? first.conceptId
+      : null;
+
+  const analysisScopeType: AnalysisScopeType =
+    conceptId !== null
+      ? "CONCEPT"
+      : categoryLv2Id !== null
+        ? "CATEGORY_LV2"
+        : categoryLv1Id !== null
+          ? "CATEGORY_LV1"
+          : "SUBJECT";
+
+  return {
+    analysisScopeType,
+    subjectId: first.subjectId,
+    categoryLv1Id,
+    categoryLv2Id,
+    conceptId,
   };
 }
 
@@ -166,6 +226,8 @@ export default function LogWeakScreen() {
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
+  const [isCreatingReport, setIsCreatingReport] = useState(false);
+  const [createReportError, setCreateReportError] = useState<string | null>(null);
   const isWrongNote = mode === "wrongNote";
   const title = isWrongNote ? "Mistake Notes" : "Weakness Notes";
   const headerHeight = HEADER_HEIGHT + insets.top;
@@ -192,6 +254,21 @@ export default function LogWeakScreen() {
   const completedProblemSetsQuery = useCompletedProblemSets(accessToken, {
     subjectId: selectedSubjectId ?? undefined,
   });
+  // AI 분석용 문제집 선택 중에는 모의고사만 대상으로 하는 별도 후보 목록을 쓴다
+  // (오답노트 목록은 개념 문제집까지 섞여 있어 분석 대상으로 그대로 쓸 수 없음).
+  const eligibleSessionsQuery = useEligibleSolveSessions(
+    accessToken,
+    {
+      subjectId: selectedSubjectId ?? undefined,
+      categoryLv1Id: selectedChapter1Id ?? undefined,
+      categoryLv2Id: selectedChapter2Id ?? undefined,
+    },
+    isSelecting,
+  );
+  const eligibleSessions = useMemo(
+    () => eligibleSessionsQuery.data ?? [],
+    [eligibleSessionsQuery.data],
+  );
   const subjectScopedSets = useMemo(
     () => completedProblemSetsQuery.data ?? [],
     [completedProblemSetsQuery.data],
@@ -403,22 +480,58 @@ export default function LogWeakScreen() {
     });
   };
 
-  const handleAiButtonPress = () => {
+  const handleAiButtonPress = async () => {
     if (!isSelecting) {
       setIsSelecting(true);
+      setCreateReportError(null);
       return;
     }
 
-    if (selectedExamIds.length === 0) {
+    if (selectedExamIds.length === 0 || isCreatingReport || !accessToken) {
       return;
     }
 
-    updateMode("weakness");
+    const selectedSessions = eligibleSessions.filter((session) =>
+      selectedExamIds.includes(session.solveSessionId),
+    );
+    const scope = deriveAnalysisScope(selectedSessions);
+    if (!scope) {
+      setCreateReportError("같은 과목의 모의고사만 함께 분석할 수 있어요.");
+      return;
+    }
+
+    setCreateReportError(null);
+    setIsCreatingReport(true);
+    try {
+      const report = await weaknessApi.createReport(
+        {
+          solveSessionIds: selectedExamIds,
+          analysisScopeType: scope.analysisScopeType,
+          subjectId: scope.subjectId,
+          categoryLv1Id: scope.categoryLv1Id ?? undefined,
+          categoryLv2Id: scope.categoryLv2Id ?? undefined,
+          conceptId: scope.conceptId ?? undefined,
+          useCoin: true,
+        },
+        accessToken,
+      );
+      setIsSelecting(false);
+      setSelectedExamIds([]);
+      router.push({
+        pathname: "/weakness-report",
+        params: { reportId: report.analysisReportId.toString() },
+      });
+    } catch (error) {
+      setCreateReportError(getApiErrorMessage(error, "분석표 생성에 실패했어요."));
+    } finally {
+      setIsCreatingReport(false);
+    }
   };
 
   const cancelSelection = () => {
     setIsSelecting(false);
     setSelectedExamIds([]);
+    setCreateReportError(null);
   };
 
   useEffect(() => {
@@ -589,18 +702,36 @@ export default function LogWeakScreen() {
 
           <View style={styles.divider} />
 
+          {isWrongNote && isSelecting && eligibleSessionsQuery.isLoading ? (
+            <ActivityIndicator
+              color={activePurple}
+              size="large"
+              style={styles.eligibleLoading}
+            />
+          ) : null}
+
           <View style={[styles.cardList, isSelecting && styles.activeCardList]}>
             {isWrongNote
-              ? examHistoryItems.map((item) => (
-                  <ExamHistoryCard
-                    accentColor={activePurple}
-                    isSelecting={isSelecting}
-                    isSelected={selectedExamIds.includes(item.solveSessionId)}
-                    item={item}
-                    key={item.solveSessionId}
-                    onPress={() => openExamReview(item)}
-                  />
-                ))
+              ? isSelecting
+                ? eligibleSessions.map((session) => (
+                    <EligibleSessionCard
+                      accentColor={activePurple}
+                      isSelected={selectedExamIds.includes(session.solveSessionId)}
+                      item={session}
+                      key={session.solveSessionId}
+                      onPress={() => toggleSelectedExam(session.solveSessionId)}
+                    />
+                  ))
+                : examHistoryItems.map((item) => (
+                    <ExamHistoryCard
+                      accentColor={activePurple}
+                      isSelecting={isSelecting}
+                      isSelected={selectedExamIds.includes(item.solveSessionId)}
+                      item={item}
+                      key={item.solveSessionId}
+                      onPress={() => openExamReview(item)}
+                    />
+                  ))
               : filteredWeaknessReports.map((item) => (
                   <WeaknessReportCard
                     item={item}
@@ -617,28 +748,36 @@ export default function LogWeakScreen() {
         </View>
       </ScrollView>
 
+      {isWrongNote && createReportError ? (
+        <Text style={styles.createReportErrorText}>{createReportError}</Text>
+      ) : null}
+
       {isWrongNote && (
         <View style={styles.aiButtonWrap}>
           <Pressable
+            disabled={isCreatingReport}
             style={[
               styles.aiButton,
               isSelecting &&
                 selectedExamIds.length > 0 && {
                   backgroundColor: activePurple,
                 },
+              isCreatingReport && styles.aiButtonBusy,
             ]}
             onPress={handleAiButtonPress}
           >
             <Text style={styles.aiButtonText}>
-              {isSelecting
-                ? selectedExamIds.length > 0
-                  ? `AI 약점 분석표 만들기\n(선택한 문제집:${selectedExamIds.length})`
-                  : "AI 분석할 문제집을 선택해주세요"
-                : "AI 분석용 문제집 선택하기"}
+              {isCreatingReport
+                ? "분석표 생성 중… (시간이 걸릴 수 있어요)"
+                : isSelecting
+                  ? selectedExamIds.length > 0
+                    ? `AI 약점 분석표 만들기\n(선택한 문제집:${selectedExamIds.length})`
+                    : "AI 분석할 문제집을 선택해주세요"
+                  : "AI 분석용 문제집 선택하기"}
             </Text>
           </Pressable>
 
-          {isSelecting && (
+          {isSelecting && !isCreatingReport && (
             <Pressable
               accessibilityLabel="선택 취소"
               accessibilityRole="button"
@@ -755,6 +894,72 @@ function ExamHistoryCard({
           <Text style={styles.scopePathText}>{item.scopePath.join("  >  ")}</Text>
         </View>
       </View>
+    </Pressable>
+  );
+}
+
+// AI 분석용 문제집 선택 화면 전용 카드. eligible-solve-sessions는 모의고사만
+// 후보로 내려주며, 회차별로 선택 가능 여부(eligible)와 안내 문구를 함께 준다.
+function EligibleSessionCard({
+  accentColor,
+  isSelected,
+  item,
+  onPress,
+}: {
+  accentColor: string;
+  isSelected: boolean;
+  item: EligibleSolveSession;
+  onPress: () => void;
+}) {
+  const scopePath = [item.subjectName, item.categoryLv1Name, item.categoryLv2Name].filter(
+    (name): name is string => Boolean(name),
+  );
+
+  return (
+    <Pressable
+      disabled={!item.eligible}
+      style={[
+        styles.card,
+        isSelected && { borderColor: accentColor },
+        !item.eligible && styles.ineligibleCard,
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.cardHeader}>
+        <View style={styles.cardTitleRow}>
+          <Text style={styles.subjectBadge}>{item.subjectName ?? ""}</Text>
+          <Text style={styles.dot}>·</Text>
+          <Text style={styles.categoryText}>{item.title}</Text>
+        </View>
+
+        <View
+          style={[
+            styles.selectCircle,
+            isSelected && { backgroundColor: accentColor },
+          ]}
+        >
+          {isSelected && <Check color="#ffffff" size={15} strokeWidth={3} />}
+        </View>
+      </View>
+
+      <View style={styles.dateRow}>
+        <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
+        <Text style={styles.dateText}>{formatCompletedDate(item.completedAt)}</Text>
+      </View>
+
+      <View style={styles.resultRow}>
+        <View>
+          <Text style={styles.wrongLabel}>Wrong</Text>
+          <Text style={styles.wrongValue}>
+            {item.wrongCount}/{item.totalQuestionCount}
+          </Text>
+          <Text style={styles.scopePathText}>{scopePath.join("  >  ")}</Text>
+        </View>
+      </View>
+
+      {!item.eligible && item.warningMessage ? (
+        <Text style={styles.ineligibleWarningText}>{item.warningMessage}</Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -1089,6 +1294,16 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 8,
   },
+  ineligibleCard: {
+    opacity: 0.5,
+  },
+  ineligibleWarningText: {
+    marginTop: 10,
+    color: "#dc2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   selectCircle: {
     alignItems: "center",
     justifyContent: "center",
@@ -1119,6 +1334,28 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#8493A0",
     paddingHorizontal: 18,
+  },
+  aiButtonBusy: {
+    opacity: 0.7,
+  },
+  createReportErrorText: {
+    position: "absolute",
+    left: 50,
+    right: 50,
+    bottom: 70,
+    zIndex: 20,
+    color: "#ffffff",
+    backgroundColor: "rgba(220, 38, 38, 0.92)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  eligibleLoading: {
+    marginTop: 24,
   },
   aiButtonText: {
     color: "#ffffff",
