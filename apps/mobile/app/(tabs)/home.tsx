@@ -133,22 +133,16 @@ export default function HomeScreen() {
               ) : null}
             </View>
           </Pressable>
-          <Pressable
-            accessibilityLabel="오늘의 퀴즈 다시보기"
-            accessibilityRole="button"
-            disabled={!dailyQuizSolved}
-            onPress={() => goToMemberFeature("/daily-quiz-review")}
-            style={[
-              styles.dailyQuizReviewButton,
-              !dailyQuizSolved && styles.dailyQuizReviewButtonDisabled,
-            ]}
-          >
-            <ListChecks
-              color={dailyQuizSolved ? "#475569" : "#cbd5e1"}
-              size={22}
-              strokeWidth={2.1}
-            />
-          </Pressable>
+          {dailyQuizSolved ? (
+            <Pressable
+              accessibilityLabel="오늘의 퀴즈 다시보기"
+              accessibilityRole="button"
+              onPress={() => goToMemberFeature("/daily-quiz-review")}
+              style={styles.dailyQuizReviewButton}
+            >
+              <ListChecks color="#475569" size={22} strokeWidth={2.1} />
+            </Pressable>
+          ) : null}
           </View>
 
           <View style={styles.secondaryRow}>
@@ -245,9 +239,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 18,
     backgroundColor: "#FFFFFF",
-  },
-  dailyQuizReviewButtonDisabled: {
-    backgroundColor: "#F1F5F9",
   },
   primaryButtonText: {
     color: "#ffffff",
