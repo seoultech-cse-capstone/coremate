@@ -240,16 +240,39 @@ function Reveal({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 입력을 다 채웠다는 확인 동작(다음 버튼)을 눌러야 다음 입력칸이 나타난다.
+function NextButton({
+  enabled,
+  onPress,
+}: {
+  enabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[styles.fieldNextButton, !enabled && styles.buttonDisabled]}
+      onPress={onPress}
+      disabled={!enabled}
+    >
+      <Text style={styles.buttonText}>다음</Text>
+    </Pressable>
+  );
+}
+
 export default function RegisterScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
   const [name, setName] = useState("");
+  const [confirmedName, setConfirmedName] = useState(false);
   const [nickname, setNickname] = useState("");
   const [nicknameTaken, setNicknameTaken] = useState(false);
+  const [confirmedNickname, setConfirmedNickname] = useState(false);
   const [phone, setPhone] = useState("");
+  const [confirmedPhone, setConfirmedPhone] = useState(false);
   const [email, setEmail] = useState("");
   const [emailTaken, setEmailTaken] = useState(false);
+  const [confirmedEmail, setConfirmedEmail] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [codeInvalid, setCodeInvalid] = useState(false);
@@ -257,6 +280,7 @@ export default function RegisterScreen() {
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [password, setPassword] = useState("");
+  const [confirmedPassword, setConfirmedPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const signupMutation = useSignupMutation();
@@ -280,13 +304,14 @@ export default function RegisterScreen() {
     confirmPassword.length > 0 && password !== confirmPassword;
   const confirmValid = confirmPassword.length > 0 && !passwordsMismatch;
 
-  // 앞 항목이 유효해야 다음 입력칸이 위에서 아래로 순서대로 나타난다.
-  const showNickname = nameValid;
-  const showPhone = showNickname && nicknameValid;
-  const showEmail = showPhone && phoneValid;
-  const showEmailVerify = showEmail && emailValid;
-  const showPassword = showEmailVerify && emailVerified;
-  const showConfirmPassword = showPassword && passwordValid;
+  // 각 입력칸을 다 채운 뒤 "다음"을 눌러야 다음 입력칸이 위에서 아래로 나타난다.
+  // (이메일 인증은 "확인" 버튼이, 가입하기는 그 자체가 마지막 확인 동작이라 별도 다음 버튼이 없다.)
+  const showNickname = confirmedName;
+  const showPhone = confirmedNickname;
+  const showEmail = confirmedPhone;
+  const showEmailVerify = confirmedEmail;
+  const showPassword = emailVerified;
+  const showConfirmPassword = confirmedPassword;
   const showSubmit = showConfirmPassword && confirmValid;
 
   const allConsentChecked = CONSENT_ITEMS.every((item) =>
@@ -529,6 +554,12 @@ export default function RegisterScreen() {
                             {NAME_RULE_MESSAGE}
                           </Text>
                         ) : null}
+                        {!confirmedName ? (
+                          <NextButton
+                            enabled={nameValid}
+                            onPress={() => setConfirmedName(true)}
+                          />
+                        ) : null}
                       </Reveal>
 
                       {showNickname ? (
@@ -550,6 +581,12 @@ export default function RegisterScreen() {
                             <Text style={styles.errorText}>
                               이미 사용 중인 닉네임입니다.
                             </Text>
+                          ) : null}
+                          {!confirmedNickname ? (
+                            <NextButton
+                              enabled={nicknameValid}
+                              onPress={() => setConfirmedNickname(true)}
+                            />
                           ) : null}
                         </Reveal>
                       ) : null}
@@ -573,6 +610,12 @@ export default function RegisterScreen() {
                             <Text style={styles.errorText}>
                               {PHONE_RULE_MESSAGE}
                             </Text>
+                          ) : null}
+                          {!confirmedPhone ? (
+                            <NextButton
+                              enabled={phoneValid}
+                              onPress={() => setConfirmedPhone(true)}
+                            />
                           ) : null}
                         </Reveal>
                       ) : null}
@@ -620,6 +663,12 @@ export default function RegisterScreen() {
                             <Text style={styles.errorText}>
                               올바른 이메일 형식이 아닙니다.
                             </Text>
+                          ) : null}
+                          {!confirmedEmail ? (
+                            <NextButton
+                              enabled={emailValid}
+                              onPress={() => setConfirmedEmail(true)}
+                            />
                           ) : null}
                         </Reveal>
                       ) : null}
@@ -714,6 +763,12 @@ export default function RegisterScreen() {
                           >
                             {PASSWORD_RULE_MESSAGE}
                           </Text>
+                          {!confirmedPassword ? (
+                            <NextButton
+                              enabled={passwordValid}
+                              onPress={() => setConfirmedPassword(true)}
+                            />
+                          ) : null}
                         </Reveal>
                       ) : null}
 
@@ -960,6 +1015,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#6D5DFB",
     paddingVertical: 16,
     marginTop: 24,
+  },
+  fieldNextButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    backgroundColor: "#6D5DFB",
+    paddingVertical: 14,
+    marginTop: 12,
   },
   buttonDisabled: {
     opacity: 0.5,
