@@ -90,8 +90,8 @@ const STEPS = [
   "nickname",
   "phone",
   "email",
+  "email-verify",
   "password",
-  "school",
 ] as const;
 type Step = (typeof STEPS)[number];
 
@@ -125,11 +125,11 @@ const CONSENT_ITEMS: ConsentItem[] = [
 
 const HEADINGS: Record<Step, string> = {
   consent: "서비스 이용을 위한\n동의 안내",
-  nickname: "반가워요.\n이름을 알려주세요.",
+  nickname: "반가워요.\n이름과 닉네임을\n알려주세요.",
   phone: "휴대폰 번호를\n입력해주세요.",
   email: "이메일을\n입력해주세요.",
+  "email-verify": "이메일로 받은\n인증번호를 입력해주세요.",
   password: "비밀번호를\n입력해주세요.",
-  school: "학교를\n입력해주세요.",
 };
 
 type AnimatedStepProps = {
@@ -217,12 +217,17 @@ export default function RegisterScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
+  const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [codeInvalid, setCodeInvalid] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [school, setSchool] = useState("");
 
   const signupMutation = useSignupMutation();
 
@@ -235,6 +240,8 @@ export default function RegisterScreen() {
   const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
   const passwordsMismatch =
     confirmPassword.length > 0 && password !== confirmPassword;
+  // 인증 완료 후 이메일을 다시 바꾸면 자동으로 재인증이 필요해지도록 이메일과 함께 비교한다.
+  const emailVerified = isEmailVerified && verifiedEmail === email.trim();
   const allConsentChecked = CONSENT_ITEMS.every((item) =>
     checkedConsentIds.includes(item.id),
   );
@@ -259,21 +266,41 @@ export default function RegisterScreen() {
       case "consent":
         return requiredConsentChecked;
       case "nickname":
-        return nickname.trim().length > 0;
+        return name.trim().length > 0 && nickname.trim().length > 0;
       case "phone":
         return phone.trim().length > 0 && !phoneInvalid;
       case "email":
         return email.trim().length > 0 && !emailInvalid;
+      case "email-verify":
+        return emailVerified;
       case "password":
         return (
           password.length > 0 &&
           !passwordInvalid &&
           confirmPassword.length > 0 &&
-          !passwordsMismatch
+          !passwordsMismatch &&
+          !signupMutation.isPending
         );
-      case "school":
-        return !signupMutation.isPending;
     }
+  };
+
+  // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 발송 API 호출로 교체.
+  const handleSendCode = () => {
+    setIsCodeSent(true);
+    setCodeInvalid(false);
+    setVerificationCode("");
+  };
+
+  // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 검증 API 호출로 교체.
+  // 그 전까지는 UI 흐름 확인용으로 6자리 숫자면 통과시킨다.
+  const handleVerifyCode = () => {
+    if (verificationCode.trim().length !== 6) {
+      setCodeInvalid(true);
+      return;
+    }
+    setCodeInvalid(false);
+    setIsEmailVerified(true);
+    setVerifiedEmail(email.trim());
   };
 
   const goBack = () => {
@@ -304,17 +331,17 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (step !== "school") {
+    if (step !== "password") {
       setStepIndex((i) => i + 1);
       return;
     }
 
-    // school은 백엔드 회원가입 API가 아직 받지 않아 전송하지 않는다.
     signupMutation.mutate(
       {
         email: email.trim(),
         password,
         nickname: nickname.trim(),
+        name: name.trim(),
         phoneNumber: phone,
       },
       {
@@ -325,7 +352,7 @@ export default function RegisterScreen() {
     );
   };
 
-  const isLastStep = step === "school";
+  const isLastStep = step === "password";
   const isBusy = signupMutation.isPending;
 
   if (isSuccess) {
@@ -438,16 +465,27 @@ export default function RegisterScreen() {
               )}
 
               {step === "nickname" && (
-                <TextInput
-                  ref={primaryInputRef}
-                  editable={isReady}
-                  placeholder="이름"
-                  placeholderTextColor="#94a3b8"
-                  style={styles.input}
-                  value={nickname}
-                  onChangeText={setNickname}
-                  maxLength={NICKNAME_MAX_LENGTH}
-                />
+                <>
+                  <TextInput
+                    ref={primaryInputRef}
+                    editable={isReady}
+                    placeholder="이름"
+                    placeholderTextColor="#94a3b8"
+                    style={styles.input}
+                    value={name}
+                    onChangeText={setName}
+                    maxLength={NICKNAME_MAX_LENGTH}
+                  />
+                  <TextInput
+                    editable={isReady}
+                    placeholder="닉네임"
+                    placeholderTextColor="#94a3b8"
+                    style={[styles.input, styles.inputSpacing]}
+                    value={nickname}
+                    onChangeText={setNickname}
+                    maxLength={NICKNAME_MAX_LENGTH}
+                  />
+                </>
               )}
 
               {step === "phone" && (
@@ -511,6 +549,60 @@ export default function RegisterScreen() {
                 </>
               )}
 
+              {step === "email-verify" && (
+                <>
+                  {!isCodeSent ? (
+                    <Pressable
+                      style={styles.sendCodeButton}
+                      onPress={handleSendCode}
+                    >
+                      <Text style={styles.sendCodeButtonText}>
+                        인증번호 받기
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <>
+                      <TextInput
+                        ref={primaryInputRef}
+                        editable={isReady}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        placeholder="인증번호 6자리"
+                        placeholderTextColor="#94a3b8"
+                        style={styles.input}
+                        value={verificationCode}
+                        onChangeText={(text) => {
+                          setVerificationCode(text.replace(/\D/g, "").slice(0, 6));
+                          setCodeInvalid(false);
+                        }}
+                      />
+                      {codeInvalid ? (
+                        <Text style={styles.errorText}>
+                          인증번호가 올바르지 않습니다.
+                        </Text>
+                      ) : emailVerified ? (
+                        <Text style={styles.verifiedText}>
+                          이메일 인증이 완료되었습니다.
+                        </Text>
+                      ) : null}
+                      <View style={styles.verifyActionRow}>
+                        <Pressable onPress={handleSendCode}>
+                          <Text style={styles.resendText}>인증번호 재전송</Text>
+                        </Pressable>
+                        <Pressable
+                          style={styles.verifyConfirmButton}
+                          onPress={handleVerifyCode}
+                        >
+                          <Text style={styles.verifyConfirmButtonText}>
+                            확인
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+
               {step === "password" && (
                 <>
                   <TextInput
@@ -523,11 +615,13 @@ export default function RegisterScreen() {
                     value={password}
                     onChangeText={setPassword}
                   />
-                  {passwordInvalid ? (
-                    <Text style={styles.errorText}>
-                      {PASSWORD_RULE_MESSAGE}
-                    </Text>
-                  ) : null}
+                  <Text
+                    style={
+                      passwordInvalid ? styles.errorText : styles.consentCaption
+                    }
+                  >
+                    {PASSWORD_RULE_MESSAGE}
+                  </Text>
 
                   <TextInput
                     editable={isReady}
@@ -544,18 +638,6 @@ export default function RegisterScreen() {
                     </Text>
                   ) : null}
                 </>
-              )}
-
-              {step === "school" && (
-                <TextInput
-                  ref={primaryInputRef}
-                  editable={isReady}
-                  placeholder="학교명 (선택)"
-                  placeholderTextColor="#94a3b8"
-                  style={styles.input}
-                  value={school}
-                  onChangeText={setSchool}
-                />
               )}
 
               {isLastStep && signupMutation.isError ? (
@@ -667,6 +749,49 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 13,
     lineHeight: 18,
+  },
+  verifiedText: {
+    color: "#16a34a",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  sendCodeButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#6D5DFB",
+    paddingVertical: 14,
+  },
+  sendCodeButtonText: {
+    color: "#6D5DFB",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  verifyActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  resendText: {
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  verifyConfirmButton: {
+    borderRadius: 12,
+    backgroundColor: "#6D5DFB",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  verifyConfirmButtonText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "800",
   },
   consentAllRow: {
     flexDirection: "row",
