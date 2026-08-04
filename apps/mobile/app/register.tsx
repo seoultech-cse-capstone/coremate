@@ -254,7 +254,6 @@ export default function RegisterScreen() {
   const [confirmedPhone, setConfirmedPhone] = useState(false);
   const [email, setEmail] = useState("");
   const [emailTaken, setEmailTaken] = useState(false);
-  const [confirmedEmail, setConfirmedEmail] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [codeInvalid, setCodeInvalid] = useState(false);
@@ -262,7 +261,6 @@ export default function RegisterScreen() {
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [password, setPassword] = useState("");
-  const [confirmedPassword, setConfirmedPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const signupMutation = useSignupMutation();
@@ -287,14 +285,13 @@ export default function RegisterScreen() {
   const confirmValid = confirmPassword.length > 0 && !passwordsMismatch;
 
   // 각 입력칸을 다 채운 뒤 "다음"을 눌러야 다음 입력칸이 위에서 아래로 나타난다.
+  // 이메일+인증, 비밀번호+비밀번호 확인은 각각 한 그룹으로 같이 나타난다.
   // (이메일 인증은 "확인" 버튼이, 가입하기는 그 자체가 마지막 확인 동작이라 별도 다음 버튼이 없다.)
   const showNickname = confirmedName;
   const showPhone = confirmedNickname;
-  const showEmail = confirmedPhone;
-  const showEmailVerify = confirmedEmail;
-  const showPassword = emailVerified;
-  const showConfirmPassword = confirmedPassword;
-  const showSubmit = showConfirmPassword && confirmValid;
+  const showEmailGroup = confirmedPhone;
+  const showPasswordGroup = emailVerified;
+  const showSubmit = showPasswordGroup && passwordValid && confirmValid;
 
   const allConsentChecked = CONSENT_ITEMS.every((item) =>
     checkedConsentIds.includes(item.id),
@@ -317,7 +314,7 @@ export default function RegisterScreen() {
 
   // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 발송 API 호출로 교체.
   const handleSendCode = () => {
-    if (resendCooldown > 0) {
+    if (!emailValid || resendCooldown > 0) {
       return;
     }
     setIsCodeSent(true);
@@ -432,25 +429,13 @@ export default function RegisterScreen() {
                 enabled: phoneValid,
                 onPress: () => setConfirmedPhone(true),
               }
-            : !confirmedEmail
-              ? {
-                  label: "다음",
-                  enabled: emailValid,
-                  onPress: () => setConfirmedEmail(true),
-                }
-              : !emailVerified
-                ? { label: "다음", enabled: false, onPress: () => {} }
-                : !confirmedPassword
-                  ? {
-                      label: "다음",
-                      enabled: passwordValid,
-                      onPress: () => setConfirmedPassword(true),
-                    }
-                  : {
-                      label: isBusy ? "가입 중…" : "가입하기",
-                      enabled: confirmValid && !isBusy,
-                      onPress: handleSubmit,
-                    };
+            : !emailVerified
+              ? { label: "다음", enabled: false, onPress: () => {} }
+              : {
+                  label: isBusy ? "가입 중…" : "가입하기",
+                  enabled: passwordValid && confirmValid && !isBusy,
+                  onPress: handleSubmit,
+                };
 
   if (isSuccess) {
     return (
@@ -627,7 +612,7 @@ export default function RegisterScreen() {
                         </Reveal>
                       ) : null}
 
-                      {showEmail ? (
+                      {showEmailGroup ? (
                         <Reveal>
                           <TextInput
                             autoFocus
@@ -674,7 +659,7 @@ export default function RegisterScreen() {
                         </Reveal>
                       ) : null}
 
-                      {showEmailVerify ? (
+                      {showEmailGroup ? (
                         <Reveal>
                           {emailVerified ? (
                             <Text style={styles.verifiedText}>
@@ -682,8 +667,12 @@ export default function RegisterScreen() {
                             </Text>
                           ) : !isCodeSent ? (
                             <Pressable
-                              style={styles.sendCodeButton}
+                              style={[
+                                styles.sendCodeButton,
+                                !emailValid && styles.buttonDisabled,
+                              ]}
                               onPress={handleSendCode}
+                              disabled={!emailValid}
                             >
                               <Text style={styles.sendCodeButtonText}>
                                 인증번호 받기
@@ -743,7 +732,7 @@ export default function RegisterScreen() {
                         </Reveal>
                       ) : null}
 
-                      {showPassword ? (
+                      {showPasswordGroup ? (
                         <Reveal>
                           <TextInput
                             autoFocus
@@ -764,18 +753,13 @@ export default function RegisterScreen() {
                           >
                             {PASSWORD_RULE_MESSAGE}
                           </Text>
-                        </Reveal>
-                      ) : null}
 
-                      {showConfirmPassword ? (
-                        <Reveal>
                           <TextInput
-                            autoFocus
                             editable={isReady}
                             placeholder="Confirm Password"
                             placeholderTextColor="#94a3b8"
                             secureTextEntry
-                            style={styles.input}
+                            style={[styles.input, styles.revealItem]}
                             value={confirmPassword}
                             onChangeText={setConfirmPassword}
                           />
