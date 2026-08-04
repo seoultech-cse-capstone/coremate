@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { useSignupMutation } from "../src/features/auth";
-import { getApiErrorMessage } from "../src/shared/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
 
 const NICKNAME_MAX_LENGTH = 50;
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -219,6 +219,7 @@ export default function RegisterScreen() {
   const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
+  const [nicknameTaken, setNicknameTaken] = useState(false);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -347,6 +348,12 @@ export default function RegisterScreen() {
       {
         onSuccess: () => {
           setIsSuccess(true);
+        },
+        onError: (error) => {
+          if (getApiErrorCode(error) === "DUPLICATE_NICKNAME") {
+            setNicknameTaken(true);
+            setStepIndex(STEPS.indexOf("nickname"));
+          }
         },
       },
     );
@@ -482,9 +489,17 @@ export default function RegisterScreen() {
                     placeholderTextColor="#94a3b8"
                     style={[styles.input, styles.inputSpacing]}
                     value={nickname}
-                    onChangeText={setNickname}
+                    onChangeText={(text) => {
+                      setNickname(text);
+                      setNicknameTaken(false);
+                    }}
                     maxLength={NICKNAME_MAX_LENGTH}
                   />
+                  {nicknameTaken ? (
+                    <Text style={styles.errorText}>
+                      이미 사용 중인 닉네임입니다.
+                    </Text>
+                  ) : null}
                 </>
               )}
 
