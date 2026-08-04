@@ -10,7 +10,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
-import type { SolveSessionType } from "./SolveQuestionScreen";
+import type { SolveSessionType } from "../types";
 
 type SolveResultScreenProps = {
   correctCount: number;
