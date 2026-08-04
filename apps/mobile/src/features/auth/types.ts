@@ -4,6 +4,11 @@
 export type LoginRequest = {
   email: string;
   password: string;
+  // 기기 정보는 useLoginMutation이 채워 넣는다. 화면은 email/password만 넘기면 된다.
+  deviceId?: string;
+  deviceName?: string;
+  platform?: string;
+  osVersion?: string | null;
 };
 
 export type SignupRequest = {
@@ -24,6 +29,8 @@ export type LoginResponse = {
   expiresInSec: number;
   userId: number;
   nickname: string;
+  /** 서버가 확정한 기기 식별자. 이 값을 저장해 다음 로그인에 그대로 보낸다. */
+  deviceId: string;
 };
 
 /** POST /api/auth/signup 응답 */

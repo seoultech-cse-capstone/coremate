@@ -1,6 +1,7 @@
 export { AuthProvider, useAuth } from "./AuthContext";
 export { useRequireMember } from "./useRequireMember";
 export { LoginRequiredGuide } from "./components/LoginRequiredGuide";
+export { SessionRevokedModal } from "./components/SessionRevokedModal";
 export { useLoginMutation, useSignupMutation, useLogoutMutation } from "./useAuthMutations";
 export { authApi } from "./authApi";
 export { tokenStorage } from "./tokenStorage";
