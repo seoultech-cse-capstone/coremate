@@ -157,6 +157,10 @@ export function ConceptSolveScreen({
   const sessionStartedAtMsRef = useRef<number>(0);
   const hintCacheRef = useRef<Map<number, string | null>>(new Map());
   const hasShownNearDeadlineToastRef = useRef(false);
+  // 시간 초과 화면에서 "다시 시작"을 누르면 이 값을 올려서, target이 그대로여도
+  // 세션 시작 effect가 다시 실행되게 만든다(같은 target이면 targetKey만으로는
+  // effect가 재실행되지 않는다).
+  const [restartToken, setRestartToken] = useState(0);
   // 문제별 풀이 시간 계산용. "이전"으로 갔다가 같은 문제로 다시 돌아와도
   // 각 방문 시간이 모두 합산되도록, 문제 인덱스별 누적 시간(과거 방문분)과
   // 지금 보고 있는 방문이 시작된 시각을 따로 추적한다.
@@ -248,7 +252,14 @@ export function ConceptSolveScreen({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetKey(target)]);
+  }, [targetKey(target), restartToken]);
+
+  // 시간 초과 화면에서 바로 새 회차를 시작한다. 모의고사 시작 API는 항상 기존
+  // 진행 중 회차를 먼저 중단시키고 새로 만들기 때문에, 만료된 이전 회차가 남아
+  // 있어도 새로 시작하는 데는 문제가 없다.
+  const handleRestart = () => {
+    setRestartToken((token) => token + 1);
+  };
 
   // 게스트는 북마크 기능이 없다. 회원이면 이 세션의 문제들 중 이미
   // 북마크된 것이 있는지 한 번에 조회해둔다(문제별 개별 조회 API가 없음).
@@ -325,11 +336,13 @@ export function ConceptSolveScreen({
       <View style={styles.stateScreen}>
         <Text style={styles.stateText}>
           제한 시간이 지나 이번 회차가 자동으로 종료됐어요.{"\n"}
-          지금까지 푼 답변은 기록되지만, 이번 회차는 완료 처리되지 않아요.{"\n"}
-          새로 시작해주세요.
+          지금까지 푼 답변은 기록되지만, 이번 회차는 완료 처리되지 않아요.
         </Text>
-        <Pressable style={styles.stateBackButton} onPress={onBack}>
-          <Text style={styles.stateBackButtonText}>돌아가기</Text>
+        <Pressable style={styles.stateBackButton} onPress={handleRestart}>
+          <Text style={styles.stateBackButtonText}>새로 시작하기</Text>
+        </Pressable>
+        <Pressable style={styles.stateSecondaryButton} onPress={onBack}>
+          <Text style={styles.stateSecondaryButtonText}>돌아가기</Text>
         </Pressable>
       </View>
     );
@@ -776,6 +789,18 @@ const styles = StyleSheet.create({
   },
   stateBackButtonText: {
     color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  stateSecondaryButton: {
+    marginTop: 4,
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  stateSecondaryButtonText: {
+    color: "#64748b",
     fontFamily: FONT.pretendard,
     fontSize: 14,
     fontWeight: "700",
