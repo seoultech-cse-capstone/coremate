@@ -8,9 +8,11 @@ export {
 export type {
   AnalysisReportStatus,
   AnalysisScopeType,
+  ConceptLearning,
   CreateWeaknessAnalysisReportRequest,
   EligibleSolveSession,
   WeaknessAnalysisReportDetail,
   WeaknessAnalysisReportSummary,
   WeaknessConcept,
+  WeaknessEvidenceLog,
 } from "./types";

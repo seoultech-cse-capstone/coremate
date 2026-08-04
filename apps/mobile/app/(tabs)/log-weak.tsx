@@ -28,7 +28,6 @@ import type { CompletedProblemSetSummary } from "../../src/features/logWeak/type
 import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
-import { getApiErrorMessage } from "../../src/shared/utils/apiError";
 import {
   useEligibleSolveSessions,
   useWeaknessReports,
@@ -182,7 +181,6 @@ export default function LogWeakScreen() {
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
-  const [isCreatingReport, setIsCreatingReport] = useState(false);
   const [createReportError, setCreateReportError] = useState<string | null>(null);
   const [deletingReportId, setDeletingReportId] = useState<number | null>(null);
   const queryClient = useQueryClient();
@@ -441,14 +439,14 @@ export default function LogWeakScreen() {
     });
   };
 
-  const handleAiButtonPress = async () => {
+  const handleAiButtonPress = () => {
     if (!isSelecting) {
       setIsSelecting(true);
       setCreateReportError(null);
       return;
     }
 
-    if (selectedExamIds.length === 0 || isCreatingReport || !accessToken) {
+    if (selectedExamIds.length === 0) {
       return;
     }
 
@@ -462,31 +460,32 @@ export default function LogWeakScreen() {
     }
 
     setCreateReportError(null);
-    setIsCreatingReport(true);
-    try {
-      const report = await weaknessApi.createReport(
-        {
-          solveSessionIds: selectedExamIds,
-          analysisScopeType: scope.analysisScopeType,
-          subjectId: scope.subjectId,
-          categoryLv1Id: scope.categoryLv1Id ?? undefined,
-          categoryLv2Id: scope.categoryLv2Id ?? undefined,
-          conceptId: scope.conceptId ?? undefined,
-          useCoin: true,
-        },
-        accessToken,
-      );
-      setIsSelecting(false);
-      setSelectedExamIds([]);
-      router.push({
-        pathname: "/weakness-report",
-        params: { reportId: report.analysisReportId.toString() },
-      });
-    } catch (error) {
-      setCreateReportError(getApiErrorMessage(error, "분석표 생성에 실패했어요."));
-    } finally {
-      setIsCreatingReport(false);
-    }
+    const totals = selectedSessions.reduce(
+      (sum, session) => ({
+        totalQuestionCount: sum.totalQuestionCount + session.totalQuestionCount,
+        totalWrongCount: sum.totalWrongCount + session.wrongCount,
+        totalLongTimeCount: sum.totalLongTimeCount + session.longTimeCount,
+        totalHintUsedCount: sum.totalHintUsedCount + session.hintUsedCount,
+      }),
+      { totalQuestionCount: 0, totalWrongCount: 0, totalLongTimeCount: 0, totalHintUsedCount: 0 },
+    );
+
+    router.push({
+      pathname: "/weakness-confirm",
+      params: {
+        solveSessionIds: JSON.stringify(selectedExamIds),
+        analysisScopeType: scope.analysisScopeType,
+        subjectId: String(scope.subjectId),
+        categoryLv1Id: scope.categoryLv1Id !== null ? String(scope.categoryLv1Id) : undefined,
+        categoryLv2Id: scope.categoryLv2Id !== null ? String(scope.categoryLv2Id) : undefined,
+        conceptId: scope.conceptId !== null ? String(scope.conceptId) : undefined,
+        selectedSessionCount: String(selectedSessions.length),
+        totalQuestionCount: String(totals.totalQuestionCount),
+        totalWrongCount: String(totals.totalWrongCount),
+        totalLongTimeCount: String(totals.totalLongTimeCount),
+        totalHintUsedCount: String(totals.totalHintUsedCount),
+      },
+    });
   };
 
   const cancelSelection = () => {
@@ -741,29 +740,25 @@ export default function LogWeakScreen() {
       {isWrongNote && (
         <View style={styles.aiButtonWrap}>
           <Pressable
-            disabled={isCreatingReport}
             style={[
               styles.aiButton,
               isSelecting &&
                 selectedExamIds.length > 0 && {
                   backgroundColor: activePurple,
                 },
-              isCreatingReport && styles.aiButtonBusy,
             ]}
             onPress={handleAiButtonPress}
           >
             <Text style={styles.aiButtonText}>
-              {isCreatingReport
-                ? "분석표 생성 중… (시간이 걸릴 수 있어요)"
-                : isSelecting
-                  ? selectedExamIds.length > 0
-                    ? `AI 약점 분석표 만들기\n(선택한 문제집:${selectedExamIds.length})`
-                    : "AI 분석할 문제집을 선택해주세요"
-                  : "AI 분석용 문제집 선택하기"}
+              {isSelecting
+                ? selectedExamIds.length > 0
+                  ? `AI 약점 분석표 만들기\n(선택한 문제집:${selectedExamIds.length})`
+                  : "AI 분석할 문제집을 선택해주세요"
+                : "AI 분석용 문제집 선택하기"}
             </Text>
           </Pressable>
 
-          {isSelecting && !isCreatingReport && (
+          {isSelecting && (
             <Pressable
               accessibilityLabel="선택 취소"
               accessibilityRole="button"
@@ -1337,9 +1332,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#8493A0",
     paddingHorizontal: 18,
-  },
-  aiButtonBusy: {
-    opacity: 0.7,
   },
   createReportErrorText: {
     position: "absolute",

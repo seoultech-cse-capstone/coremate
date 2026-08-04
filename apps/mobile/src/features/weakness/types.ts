@@ -29,11 +29,35 @@ export type EligibleSolveSession = {
 };
 
 export type WeaknessEvidenceLog = {
+  evidenceId: number;
+  solveLogId: number;
+  questionId: number;
+  questionText: string;
+  /** WRONG, LONG_TIME, HINT_USED, ANSWER_CHANGED */
   evidenceType: string;
-  [key: string]: unknown;
+  timeSpentSec: number | null;
+  expectedSolveSec: number | null;
+  hintCount: number | null;
+  selectedAnswer: string | null;
+  correctAnswer: string | null;
+  isCorrect: boolean | null;
 };
 
-export type ConceptLearning = Record<string, unknown> | null;
+export type ConceptLearningConfusionComparison = {
+  comparedWith: string;
+  difference: string;
+};
+
+export type ConceptLearning = {
+  conceptCore: string | null;
+  conceptExplanation: string | null;
+  keyPoints: string[];
+  confusionComparisons: ConceptLearningConfusionComparison[];
+  prerequisiteConcepts: string[];
+  learningExample: string | null;
+  misconceptionNotes: string | null;
+  basicReviewPoints: string[];
+} | null;
 
 export type WeaknessConcept = {
   analysisConceptId: number;

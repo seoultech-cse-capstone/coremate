@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FONT } from "../constants/fonts";
 import { useAuth, useRequireMember } from "../src/features/auth";
 import { useWeaknessReportDetail } from "../src/features/weakness";
-import type { WeaknessConcept } from "../src/features/weakness";
+import type { WeaknessConcept, WeaknessEvidenceLog } from "../src/features/weakness";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -124,22 +124,108 @@ function StatItem({ label, value }: { label: string; value: number }) {
 }
 
 function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
+  const learning = concept.conceptLearning;
   return (
     <View style={styles.card}>
       <View style={styles.conceptHeader}>
         <Text style={styles.conceptName}>{concept.conceptName}</Text>
         <Text style={styles.conceptScore}>약점 점수 {concept.weaknessScore}</Text>
       </View>
+
+      <Text style={styles.metaText}>
+        유형 {concept.finalType} ({concept.finalTypeSource}) · 원인 {concept.causeCode} · 근거 강도{" "}
+        {concept.evidenceStrength} · 상태 {concept.analysisStatus}
+      </Text>
+      {concept.confusedRelation ? (
+        <Text style={styles.metaText}>혼동 개념: {concept.confusedRelation}</Text>
+      ) : null}
+      {concept.secondarySignals.length > 0 ? (
+        <Text style={styles.metaText}>부가 신호: {concept.secondarySignals.join(", ")}</Text>
+      ) : null}
+
       <Text style={styles.diagnosisText}>{concept.diagnosis}</Text>
       {concept.evidenceSummary ? (
         <Text style={styles.evidenceSummaryText}>{concept.evidenceSummary}</Text>
       ) : null}
+
+      {concept.detailedExplanationText ? (
+        <View style={styles.subBox}>
+          <Text style={styles.subBoxTitle}>상세 설명</Text>
+          <Text style={styles.subBoxText}>{concept.detailedExplanationText}</Text>
+        </View>
+      ) : null}
+
       {concept.conceptTip ? (
         <View style={styles.tipBox}>
           <Text style={styles.tipTitle}>학습 팁</Text>
           <Text style={styles.tipText}>{concept.conceptTip}</Text>
         </View>
       ) : null}
+
+      {learning ? (
+        <View style={styles.subBox}>
+          <Text style={styles.subBoxTitle}>개념 학습 자료</Text>
+          {learning.conceptCore ? (
+            <Text style={styles.subBoxText}>핵심: {learning.conceptCore}</Text>
+          ) : null}
+          {learning.conceptExplanation ? (
+            <Text style={styles.subBoxText}>설명: {learning.conceptExplanation}</Text>
+          ) : null}
+          {learning.keyPoints.length > 0 ? (
+            <Text style={styles.subBoxText}>핵심 포인트: {learning.keyPoints.join(" / ")}</Text>
+          ) : null}
+          {learning.confusionComparisons.length > 0 ? (
+            <Text style={styles.subBoxText}>
+              혼동 비교:{" "}
+              {learning.confusionComparisons
+                .map((c) => `${c.comparedWith}(${c.difference})`)
+                .join(" / ")}
+            </Text>
+          ) : null}
+          {learning.prerequisiteConcepts.length > 0 ? (
+            <Text style={styles.subBoxText}>
+              선수 개념: {learning.prerequisiteConcepts.join(", ")}
+            </Text>
+          ) : null}
+          {learning.learningExample ? (
+            <Text style={styles.subBoxText}>예시: {learning.learningExample}</Text>
+          ) : null}
+          {learning.misconceptionNotes ? (
+            <Text style={styles.subBoxText}>오개념 노트: {learning.misconceptionNotes}</Text>
+          ) : null}
+          {learning.basicReviewPoints.length > 0 ? (
+            <Text style={styles.subBoxText}>
+              기초 복습 포인트: {learning.basicReviewPoints.join(" / ")}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {concept.evidenceLogs.length > 0 ? (
+        <View style={styles.subBox}>
+          <Text style={styles.subBoxTitle}>근거 문제 기록 ({concept.evidenceLogs.length}건)</Text>
+          {concept.evidenceLogs.map((evidence) => (
+            <EvidenceLogRow evidence={evidence} key={evidence.evidenceId} />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function EvidenceLogRow({ evidence }: { evidence: WeaknessEvidenceLog }) {
+  return (
+    <View style={styles.evidenceRow}>
+      <Text style={styles.evidenceType}>{evidence.evidenceType}</Text>
+      <Text style={styles.subBoxText}>{evidence.questionText}</Text>
+      <Text style={styles.evidenceDetailText}>
+        정답 여부: {evidence.isCorrect === null ? "-" : evidence.isCorrect ? "정답" : "오답"} ·
+        선택: {evidence.selectedAnswer ?? "-"} · 정답: {evidence.correctAnswer ?? "-"}
+      </Text>
+      <Text style={styles.evidenceDetailText}>
+        소요 시간: {evidence.timeSpentSec ?? "-"}초 (기준 {evidence.expectedSolveSec ?? "-"}초) ·
+        힌트 사용: {evidence.hintCount ?? "-"}회
+      </Text>
     </View>
   );
 }
@@ -326,5 +412,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
     marginTop: 6,
+  },
+  metaText: {
+    marginTop: 4,
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  subBox: {
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    marginTop: 12,
+    padding: 12,
+  },
+  subBoxTitle: {
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  subBoxText: {
+    marginTop: 6,
+    color: "#475569",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  evidenceRow: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    paddingTop: 10,
+  },
+  evidenceType: {
+    color: "#dc2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  evidenceDetailText: {
+    marginTop: 4,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });
