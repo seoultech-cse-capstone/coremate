@@ -1,5 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 
+import { getDeviceInfo } from "../device/deviceInfo";
+import { deviceStorage } from "../device/deviceStorage";
 import { authApi } from "./authApi";
 import { useAuth } from "./AuthContext";
 import { tokenStorage } from "./tokenStorage";
@@ -13,8 +15,22 @@ export function useLoginMutation() {
   const { signIn } = useAuth();
 
   return useMutation({
-    mutationFn: (body: LoginRequest) => authApi.login(body),
+    mutationFn: async (body: LoginRequest) => {
+      // 기기 정보는 화면이 아니라 여기서 채운다. 저장된 식별자가 없으면 보내지 않고
+      // 서버가 새로 발급한 값을 응답에서 받는다.
+      const [deviceId, deviceInfo] = [await deviceStorage.get(), getDeviceInfo()];
+      return authApi.login({
+        ...body,
+        ...(deviceId ? { deviceId } : {}),
+        deviceName: deviceInfo.deviceName,
+        platform: deviceInfo.platform,
+        osVersion: deviceInfo.osVersion,
+      });
+    },
     onSuccess: async (res) => {
+      if (res.deviceId) {
+        await deviceStorage.save(res.deviceId);
+      }
       await signIn({
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,

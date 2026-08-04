@@ -8,6 +8,7 @@ import {
   LogOut,
   Pencil,
   Shield,
+  Smartphone,
   UserCog,
   UserX,
   type LucideIcon,
@@ -29,6 +30,7 @@ import { useLogoutMutation } from "../src/features/auth";
 type SettingRoute =
   | "/edit-profile"
   | "/edit-nickname"
+  | "/device-management"
   | "/notification-settings"
   | "/language-settings"
   | "/terms-policies"
@@ -61,6 +63,7 @@ const settingSections: SettingSection[] = [
     items: [
       { label: "회원정보 수정", Icon: UserCog, route: "/edit-profile" },
       { label: "닉네임 수정", Icon: Pencil, route: "/edit-nickname" },
+      { label: "기기 관리", Icon: Smartphone, route: "/device-management" },
     ],
   },
   {

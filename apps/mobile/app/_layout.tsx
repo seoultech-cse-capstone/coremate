@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { AuthProvider } from "../src/features/auth";
+import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
 import { queryClient } from "../src/shared/api/queryClient";
 import { LanguageProvider } from "../src/shared/language/LanguageContext";
 
@@ -87,8 +87,13 @@ export default function RootLayout() {
         <Stack.Screen name="daily-quiz-review" options={{ headerShown: false }} />
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
+        <Stack.Screen name="device-management" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>
+          {/* Stack 바깥에 둔다. 세션이 끊기면 (tabs) 네비게이터가 재마운트되면서
+              로그인 화면으로 리다이렉트되는데, 화면 안에 있으면 모달이 뜨기 전에
+              언마운트된다. */}
+          <SessionRevokedModal />
           <StatusBar style="dark" />
         </SafeAreaProvider>
         </LanguageProvider>
