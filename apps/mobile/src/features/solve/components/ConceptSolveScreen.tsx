@@ -150,11 +150,13 @@ export function ConceptSolveScreen({
   const timeLimitSec = timeLimitSecFor(target);
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
+  // 모의고사 마감 계산은 이 값(응답을 받은 시점의 "기기" 시각) 기준으로 한다.
+  // 서버가 내려준 시작 시각과 기기 시계를 직접 비교하면 두 시계가 몇 초만
+  // 어긋나도 남은 시간이 틀어진다. 대신 "응답을 받은 순간 = 시작 시점"으로
+  // 두고 그 뒤로는 기기 시계 하나만 계속 사용하면 오차가 생기지 않는다.
+  // (앱이 백그라운드로 가서 타이머가 멈춰있던 동안에도 다시 열었을 때
+  // 정확한 남은 시간이 나오는 것도 이 값이 실제 시각 기준이라 그대로 유지된다.)
   const startedAtRef = useRef<number>(0);
-  // 모의고사 마감 계산은 서버가 내려준 시작 시각(wall clock) 기준으로 한다.
-  // elapsedSeconds 누적치 대신 이걸 쓰면 앱이 백그라운드로 가서 타이머가
-  // 멈춰있던 동안에도 다시 열었을 때 정확한 남은 시간이 나온다.
-  const sessionStartedAtMsRef = useRef<number>(0);
   const hintCacheRef = useRef<Map<number, string | null>>(new Map());
   const hasShownNearDeadlineToastRef = useRef(false);
   // 시간 초과 화면에서 "다시 시작"을 누르면 이 값을 올려서, target이 그대로여도
@@ -217,7 +219,7 @@ export function ConceptSolveScreen({
     questionVisitStartedAtRef.current = 0;
     previousIndexRef.current = 0;
     optionChangeCountRef.current = 0;
-    sessionStartedAtMsRef.current = 0;
+    startedAtRef.current = 0;
     hintCacheRef.current = new Map();
     hasShownNearDeadlineToastRef.current = false;
 
@@ -228,9 +230,6 @@ export function ConceptSolveScreen({
           return;
         }
         startedAtRef.current = Date.now();
-        sessionStartedAtMsRef.current = response.startedAt
-          ? new Date(response.startedAt).getTime()
-          : Date.now();
         setSession({
           status: "ready",
           sessionId: response.sessionId,
@@ -294,17 +293,17 @@ export function ConceptSolveScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGuest, accessToken, session.status]);
 
-  // elapsedSeconds가 매초 갱신되며 리렌더를 일으키므로, 그 타이밍에 맞춰
-  // 서버 시작 시각(wall clock) 기준으로 남은 시간을 다시 계산한다.
-  // 기기 시계가 서버보다 몇 초 느리면 "경과 시간"이 음수로 계산돼 남은
-  // 시간이 제한 시간보다 커질 수 있으므로 상한도 같이 걸어둔다.
+  // renderTick이 매초 갱신되며 리렌더를 일으키므로, 그 타이밍에 맞춰
+  // startedAtRef(응답을 받은 시점의 기기 시각) 기준으로 남은 시간을 다시
+  // 계산한다. 시작부터 끝까지 기기 시계 하나만 쓰므로 서버-기기 시계 차이는
+  // 애초에 발생하지 않는다. 그래도 혹시 모를 상황을 대비해 상한도 걸어둔다.
   const remainingSeconds =
-    timeLimitSec !== null && sessionStartedAtMsRef.current > 0
+    timeLimitSec !== null && startedAtRef.current > 0
       ? Math.min(
           timeLimitSec,
           Math.max(
             0,
-            timeLimitSec - Math.floor((Date.now() - sessionStartedAtMsRef.current) / 1000),
+            timeLimitSec - Math.floor((Date.now() - startedAtRef.current) / 1000),
           ),
         )
       : null;
