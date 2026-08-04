@@ -73,6 +73,8 @@ export const solveApi = {
       timeSpentSec: number;
       optionChangeCount: number;
       isAnswerChanged: boolean;
+      hintUsed: boolean;
+      hintCount: number;
     },
     accessToken: string,
   ): Promise<SubmitAnswerResponse> {

@@ -172,6 +172,10 @@ export function ConceptSolveScreen({
   // 문제당 답을 바꾼 횟수. 다음 문제로 넘어가면 리셋된다("이전"으로 돌아간
   // 문제는 이미 제출됐으므로 다시 세지 않는다).
   const optionChangeCountRef = useRef(0);
+  // 문제당 힌트를 열어본 횟수/여부. 제출 시 그대로 서버에 보낸다(약점 분석의
+  // 힌트 사용률 계산 근거가 된다).
+  const hintUsedRef = useRef(false);
+  const hintCountRef = useRef(0);
 
   useEffect(() => {
     if (!isTimedSession || session.status !== "ready") {
@@ -199,6 +203,8 @@ export function ConceptSolveScreen({
     questionVisitStartedAtRef.current = now;
     previousIndexRef.current = currentIndex;
     optionChangeCountRef.current = 0;
+    hintUsedRef.current = false;
+    hintCountRef.current = 0;
   }, [currentIndex, session.status]);
 
   useEffect(() => {
@@ -219,6 +225,8 @@ export function ConceptSolveScreen({
     questionVisitStartedAtRef.current = 0;
     previousIndexRef.current = 0;
     optionChangeCountRef.current = 0;
+    hintUsedRef.current = false;
+    hintCountRef.current = 0;
     startedAtRef.current = 0;
     hintCacheRef.current = new Map();
     hasShownNearDeadlineToastRef.current = false;
@@ -420,6 +428,8 @@ export function ConceptSolveScreen({
             timeSpentSec,
             optionChangeCount,
             isAnswerChanged,
+            hintUsed: hintUsedRef.current,
+            hintCount: hintCountRef.current,
           },
           accessToken,
         );
@@ -554,6 +564,10 @@ export function ConceptSolveScreen({
 
     const cached = hintCacheRef.current.get(currentQuestion.questionId);
     if (cached !== undefined) {
+      if (cached !== null) {
+        hintUsedRef.current = true;
+        hintCountRef.current += 1;
+      }
       setHintState(
         cached === null ? { status: "unavailable" } : { status: "ready", text: cached },
       );
@@ -564,6 +578,8 @@ export function ConceptSolveScreen({
     try {
       const hint = await solveApi.getHint(currentQuestion.questionId);
       hintCacheRef.current.set(currentQuestion.questionId, hint.hintText);
+      hintUsedRef.current = true;
+      hintCountRef.current += 1;
       setHintState({ status: "ready", text: hint.hintText });
     } catch (error) {
       if (error instanceof HttpError && error.status === 404) {
