@@ -94,6 +94,7 @@ type ConceptSolveScreenProps = {
     correctCount: number;
     totalCount: number;
     reviewItems: SolveReviewItem[];
+    elapsedSeconds: number;
   }) => void;
 };
 
@@ -118,7 +119,10 @@ export function ConceptSolveScreen({
   const [isHintVisible, setIsHintVisible] = useState(false);
   const [bookmarkMap, setBookmarkMap] = useState<Map<number, number>>(new Map());
   const [isBookmarkPending, setIsBookmarkPending] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
+  // 모의고사 3종만 타이머를 보여준다(개념 문제집은 원래 시간제한 개념이 없다).
+  const isTimedSession = target.type !== "concept";
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
@@ -131,6 +135,16 @@ export function ConceptSolveScreen({
   // 문제당 답을 바꾼 횟수. 다음 문제로 넘어가면 리셋된다("이전"으로 돌아간
   // 문제는 이미 제출됐으므로 다시 세지 않는다).
   const optionChangeCountRef = useRef(0);
+
+  useEffect(() => {
+    if (!isTimedSession || session.status !== "ready") {
+      return;
+    }
+    const intervalId = setInterval(() => {
+      setElapsedSeconds((seconds) => seconds + 1);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [isTimedSession, session.status]);
 
   useEffect(() => {
     if (session.status !== "ready") {
@@ -152,6 +166,21 @@ export function ConceptSolveScreen({
 
   useEffect(() => {
     let cancelled = false;
+
+    // "다시 풀기"처럼 같은 화면이 재사용되며 target만 바뀌는 경우, 이전
+    // 세션에서 남은 진행 상태/타이머가 새 세션에 섞이지 않도록 전부
+    // 초기화한다.
+    setSession({ status: "loading" });
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setIsHintVisible(false);
+    setElapsedSeconds(0);
+    reviewItemsRef.current = [];
+    answersRef.current = [];
+    questionTimeAccumulatorRef.current = new Map();
+    questionVisitStartedAtRef.current = 0;
+    previousIndexRef.current = 0;
+    optionChangeCountRef.current = 0;
 
     (async () => {
       try {
@@ -239,6 +268,9 @@ export function ConceptSolveScreen({
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
   const progress = ((currentIndex + 1) / questions.length) * 100;
+  const elapsedTimeLabel = `${Math.floor(elapsedSeconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(elapsedSeconds % 60).toString().padStart(2, "0")}`;
 
   const handleContinue = async () => {
     if (!selectedAnswer || isSubmitting) {
@@ -324,6 +356,7 @@ export function ConceptSolveScreen({
           correctCount: completeResult.correctCount,
           totalCount: completeResult.totalQuestionCount,
           reviewItems: reviewItemsRef.current,
+          elapsedSeconds: totalTimeSpentSec,
         });
       } else {
         // 모의고사 3종은 전부 회원 전용이라 이 분기(게스트 완료)는 개념
@@ -354,6 +387,7 @@ export function ConceptSolveScreen({
           correctCount,
           totalCount: guestResults.length,
           reviewItems,
+          elapsedSeconds: Math.round((Date.now() - startedAtRef.current) / 1000),
         });
       }
     } catch (error) {
@@ -456,6 +490,7 @@ export function ConceptSolveScreen({
             문제 {currentIndex + 1} / {questions.length}
           </Text>
           {isGuest && <Text style={styles.guestBadge}>게스트 체험</Text>}
+          {isTimedSession && <Text style={styles.timerText}>{elapsedTimeLabel}</Text>}
         </View>
         <View style={styles.progressTrack}>
           <View style={[styles.progressValue, { width: `${progress}%` }]} />
@@ -645,6 +680,12 @@ const styles = StyleSheet.create({
     color: BRAND_PURPLE,
     fontFamily: FONT.pretendard,
     fontSize: 12,
+    fontWeight: "700",
+  },
+  timerText: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.kufam,
+    fontSize: 13,
     fontWeight: "700",
   },
   progressTrack: {
