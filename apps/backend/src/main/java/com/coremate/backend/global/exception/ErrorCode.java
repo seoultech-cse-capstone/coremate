@@ -26,6 +26,10 @@ public enum ErrorCode {
     EXPIRED_VERIFICATION_CODE(HttpStatus.BAD_REQUEST, "인증번호가 만료되었거나 발급되지 않았습니다"),
     TOO_MANY_VERIFICATION_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "인증 시도 횟수를 초과했습니다. 인증번호를 다시 요청해 주세요"),
     INVALID_RESET_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않거나 만료된 재설정 토큰입니다"),
+    SESSION_REVOKED_BY_OTHER_DEVICE(HttpStatus.UNAUTHORIZED, "다른 기기에서 로그인하여 로그아웃되었습니다"),
+    SESSION_REVOKED_BY_USER(HttpStatus.UNAUTHORIZED, "기기 관리에서 이 기기의 로그인이 해지되었습니다"),
+    SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "세션이 만료되었습니다. 다시 로그인해 주세요"),
+    CANNOT_REVOKE_CURRENT_SESSION(HttpStatus.BAD_REQUEST, "현재 사용 중인 기기입니다. 로그아웃을 이용해 주세요"),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다"),
