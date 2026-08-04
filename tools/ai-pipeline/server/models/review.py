@@ -12,6 +12,8 @@ class ReviewArtifactType(str, Enum):
     COMMON_MISTAKES = "common_mistakes"
     QUESTIONS = "questions"
     QUESTION_REVIEWS = "question_reviews"
+    CONCEPT_DIAGNOSTIC_PROFILES = "concept_diagnostic_profiles"
+    QUESTION_DIAGNOSTIC_PROFILES = "question_diagnostic_profiles"
 
 
 class ReviewStatus(str, Enum):

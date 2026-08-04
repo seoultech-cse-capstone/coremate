@@ -17,6 +17,7 @@ import com.coremate.backend.reward.entity.UserCurrency;
 import com.coremate.backend.reward.entity.XpLog;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.entity.type.CurrencyTransactionType;
+import com.coremate.backend.reward.entity.type.RewardScope;
 import com.coremate.backend.reward.entity.type.RewardSkipReason;
 import com.coremate.backend.reward.entity.type.RewardSource;
 import com.coremate.backend.reward.entity.type.RewardStatus;
@@ -32,6 +33,7 @@ import com.coremate.backend.reward.repository.UserCurrencyRepository;
 import com.coremate.backend.reward.repository.XpLogRepository;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -47,8 +49,7 @@ public class RewardService {
     // 조회 API에서 한 번에 내려줄 최근 로그 개수.
     private static final int DEFAULT_LOG_LIMIT = 50;
 
-    // 임시 MVP 레벨 공식. 추후 레벨 정책이 확정되면 이 값/계산식을 교체한다.
-    private static final int XP_PER_LEVEL = 100;
+    // 레벨 곡선과 보상 구간은 LevelPolicy 에 모아 두었다.
 
     private final UserRepository userRepository;
     private final RewardUserProgressRepository rewardUserProgressRepository;
@@ -162,8 +163,62 @@ public class RewardService {
             throw new CoreMateException(ErrorCode.USER_NOT_FOUND);
         }
 
-        return xpLogRepository.save(new XpLog(userId, rewardPolicyId, amount, totalXpAfter, reason,
+        XpLog xpLog = xpLogRepository.save(new XpLog(userId, rewardPolicyId, amount, totalXpAfter, reason,
                 referenceType, referenceId));
+
+        grantLevelUpRewards(userId, calculateLevel(user.getTotalXp()), levelAfter);
+
+        return xpLog;
+    }
+
+    // 레벨이 올랐을 때, 도달한 보상 구간 중 아직 못 받은 것을 지급한다.
+    //
+    // "이번에 넘어선 구간"이 아니라 "도달한 구간 전체 중 미지급분"을 보는 이유는
+    // 한 번 놓친 보상이 영영 못 받는 상태로 남지 않게 하기 위해서다. 예를 들어
+    // 정책 시드가 없던 시점에 5레벨에 도달하면 POLICY_NOT_FOUND 로 스킵되는데,
+    // 넘어선 구간만 보면 이미 5레벨이라 다시는 지급 기회가 오지 않는다.
+    // 이렇게 두면 다음 레벨업 때 밀린 보상까지 함께 정산된다.
+    //
+    // 이미 지급된 구간은 조회로 걸러 SKIPPED 로그가 쌓이지 않게 한다.
+    // 레벨업 정책의 xp_amount 는 0 이라 여기서 grantXp 가 다시 불리지 않는다.
+    // 누군가 레벨업 정책에 XP 를 넣으면 재귀가 생기므로 시드에서 0 을 유지해야 한다.
+    private void grantLevelUpRewards(Long userId, int levelBefore, int levelAfter) {
+        if (levelAfter <= levelBefore) {
+            return;
+        }
+
+        for (Integer level : LevelPolicy.rewardLevelsUpTo(levelAfter)) {
+            RewardType rewardType = resolveLevelUpRewardType(level);
+            if (rewardType == null || isLevelRewardGranted(userId, rewardType, level)) {
+                continue;
+            }
+            grantPolicyReward(
+                    userId,
+                    rewardType,
+                    RewardSource.LEVEL_UP,
+                    null,
+                    RewardTargetType.LEVEL,
+                    level.longValue(),
+                    null
+            );
+        }
+    }
+
+    private boolean isLevelRewardGranted(Long userId, RewardType rewardType, Integer level) {
+        return rewardLogRepository.existsByUserIdAndRewardTypeAndTargetTypeAndTargetIdAndRewardStatus(
+                userId, rewardType, RewardTargetType.LEVEL, level.longValue(), RewardStatus.GRANTED);
+    }
+
+    private RewardType resolveLevelUpRewardType(int level) {
+        return switch (level) {
+            case 5 -> RewardType.LEVEL_UP_5;
+            case 10 -> RewardType.LEVEL_UP_10;
+            case 20 -> RewardType.LEVEL_UP_20;
+            case 30 -> RewardType.LEVEL_UP_30;
+            case 40 -> RewardType.LEVEL_UP_40;
+            case 50 -> RewardType.LEVEL_UP_50;
+            default -> null;
+        };
     }
 
     // 출석/퀴즈/모의고사처럼 일일 제한이 있는 행동의 횟수를 소비한다.
@@ -179,10 +234,26 @@ public class RewardService {
         return limit;
     }
 
-    // reward_policies 기준으로 일일 제한, 최초 보상 여부, XP/코인 지급을 한 번에 처리한다.
+    // 정답률 조건이 없는 보상(XP, 출석, 퀴즈 등)의 진입점.
     @Transactional
     public RewardLog grantPolicyReward(Long userId, RewardType rewardType, RewardSource rewardSource, Long sourceId,
                                        RewardTargetType targetType, Long targetId, Long solveSessionId) {
+        return grantPolicyReward(userId, rewardType, rewardSource, sourceId, targetType, targetId,
+                solveSessionId, null);
+    }
+
+    // reward_policies 기준으로 보상 지급 가능 여부를 판정한다.
+    //
+    // 판정 순서(문서 확정): 활성 정책 -> 범위별 최초 보상 여부 -> 정답률 -> 일일 한도 소모.
+    // 최초 보상 여부와 정답률에서 걸러진 요청은 일일 한도를 소모하지 않는다.
+    // 이미 보상받은 범위를 다시 풀거나 정답률이 미달했을 때 하루 한도가
+    // 깎이면 사용자가 손해를 보기 때문이다.
+    //
+    // correctRate 는 코인 보상 판정에만 쓰이며 null 이면 정답률 검사를 건너뛴다.
+    @Transactional
+    public RewardLog grantPolicyReward(Long userId, RewardType rewardType, RewardSource rewardSource, Long sourceId,
+                                       RewardTargetType targetType, Long targetId, Long solveSessionId,
+                                       BigDecimal correctRate) {
         findUser(userId);
 
         RewardPolicy policy = rewardPolicyRepository.findByRewardTypeAndActiveTrue(rewardType)
@@ -195,6 +266,11 @@ public class RewardService {
         if (isAlreadyRewarded(userId, policy, targetType, targetId)) {
             return saveSkippedReward(userId, policy.getRewardPolicyId(), rewardType, rewardSource, sourceId, targetType, targetId,
                     solveSessionId, RewardSkipReason.ALREADY_REWARDED);
+        }
+
+        if (isCorrectRateBelowPolicy(policy, correctRate)) {
+            return saveSkippedReward(userId, policy.getRewardPolicyId(), rewardType, rewardSource, sourceId, targetType, targetId,
+                    solveSessionId, RewardSkipReason.LOW_CORRECT_RATE);
         }
 
         if (policy.hasDailyLimit()
@@ -260,16 +336,42 @@ public class RewardService {
         return true;
     }
 
+    // 코인 보상의 최소 정답률 조건. 정책에 기준이 없으면 검사하지 않는다.
+    // 기준이 있는데 정답률이 전달되지 않았다면 지급하지 않는 쪽(미달)으로 판정한다.
+    private boolean isCorrectRateBelowPolicy(RewardPolicy policy, BigDecimal correctRate) {
+        if (policy.getMinCorrectRate() == null) {
+            return false;
+        }
+        if (correctRate == null) {
+            return true;
+        }
+        return correctRate.compareTo(policy.getMinCorrectRate()) < 0;
+    }
+
     // 챕터/과목 최초 코인 보상처럼 target 단위 중복 지급을 막는다.
+    //
+    // 스타터팩·프리미엄 가입 보너스처럼 reward_scope가 PER_USER인 보상은 범위 타겟이
+    // 따로 없다. 호출부가 타겟을 넘기지 않으면 여기서 사용자 자신을 타겟으로 삼아
+    // 계정당 1회 판정이 빠지지 않게 한다.
     private boolean isAlreadyRewarded(Long userId, RewardPolicy policy, RewardTargetType targetType, Long targetId) {
-        return policy.isFirstRewardOnly()
-                && targetType != null
-                && targetId != null
+        if (!policy.isFirstRewardOnly()) {
+            return false;
+        }
+
+        RewardTargetType effectiveTargetType = targetType;
+        Long effectiveTargetId = targetId;
+        if (policy.getRewardScope() == RewardScope.PER_USER && (targetType == null || targetId == null)) {
+            effectiveTargetType = RewardTargetType.USER;
+            effectiveTargetId = userId;
+        }
+
+        return effectiveTargetType != null
+                && effectiveTargetId != null
                 && rewardLogRepository.existsByUserIdAndRewardTypeAndTargetTypeAndTargetIdAndRewardStatus(
                 userId,
                 policy.getRewardType(),
-                targetType,
-                targetId,
+                effectiveTargetType,
+                effectiveTargetId,
                 RewardStatus.GRANTED
         );
     }
@@ -310,7 +412,7 @@ public class RewardService {
     }
 
     private int calculateLevel(int totalXp) {
-        return Math.max(1, (totalXp / XP_PER_LEVEL) + 1);
+        return LevelPolicy.levelOf(totalXp);
     }
 
     // reward_type을 XP 로그의 reason 값으로 매핑한다.
@@ -321,7 +423,8 @@ public class RewardService {
             case SUBJECT_MOCK_XP -> XpReason.SUBJECT_MOCK_XP;
             case DAILY_QUIZ_COMPLETE, DAILY_QUIZ_REWARD -> XpReason.DAILY_QUIZ_XP;
             case ATTENDANCE_REWARD, DAILY_QUIZ_ATTENDANCE -> XpReason.ATTENDANCE_XP;
-            case LEVEL_UP_REWARD -> XpReason.LEVEL_UP_BONUS_XP;
+            case LEVEL_UP_5, LEVEL_UP_10, LEVEL_UP_20, LEVEL_UP_30, LEVEL_UP_40, LEVEL_UP_50
+                    -> XpReason.LEVEL_UP_BONUS_XP;
             default -> throw new CoreMateException(ErrorCode.INVALID_REWARD_AMOUNT);
         };
     }
@@ -333,9 +436,10 @@ public class RewardService {
             case ATTENDANCE_REWARD, DAILY_QUIZ_ATTENDANCE -> CurrencyReason.ATTENDANCE_REWARD;
             case CATEGORY_MOCK_FIRST_PASS_COIN -> CurrencyReason.CATEGORY_MOCK_FIRST_PASS_REWARD;
             case SUBJECT_MOCK_FIRST_PASS_COIN -> CurrencyReason.SUBJECT_MOCK_FIRST_PASS_REWARD;
-            case LEVEL_UP_REWARD -> CurrencyReason.LEVEL_UP_REWARD;
+            case LEVEL_UP_5, LEVEL_UP_10, LEVEL_UP_20, LEVEL_UP_30, LEVEL_UP_40, LEVEL_UP_50
+                    -> CurrencyReason.LEVEL_UP_REWARD;
             case STARTER_PACK -> CurrencyReason.STARTER_PACK;
-            case AD_REWARD, AD_REWARD_COIN -> CurrencyReason.AD_REWARD;
+            case AD_REWARD -> CurrencyReason.AD_REWARD;
             case PREMIUM_DAILY_COIN -> CurrencyReason.PREMIUM_DAILY_COIN;
             case PREMIUM_SIGNUP_BONUS -> CurrencyReason.PREMIUM_SIGNUP_BONUS;
             case PAYMENT_COIN_PACKAGE -> CurrencyReason.COIN_PACKAGE_PURCHASE;

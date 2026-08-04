@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any
 
 from dotenv import load_dotenv
@@ -29,6 +30,9 @@ elif AI_PROVIDER == "gemini":
     EMBEDDING_MODEL = GEMINI_EMBEDDING_MODEL
 else:
     raise RuntimeError("AI_PROVIDER는 openai 또는 gemini여야 합니다.")
+
+MAX_RETRIES = 4
+RETRY_BASE_SLEEP_SEC = 2
 
 _openai_client: OpenAI | None = None
 _gemini_client: Any | None = None
@@ -132,25 +136,39 @@ def call_ai_json(
     model: str | None = None,
     reasoning_effort: str = "low",
 ) -> dict[str, Any]:
-    if AI_PROVIDER == "openai":
-        return _call_openai_json(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema_name=schema_name,
-            schema=schema,
-            model=model,
-            reasoning_effort=reasoning_effort,
-        )
+    # 수백~수천 회를 도는 루프라 일시적인 429/5xx 한 번에 실행 전체가 죽지 않도록 재시도한다.
+    last_error: Exception | None = None
 
-    if AI_PROVIDER == "gemini":
-        return _call_gemini_json(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema=schema,
-            model=model,
-        )
+    for attempt in range(MAX_RETRIES):
+        try:
+            if AI_PROVIDER == "openai":
+                return _call_openai_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    schema_name=schema_name,
+                    schema=schema,
+                    model=model,
+                    reasoning_effort=reasoning_effort,
+                )
 
-    raise RuntimeError("AI_PROVIDER는 openai 또는 gemini여야 합니다.")
+            if AI_PROVIDER == "gemini":
+                return _call_gemini_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    schema=schema,
+                    model=model,
+                )
+
+            raise RuntimeError("AI_PROVIDER는 openai 또는 gemini여야 합니다.")
+        except (RuntimeError, json.JSONDecodeError) as error:
+            raise
+        except Exception as error:  # API 호출 실패(네트워크/레이트리밋/일시 오류)
+            last_error = error
+            if attempt == MAX_RETRIES - 1:
+                break
+            time.sleep(RETRY_BASE_SLEEP_SEC * (2 ** attempt))
+
+    raise RuntimeError(f"AI 호출이 {MAX_RETRIES}회 모두 실패했습니다: {last_error}") from last_error
 
 
 def create_embedding(text: str) -> list[float]:

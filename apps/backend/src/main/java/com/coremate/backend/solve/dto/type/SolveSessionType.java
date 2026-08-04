@@ -17,5 +17,12 @@ public enum SolveSessionType {
     SUBJECT_MOCK,
 
     @Schema(description = "오늘의 CS 퀴즈")
-    DAILY_QUIZ
+    DAILY_QUIZ;
+
+    /** 과목/대분류/중분류 모의고사 여부 */
+    public boolean isMock() {
+        return this == CATEGORY_LV1_MOCK
+                || this == CATEGORY_LV2_MOCK
+                || this == SUBJECT_MOCK;
+    }
 }
