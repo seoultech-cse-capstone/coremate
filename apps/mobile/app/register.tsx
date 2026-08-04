@@ -19,7 +19,11 @@ import { FONT } from "../constants/fonts";
 import { useSignupMutation } from "../src/features/auth";
 import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
 
-const NICKNAME_MAX_LENGTH = 50;
+const NAME_MAX_LENGTH = 50;
+// 이름은 한글 또는 영문만 허용한다(특수문자·숫자·공백 불가).
+const NAME_RULE = /^[가-힣a-zA-Z]+$/;
+const NAME_RULE_MESSAGE = "이름은 한글 또는 영문만 입력할 수 있습니다.";
+const NICKNAME_MAX_LENGTH = 6;
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 각각 1개 이상 포함한 8자 이상.
 // 허용 문자는 영문/숫자/이 8개 특수문자로 제한한다.
@@ -31,6 +35,7 @@ const PASSWORD_RULE_MESSAGE =
 // phone 상태값은 항상 숫자만 저장한다("01012345678"). 화면 표시용 하이픈은 formatPhoneNumber에서만 붙인다.
 const PHONE_RULE = /^01[016789]\d{7,8}$/;
 const PHONE_RULE_MESSAGE = "올바른 휴대폰 번호 형식이 아닙니다.";
+const RESEND_COOLDOWN_SEC = 60;
 
 const EMAIL_DOMAINS = [
   "naver.com",
@@ -85,14 +90,7 @@ function formatPhoneNumber(digits: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
 }
 
-const STEPS = [
-  "consent",
-  "nickname",
-  "phone",
-  "email",
-  "email-verify",
-  "password",
-] as const;
+const STEPS = ["consent", "form"] as const;
 type Step = (typeof STEPS)[number];
 
 type ConsentItem = {
@@ -125,11 +123,7 @@ const CONSENT_ITEMS: ConsentItem[] = [
 
 const HEADINGS: Record<Step, string> = {
   consent: "서비스 이용을 위한\n동의 안내",
-  nickname: "반가워요.\n이름과 닉네임을\n알려주세요.",
-  phone: "휴대폰 번호를\n입력해주세요.",
-  email: "이메일을\n입력해주세요.",
-  "email-verify": "이메일로 받은\n인증번호를 입력해주세요.",
-  password: "비밀번호를\n입력해주세요.",
+  form: "회원 정보를\n입력해주세요.",
 };
 
 type AnimatedStepProps = {
@@ -213,6 +207,39 @@ function AnimatedStep({ heading, onReady, children }: AnimatedStepProps) {
   );
 }
 
+// 폼 안에서 입력칸이 하나씩 나타날 때 위에서 아래로 스르륵 나타나도록 하는 래퍼.
+// 조건부 렌더링으로 마운트될 때 한 번만 재생하면 되므로 별도 key 관리가 필요 없다.
+function Reveal({ children }: { children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 320,
+      useNativeDriver: true,
+    }).start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const style = {
+    opacity: anim,
+    transform: [
+      {
+        translateY: anim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [12, 0],
+        }),
+      },
+    ],
+  };
+
+  return (
+    <Animated.View style={[styles.revealItem, style]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 export default function RegisterScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -222,11 +249,13 @@ export default function RegisterScreen() {
   const [nicknameTaken, setNicknameTaken] = useState(false);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [emailTaken, setEmailTaken] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [codeInvalid, setCodeInvalid] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -235,14 +264,31 @@ export default function RegisterScreen() {
   const step = STEPS[stepIndex];
   const primaryInputRef = useRef<TextInput>(null);
 
+  const nameInvalid = name.length > 0 && !NAME_RULE.test(name.trim());
+  const nameValid = name.trim().length > 0 && !nameInvalid;
+  const nicknameValid = nickname.trim().length > 0;
   const phoneInvalid = phone.length > 0 && !PHONE_RULE.test(phone);
+  const phoneValid = phone.trim().length > 0 && !phoneInvalid;
   const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
+  const emailValid = email.trim().length > 0 && !emailInvalid;
   const emailSuggestions = getEmailSuggestions(email);
-  const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
-  const passwordsMismatch =
-    confirmPassword.length > 0 && password !== confirmPassword;
   // 인증 완료 후 이메일을 다시 바꾸면 자동으로 재인증이 필요해지도록 이메일과 함께 비교한다.
   const emailVerified = isEmailVerified && verifiedEmail === email.trim();
+  const passwordInvalid = password.length > 0 && !PASSWORD_RULE.test(password);
+  const passwordValid = password.length > 0 && !passwordInvalid;
+  const passwordsMismatch =
+    confirmPassword.length > 0 && password !== confirmPassword;
+  const confirmValid = confirmPassword.length > 0 && !passwordsMismatch;
+
+  // 앞 항목이 유효해야 다음 입력칸이 위에서 아래로 순서대로 나타난다.
+  const showNickname = nameValid;
+  const showPhone = showNickname && nicknameValid;
+  const showEmail = showPhone && phoneValid;
+  const showEmailVerify = showEmail && emailValid;
+  const showPassword = showEmailVerify && emailVerified;
+  const showConfirmPassword = showPassword && passwordValid;
+  const showSubmit = showConfirmPassword && confirmValid;
+
   const allConsentChecked = CONSENT_ITEMS.every((item) =>
     checkedConsentIds.includes(item.id),
   );
@@ -262,34 +308,15 @@ export default function RegisterScreen() {
     );
   };
 
-  const canProceed = (): boolean => {
-    switch (step) {
-      case "consent":
-        return requiredConsentChecked;
-      case "nickname":
-        return name.trim().length > 0 && nickname.trim().length > 0;
-      case "phone":
-        return phone.trim().length > 0 && !phoneInvalid;
-      case "email":
-        return email.trim().length > 0 && !emailInvalid;
-      case "email-verify":
-        return emailVerified;
-      case "password":
-        return (
-          password.length > 0 &&
-          !passwordInvalid &&
-          confirmPassword.length > 0 &&
-          !passwordsMismatch &&
-          !signupMutation.isPending
-        );
-    }
-  };
-
   // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 발송 API 호출로 교체.
   const handleSendCode = () => {
+    if (resendCooldown > 0) {
+      return;
+    }
     setIsCodeSent(true);
     setCodeInvalid(false);
     setVerificationCode("");
+    setResendCooldown(RESEND_COOLDOWN_SEC);
   };
 
   // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 검증 API 호출로 교체.
@@ -303,6 +330,14 @@ export default function RegisterScreen() {
     setIsEmailVerified(true);
     setVerifiedEmail(email.trim());
   };
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+    const timer = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const goBack = () => {
     if (stepIndex === 0) {
@@ -327,13 +362,15 @@ export default function RegisterScreen() {
     return () => subscription.remove();
   }, [isSuccess, stepIndex]);
 
-  const goNext = () => {
-    if (!canProceed()) {
+  const goToForm = () => {
+    if (!requiredConsentChecked) {
       return;
     }
+    setStepIndex(STEPS.indexOf("form"));
+  };
 
-    if (step !== "password") {
-      setStepIndex((i) => i + 1);
+  const handleSubmit = () => {
+    if (!showSubmit || signupMutation.isPending) {
       return;
     }
 
@@ -350,17 +387,20 @@ export default function RegisterScreen() {
           setIsSuccess(true);
         },
         onError: (error) => {
-          if (getApiErrorCode(error) === "DUPLICATE_NICKNAME") {
+          const code = getApiErrorCode(error);
+          if (code === "DUPLICATE_NICKNAME") {
             setNicknameTaken(true);
-            setStepIndex(STEPS.indexOf("nickname"));
+          } else if (code === "EMAIL_ALREADY_EXISTS") {
+            setEmailTaken(true);
           }
         },
       },
     );
   };
 
-  const isLastStep = step === "password";
   const isBusy = signupMutation.isPending;
+  const showGenericError =
+    signupMutation.isError && !nicknameTaken && !emailTaken;
 
   if (isSuccess) {
     return (
@@ -415,267 +455,327 @@ export default function RegisterScreen() {
             >
               {(isReady) => (
                 <>
-              {step === "consent" && (
-                <View>
-                  <Pressable
-                    style={styles.consentAllRow}
-                    onPress={toggleAllConsent}
-                  >
-                    <Check
-                      color={allConsentChecked ? "#6D5DFB" : "#cbd5e1"}
-                      size={22}
-                      strokeWidth={3}
-                    />
-                    <Text style={styles.consentAllText}>전체 동의</Text>
-                  </Pressable>
+                  {step === "consent" && (
+                    <View>
+                      <Pressable
+                        style={styles.consentAllRow}
+                        onPress={toggleAllConsent}
+                      >
+                        <Check
+                          color={allConsentChecked ? "#6D5DFB" : "#cbd5e1"}
+                          size={22}
+                          strokeWidth={3}
+                        />
+                        <Text style={styles.consentAllText}>전체 동의</Text>
+                      </Pressable>
 
-                  <Text style={styles.consentCaption}>
-                    * 표시는 필수 동의입니다.
-                  </Text>
-
-                  <View style={styles.consentDivider} />
-
-                  {CONSENT_ITEMS.map((item) => {
-                    const checked = checkedConsentIds.includes(item.id);
-                    return (
-                      <View key={item.id} style={styles.consentRow}>
-                        <Pressable
-                          style={styles.consentRowMain}
-                          onPress={() => toggleConsentItem(item.id)}
-                        >
-                          <Check
-                            color={checked ? "#6D5DFB" : "#cbd5e1"}
-                            size={20}
-                            strokeWidth={3}
-                          />
-                          <Text style={styles.consentText}>
-                            {item.label}
-                            {item.required ? " *" : ""}
-                          </Text>
-                        </Pressable>
-
-                        <Pressable
-                          accessibilityLabel={`${item.label} 자세히 보기`}
-                          hitSlop={8}
-                          onPress={() => router.push(item.href)}
-                        >
-                          <ChevronRight
-                            color="#9ca3af"
-                            size={20}
-                            strokeWidth={2.2}
-                          />
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-
-              {step === "nickname" && (
-                <>
-                  <TextInput
-                    ref={primaryInputRef}
-                    editable={isReady}
-                    placeholder="이름"
-                    placeholderTextColor="#94a3b8"
-                    style={styles.input}
-                    value={name}
-                    onChangeText={setName}
-                    maxLength={NICKNAME_MAX_LENGTH}
-                  />
-                  <TextInput
-                    editable={isReady}
-                    placeholder="닉네임"
-                    placeholderTextColor="#94a3b8"
-                    style={[styles.input, styles.inputSpacing]}
-                    value={nickname}
-                    onChangeText={(text) => {
-                      setNickname(text);
-                      setNicknameTaken(false);
-                    }}
-                    maxLength={NICKNAME_MAX_LENGTH}
-                  />
-                  {nicknameTaken ? (
-                    <Text style={styles.errorText}>
-                      이미 사용 중인 닉네임입니다.
-                    </Text>
-                  ) : null}
-                </>
-              )}
-
-              {step === "phone" && (
-                <>
-                  <TextInput
-                    ref={primaryInputRef}
-                    editable={isReady}
-                    keyboardType="phone-pad"
-                    maxLength={13}
-                    placeholder="010-0000-0000"
-                    placeholderTextColor="#94a3b8"
-                    style={styles.input}
-                    value={formatPhoneNumber(phone)}
-                    onChangeText={(text) =>
-                      setPhone(text.replace(/\D/g, "").slice(0, 11))
-                    }
-                  />
-                  {phoneInvalid ? (
-                    <Text style={styles.errorText}>{PHONE_RULE_MESSAGE}</Text>
-                  ) : null}
-                </>
-              )}
-
-              {step === "email" && (
-                <>
-                  <TextInput
-                    ref={primaryInputRef}
-                    editable={isReady}
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    keyboardType="email-address"
-                    placeholder="Email"
-                    placeholderTextColor="#94a3b8"
-                    style={styles.input}
-                    value={email}
-                    onChangeText={setEmail}
-                  />
-                  {emailSuggestions.length > 0 ? (
-                    <View style={styles.suggestionList}>
-                      {emailSuggestions.map((suggestion, index) => (
-                        <Pressable
-                          key={suggestion}
-                          style={[
-                            styles.suggestionItem,
-                            index === emailSuggestions.length - 1 &&
-                              styles.suggestionItemLast,
-                          ]}
-                          onPress={() => setEmail(suggestion)}
-                        >
-                          <Text style={styles.suggestionText}>
-                            {suggestion}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : emailInvalid ? (
-                    <Text style={styles.errorText}>
-                      올바른 이메일 형식이 아닙니다.
-                    </Text>
-                  ) : null}
-                </>
-              )}
-
-              {step === "email-verify" && (
-                <>
-                  {!isCodeSent ? (
-                    <Pressable
-                      style={styles.sendCodeButton}
-                      onPress={handleSendCode}
-                    >
-                      <Text style={styles.sendCodeButtonText}>
-                        인증번호 받기
+                      <Text style={styles.consentCaption}>
+                        * 표시는 필수 동의입니다.
                       </Text>
-                    </Pressable>
-                  ) : (
-                    <>
-                      <TextInput
-                        ref={primaryInputRef}
-                        editable={isReady}
-                        keyboardType="number-pad"
-                        maxLength={6}
-                        placeholder="인증번호 6자리"
-                        placeholderTextColor="#94a3b8"
-                        style={styles.input}
-                        value={verificationCode}
-                        onChangeText={(text) => {
-                          setVerificationCode(text.replace(/\D/g, "").slice(0, 6));
-                          setCodeInvalid(false);
-                        }}
-                      />
-                      {codeInvalid ? (
-                        <Text style={styles.errorText}>
-                          인증번호가 올바르지 않습니다.
-                        </Text>
-                      ) : emailVerified ? (
-                        <Text style={styles.verifiedText}>
-                          이메일 인증이 완료되었습니다.
-                        </Text>
-                      ) : null}
-                      <View style={styles.verifyActionRow}>
-                        <Pressable onPress={handleSendCode}>
-                          <Text style={styles.resendText}>인증번호 재전송</Text>
-                        </Pressable>
-                        <Pressable
-                          style={styles.verifyConfirmButton}
-                          onPress={handleVerifyCode}
-                        >
-                          <Text style={styles.verifyConfirmButtonText}>
-                            확인
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </>
+
+                      <View style={styles.consentDivider} />
+
+                      {CONSENT_ITEMS.map((item) => {
+                        const checked = checkedConsentIds.includes(item.id);
+                        return (
+                          <View key={item.id} style={styles.consentRow}>
+                            <Pressable
+                              style={styles.consentRowMain}
+                              onPress={() => toggleConsentItem(item.id)}
+                            >
+                              <Check
+                                color={checked ? "#6D5DFB" : "#cbd5e1"}
+                                size={20}
+                                strokeWidth={3}
+                              />
+                              <Text style={styles.consentText}>
+                                {item.label}
+                                {item.required ? " *" : ""}
+                              </Text>
+                            </Pressable>
+
+                            <Pressable
+                              accessibilityLabel={`${item.label} 자세히 보기`}
+                              hitSlop={8}
+                              onPress={() => router.push(item.href)}
+                            >
+                              <ChevronRight
+                                color="#9ca3af"
+                                size={20}
+                                strokeWidth={2.2}
+                              />
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
                   )}
-                </>
-              )}
 
-              {step === "password" && (
-                <>
-                  <TextInput
-                    ref={primaryInputRef}
-                    editable={isReady}
-                    placeholder="Password"
-                    placeholderTextColor="#94a3b8"
-                    secureTextEntry
-                    style={styles.input}
-                    value={password}
-                    onChangeText={setPassword}
-                  />
-                  <Text
-                    style={
-                      passwordInvalid ? styles.errorText : styles.consentCaption
-                    }
-                  >
-                    {PASSWORD_RULE_MESSAGE}
-                  </Text>
+                  {step === "form" && (
+                    <View>
+                      <Reveal>
+                        <TextInput
+                          ref={primaryInputRef}
+                          editable={isReady}
+                          placeholder="이름"
+                          placeholderTextColor="#94a3b8"
+                          style={styles.input}
+                          value={name}
+                          onChangeText={setName}
+                          maxLength={NAME_MAX_LENGTH}
+                        />
+                        {nameInvalid ? (
+                          <Text style={styles.errorText}>
+                            {NAME_RULE_MESSAGE}
+                          </Text>
+                        ) : null}
+                      </Reveal>
 
-                  <TextInput
-                    editable={isReady}
-                    placeholder="Confirm Password"
-                    placeholderTextColor="#94a3b8"
-                    secureTextEntry
-                    style={[styles.input, styles.inputSpacing]}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                  />
-                  {passwordsMismatch ? (
-                    <Text style={styles.errorText}>
-                      비밀번호가 일치하지 않습니다.
-                    </Text>
-                  ) : null}
-                </>
-              )}
+                      {showNickname ? (
+                        <Reveal>
+                          <TextInput
+                            autoFocus
+                            editable={isReady}
+                            placeholder="닉네임"
+                            placeholderTextColor="#94a3b8"
+                            style={styles.input}
+                            value={nickname}
+                            onChangeText={(text) => {
+                              setNickname(text);
+                              setNicknameTaken(false);
+                            }}
+                            maxLength={NICKNAME_MAX_LENGTH}
+                          />
+                          {nicknameTaken ? (
+                            <Text style={styles.errorText}>
+                              이미 사용 중인 닉네임입니다.
+                            </Text>
+                          ) : null}
+                        </Reveal>
+                      ) : null}
 
-              {isLastStep && signupMutation.isError ? (
-                <Text style={styles.errorText}>
-                  {getApiErrorMessage(signupMutation.error)}
-                </Text>
-              ) : null}
+                      {showPhone ? (
+                        <Reveal>
+                          <TextInput
+                            autoFocus
+                            editable={isReady}
+                            keyboardType="phone-pad"
+                            maxLength={13}
+                            placeholder="010-0000-0000"
+                            placeholderTextColor="#94a3b8"
+                            style={styles.input}
+                            value={formatPhoneNumber(phone)}
+                            onChangeText={(text) =>
+                              setPhone(text.replace(/\D/g, "").slice(0, 11))
+                            }
+                          />
+                          {phoneInvalid ? (
+                            <Text style={styles.errorText}>
+                              {PHONE_RULE_MESSAGE}
+                            </Text>
+                          ) : null}
+                        </Reveal>
+                      ) : null}
+
+                      {showEmail ? (
+                        <Reveal>
+                          <TextInput
+                            autoFocus
+                            editable={isReady}
+                            autoCapitalize="none"
+                            autoComplete="email"
+                            keyboardType="email-address"
+                            placeholder="Email"
+                            placeholderTextColor="#94a3b8"
+                            style={styles.input}
+                            value={email}
+                            onChangeText={(text) => {
+                              setEmail(text);
+                              setEmailTaken(false);
+                            }}
+                          />
+                          {emailSuggestions.length > 0 ? (
+                            <View style={styles.suggestionList}>
+                              {emailSuggestions.map((suggestion, index) => (
+                                <Pressable
+                                  key={suggestion}
+                                  style={[
+                                    styles.suggestionItem,
+                                    index === emailSuggestions.length - 1 &&
+                                      styles.suggestionItemLast,
+                                  ]}
+                                  onPress={() => setEmail(suggestion)}
+                                >
+                                  <Text style={styles.suggestionText}>
+                                    {suggestion}
+                                  </Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                          ) : emailTaken ? (
+                            <Text style={styles.errorText}>
+                              이미 사용 중인 이메일입니다.
+                            </Text>
+                          ) : emailInvalid ? (
+                            <Text style={styles.errorText}>
+                              올바른 이메일 형식이 아닙니다.
+                            </Text>
+                          ) : null}
+                        </Reveal>
+                      ) : null}
+
+                      {showEmailVerify ? (
+                        <Reveal>
+                          {emailVerified ? (
+                            <Text style={styles.verifiedText}>
+                              이메일 인증이 완료되었습니다.
+                            </Text>
+                          ) : !isCodeSent ? (
+                            <Pressable
+                              style={styles.sendCodeButton}
+                              onPress={handleSendCode}
+                            >
+                              <Text style={styles.sendCodeButtonText}>
+                                인증번호 받기
+                              </Text>
+                            </Pressable>
+                          ) : (
+                            <>
+                              <TextInput
+                                autoFocus
+                                editable={isReady}
+                                keyboardType="number-pad"
+                                maxLength={6}
+                                placeholder="인증번호 6자리"
+                                placeholderTextColor="#94a3b8"
+                                style={styles.input}
+                                value={verificationCode}
+                                onChangeText={(text) => {
+                                  setVerificationCode(
+                                    text.replace(/\D/g, "").slice(0, 6),
+                                  );
+                                  setCodeInvalid(false);
+                                }}
+                              />
+                              {codeInvalid ? (
+                                <Text style={styles.errorText}>
+                                  인증번호가 올바르지 않습니다.
+                                </Text>
+                              ) : null}
+                              <View style={styles.verifyActionRow}>
+                                <Pressable
+                                  disabled={resendCooldown > 0}
+                                  onPress={handleSendCode}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.resendText,
+                                      resendCooldown > 0 &&
+                                        styles.resendTextDisabled,
+                                    ]}
+                                  >
+                                    {resendCooldown > 0
+                                      ? `인증번호 재전송 (${resendCooldown}초)`
+                                      : "인증번호 재전송"}
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  style={styles.verifyConfirmButton}
+                                  onPress={handleVerifyCode}
+                                >
+                                  <Text style={styles.verifyConfirmButtonText}>
+                                    확인
+                                  </Text>
+                                </Pressable>
+                              </View>
+                            </>
+                          )}
+                        </Reveal>
+                      ) : null}
+
+                      {showPassword ? (
+                        <Reveal>
+                          <TextInput
+                            autoFocus
+                            editable={isReady}
+                            placeholder="Password"
+                            placeholderTextColor="#94a3b8"
+                            secureTextEntry
+                            style={styles.input}
+                            value={password}
+                            onChangeText={setPassword}
+                          />
+                          <Text
+                            style={
+                              passwordInvalid
+                                ? styles.errorText
+                                : styles.consentCaption
+                            }
+                          >
+                            {PASSWORD_RULE_MESSAGE}
+                          </Text>
+                        </Reveal>
+                      ) : null}
+
+                      {showConfirmPassword ? (
+                        <Reveal>
+                          <TextInput
+                            autoFocus
+                            editable={isReady}
+                            placeholder="Confirm Password"
+                            placeholderTextColor="#94a3b8"
+                            secureTextEntry
+                            style={styles.input}
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                          />
+                          {passwordsMismatch ? (
+                            <Text style={styles.errorText}>
+                              비밀번호가 일치하지 않습니다.
+                            </Text>
+                          ) : null}
+                        </Reveal>
+                      ) : null}
+
+                      {showSubmit ? (
+                        <Reveal>
+                          <Pressable
+                            style={[
+                              styles.button,
+                              isBusy && styles.buttonDisabled,
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={isBusy}
+                          >
+                            <Text style={styles.buttonText}>
+                              {isBusy ? "가입 중…" : "가입하기"}
+                            </Text>
+                          </Pressable>
+                          {showGenericError ? (
+                            <Text style={styles.errorText}>
+                              {getApiErrorMessage(signupMutation.error)}
+                            </Text>
+                          ) : null}
+                        </Reveal>
+                      ) : null}
+                    </View>
+                  )}
                 </>
               )}
             </AnimatedStep>
 
-            <Pressable
-              style={[
-                styles.button,
-                (!canProceed() || isBusy) && styles.buttonDisabled,
-              ]}
-              onPress={goNext}
-              disabled={!canProceed() || isBusy}
-            >
-              <Text style={styles.buttonText}>
-                {isLastStep ? (isBusy ? "가입 중…" : "가입하기") : "다음"}
-              </Text>
-            </Pressable>
+            {step === "consent" ? (
+              <Pressable
+                style={[
+                  styles.button,
+                  !requiredConsentChecked && styles.buttonDisabled,
+                ]}
+                onPress={goToForm}
+                disabled={!requiredConsentChecked}
+              >
+                <Text style={styles.buttonText}>다음</Text>
+              </Pressable>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -721,6 +821,9 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 8,
   },
+  revealItem: {
+    marginTop: 16,
+  },
   input: {
     borderRadius: 14,
     borderWidth: 1,
@@ -732,9 +835,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     paddingHorizontal: 16,
     paddingVertical: 14,
-  },
-  inputSpacing: {
-    marginTop: 12,
   },
   suggestionList: {
     marginTop: 8,
@@ -795,6 +895,9 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 13,
     textDecorationLine: "underline",
+  },
+  resendTextDisabled: {
+    color: "#cbd5e1",
   },
   verifyConfirmButton: {
     borderRadius: 12,
