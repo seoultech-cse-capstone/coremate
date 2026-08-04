@@ -1,21 +1,18 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../src/features/auth";
 import {
   ConceptSolveScreen,
   type SolveTarget,
 } from "../src/features/solve/components/ConceptSolveScreen";
-import {
-  SolveQuestionScreen,
-  type SolveSessionType,
-} from "../src/features/solve/components/SolveQuestionScreen";
+import type { SolveSessionType } from "../src/features/solve/types";
 
 const sessionTypes: SolveSessionType[] = [
   "SUBJECT_MOCK",
   "CATEGORY_LV1_MOCK",
   "CATEGORY_LV2_MOCK",
   "CONCEPT_PRACTICE",
-  "DAILY_QUIZ",
 ];
 
 export default function SolveScreen() {
@@ -47,62 +44,79 @@ export default function SolveScreen() {
             ? { type: "categoryLv2Mock", categoryLv2Id: resolvedTargetId }
             : null;
 
-  // 개념 문제집/모의고사 3종은 실제 문제 API로 연결한다. 그 외(오늘의 퀴즈)는
-  // 아직 백엔드가 더미 데이터라 기존 목데이터 화면을 그대로 쓴다.
-  if (target !== null) {
+  if (target === null) {
     return (
-      <ConceptSolveScreen
-        target={target}
-        title={resolvedTitle}
-        isGuest={isGuest}
-        accessToken={accessToken}
-        onBack={() => router.back()}
-        onComplete={({ correctCount, totalCount, reviewItems, elapsedSeconds }) =>
-          router.replace({
-            pathname: "/solve-result",
-            params: {
-              title: resolvedTitle,
-              sessionType: resolvedSessionType,
-              conceptId: target.type === "concept" ? String(target.conceptId) : undefined,
-              // "다시 풀기"가 같은 대상으로 새 세션을 다시 시작할 수 있도록
-              // 모의고사 3종은 targetId도 결과 화면까지 그대로 들고 간다.
-              targetId:
-                target.type === "subjectMock"
-                  ? String(target.subjectId)
-                  : target.type === "categoryLv1Mock"
-                    ? String(target.categoryLv1Id)
-                    : target.type === "categoryLv2Mock"
-                      ? String(target.categoryLv2Id)
-                      : undefined,
-              correctCount: correctCount.toString(),
-              totalCount: totalCount.toString(),
-              reviewItemsJson: JSON.stringify(reviewItems),
-              elapsedSeconds: elapsedSeconds.toString(),
-            },
-          })
-        }
-      />
+      <View style={styles.stateScreen}>
+        <Text style={styles.stateText}>
+          잘못된 접근입니다. 문제집 목록에서 다시 시도해주세요.
+        </Text>
+        <Pressable style={styles.stateBackButton} onPress={() => router.back()}>
+          <Text style={styles.stateBackButtonText}>돌아가기</Text>
+        </Pressable>
+      </View>
     );
   }
 
   return (
-    <SolveQuestionScreen
-      sessionType={resolvedSessionType}
+    <ConceptSolveScreen
+      target={target}
       title={resolvedTitle}
-      hideBookmark={isGuest}
+      isGuest={isGuest}
+      accessToken={accessToken}
       onBack={() => router.back()}
-      onComplete={(correctCount, totalCount, elapsedSeconds) =>
+      onComplete={({ correctCount, totalCount, reviewItems, elapsedSeconds }) =>
         router.replace({
           pathname: "/solve-result",
           params: {
             title: resolvedTitle,
             sessionType: resolvedSessionType,
+            conceptId: target.type === "concept" ? String(target.conceptId) : undefined,
+            // "다시 풀기"가 같은 대상으로 새 세션을 다시 시작할 수 있도록
+            // 모의고사 3종은 targetId도 결과 화면까지 그대로 들고 간다.
+            targetId:
+              target.type === "subjectMock"
+                ? String(target.subjectId)
+                : target.type === "categoryLv1Mock"
+                  ? String(target.categoryLv1Id)
+                  : target.type === "categoryLv2Mock"
+                    ? String(target.categoryLv2Id)
+                    : undefined,
             correctCount: correctCount.toString(),
             totalCount: totalCount.toString(),
-            elapsedSeconds: elapsedSeconds?.toString(),
+            reviewItemsJson: JSON.stringify(reviewItems),
+            elapsedSeconds: elapsedSeconds.toString(),
           },
         })
       }
     />
   );
 }
+
+const styles = StyleSheet.create({
+  stateScreen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F3F3",
+    paddingHorizontal: 32,
+  },
+  stateText: {
+    color: "#334155",
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  stateBackButton: {
+    marginTop: 20,
+    borderRadius: 8,
+    backgroundColor: "#6D5DFB",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  stateBackButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+});

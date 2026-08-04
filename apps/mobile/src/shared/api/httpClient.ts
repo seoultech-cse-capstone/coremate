@@ -1,4 +1,4 @@
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 type RequestOptions = {
   headers?: Record<string, string>;
@@ -195,6 +195,9 @@ export const httpClient = {
   },
   put<TResponse>(path: string, body?: unknown, options?: RequestOptions) {
     return request<TResponse>('PUT', path, { ...options, body });
+  },
+  patch<TResponse>(path: string, body?: unknown, options?: RequestOptions) {
+    return request<TResponse>('PATCH', path, { ...options, body });
   },
   delete<TResponse>(path: string, options?: RequestOptions) {
     return request<TResponse>('DELETE', path, options);
