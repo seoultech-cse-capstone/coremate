@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { router } from "expo-router";
 import { useAuth, useRequireMember } from "../src/features/auth";
@@ -59,6 +59,12 @@ export default function DailyQuizReviewScreen() {
     return (
       <View style={styles.stateScreen}>
         <Text style={styles.stateText}>{state.message}</Text>
+        <Pressable
+          style={styles.stateBackButton}
+          onPress={() => router.replace("/(tabs)/home")}
+        >
+          <Text style={styles.stateBackButtonText}>홈으로 돌아가기</Text>
+        </Pressable>
       </View>
     );
   }
@@ -89,5 +95,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: 22,
     textAlign: "center",
+  },
+  stateBackButton: {
+    marginTop: 20,
+    borderRadius: 8,
+    backgroundColor: "#6D5DFB",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  stateBackButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "700",
   },
 });
