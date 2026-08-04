@@ -16,11 +16,19 @@ public class CustomUserDetails implements UserDetails {
     private final String password;
     private final Collection<? extends GrantedAuthority> authorities;
 
+    /** 이 요청이 어느 기기 세션으로 들어왔는지. 폼 로그인 경로로 만들어진 경우에는 null 이다. */
+    private final String sessionId;
+
     public CustomUserDetails(User user) {
+        this(user, null);
+    }
+
+    public CustomUserDetails(User user, String sessionId) {
         this.userId = user.getUserId();
         this.email = user.getEmail();
         this.password = user.getPasswordHash();
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        this.sessionId = sessionId;
     }
 
     @Override
