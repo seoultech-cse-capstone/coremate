@@ -18,9 +18,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
 import { bookmarkApi } from "../../bookmark/bookmarkApi";
+import { HttpError } from "../../../shared/api/httpClient";
 import { Toast } from "../../../shared/components/Toast";
 import { useToast } from "../../../shared/hooks/useToast";
-import { getApiErrorMessage } from "../../../shared/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "../../../shared/utils/apiError";
 import { solveApi } from "../solveApi";
 import type {
   SolveQuestion,
@@ -30,10 +31,17 @@ import type {
 
 const BRAND_PURPLE = "#6D5DFB";
 
-// TODO: 백엔드에 실제 힌트 조회 API(CommonMistake 기반)가 생기면 문제별 실제
-// 힌트로 교체할 것. 지금은 더미 문구를 고정으로 보여준다.
-const DUMMY_HINT_TEXT =
-  "정답을 직접 알려주지는 않지만, 문제에서 다루는 핵심 개념을 다시 짚어보면 실마리를 찾을 수 있어요.";
+// 모의고사 회차 제한 시간 (2026-08-03 팀 확정, 백엔드 SolveSessionService와 동일한 값).
+const CHAPTER_MOCK_LIMIT_SEC = 40 * 60;
+const SUBJECT_MOCK_LIMIT_SEC = 60 * 60;
+const NEAR_DEADLINE_THRESHOLD_SEC = 5 * 60;
+
+type HintState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; text: string }
+  | { status: "unavailable" }
+  | { status: "error"; message: string };
 
 /** 개념 문제집은 게스트도 가능하고, 모의고사 3종은 전부 회원 전용이다. */
 export type SolveTarget =
@@ -59,6 +67,19 @@ function targetKey(target: SolveTarget): string {
       return `categoryLv1Mock:${target.categoryLv1Id}`;
     case "categoryLv2Mock":
       return `categoryLv2Mock:${target.categoryLv2Id}`;
+  }
+}
+
+/** 개념 문제집은 제한 시간이 없다(null). */
+function timeLimitSecFor(target: SolveTarget): number | null {
+  switch (target.type) {
+    case "subjectMock":
+      return SUBJECT_MOCK_LIMIT_SEC;
+    case "categoryLv1Mock":
+    case "categoryLv2Mock":
+      return CHAPTER_MOCK_LIMIT_SEC;
+    case "concept":
+      return null;
   }
 }
 
@@ -101,6 +122,7 @@ type ConceptSolveScreenProps = {
 type SessionState =
   | { status: "loading" }
   | { status: "error"; message: string }
+  | { status: "expired" }
   | { status: "ready"; sessionId: number | null; questions: SolveQuestion[] };
 
 export function ConceptSolveScreen({
@@ -117,15 +139,24 @@ export function ConceptSolveScreen({
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHintVisible, setIsHintVisible] = useState(false);
+  const [hintState, setHintState] = useState<HintState>({ status: "idle" });
   const [bookmarkMap, setBookmarkMap] = useState<Map<number, number>>(new Map());
   const [isBookmarkPending, setIsBookmarkPending] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  // 값 자체는 쓰지 않고, 매초 리렌더를 일으켜 남은 시간을 다시 계산하게 만드는 용도.
+  const [, setRenderTick] = useState(0);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
   // 모의고사 3종만 타이머를 보여준다(개념 문제집은 원래 시간제한 개념이 없다).
   const isTimedSession = target.type !== "concept";
+  const timeLimitSec = timeLimitSecFor(target);
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   const startedAtRef = useRef<number>(0);
+  // 모의고사 마감 계산은 서버가 내려준 시작 시각(wall clock) 기준으로 한다.
+  // elapsedSeconds 누적치 대신 이걸 쓰면 앱이 백그라운드로 가서 타이머가
+  // 멈춰있던 동안에도 다시 열었을 때 정확한 남은 시간이 나온다.
+  const sessionStartedAtMsRef = useRef<number>(0);
+  const hintCacheRef = useRef<Map<number, string | null>>(new Map());
+  const hasShownNearDeadlineToastRef = useRef(false);
   // 문제별 풀이 시간 계산용. "이전"으로 갔다가 같은 문제로 다시 돌아와도
   // 각 방문 시간이 모두 합산되도록, 문제 인덱스별 누적 시간(과거 방문분)과
   // 지금 보고 있는 방문이 시작된 시각을 따로 추적한다.
@@ -141,7 +172,7 @@ export function ConceptSolveScreen({
       return;
     }
     const intervalId = setInterval(() => {
-      setElapsedSeconds((seconds) => seconds + 1);
+      setRenderTick((tick) => tick + 1);
     }, 1000);
     return () => clearInterval(intervalId);
   }, [isTimedSession, session.status]);
@@ -174,13 +205,17 @@ export function ConceptSolveScreen({
     setCurrentIndex(0);
     setSelectedAnswer(null);
     setIsHintVisible(false);
-    setElapsedSeconds(0);
+    setHintState({ status: "idle" });
+    setRenderTick(0);
     reviewItemsRef.current = [];
     answersRef.current = [];
     questionTimeAccumulatorRef.current = new Map();
     questionVisitStartedAtRef.current = 0;
     previousIndexRef.current = 0;
     optionChangeCountRef.current = 0;
+    sessionStartedAtMsRef.current = 0;
+    hintCacheRef.current = new Map();
+    hasShownNearDeadlineToastRef.current = false;
 
     (async () => {
       try {
@@ -189,6 +224,9 @@ export function ConceptSolveScreen({
           return;
         }
         startedAtRef.current = Date.now();
+        sessionStartedAtMsRef.current = response.startedAt
+          ? new Date(response.startedAt).getTime()
+          : Date.now();
         setSession({
           status: "ready",
           sessionId: response.sessionId,
@@ -245,10 +283,54 @@ export function ConceptSolveScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGuest, accessToken, session.status]);
 
+  // elapsedSeconds가 매초 갱신되며 리렌더를 일으키므로, 그 타이밍에 맞춰
+  // 서버 시작 시각(wall clock) 기준으로 남은 시간을 다시 계산한다.
+  const remainingSeconds =
+    timeLimitSec !== null && sessionStartedAtMsRef.current > 0
+      ? Math.max(
+          0,
+          timeLimitSec - Math.floor((Date.now() - sessionStartedAtMsRef.current) / 1000),
+        )
+      : null;
+  const isNearDeadline =
+    remainingSeconds !== null &&
+    remainingSeconds > 0 &&
+    remainingSeconds <= NEAR_DEADLINE_THRESHOLD_SEC;
+
+  useEffect(() => {
+    if (session.status !== "ready" || remainingSeconds === null || remainingSeconds > 0) {
+      return;
+    }
+    setSession({ status: "expired" });
+  }, [remainingSeconds, session.status]);
+
+  useEffect(() => {
+    if (isNearDeadline && !hasShownNearDeadlineToastRef.current) {
+      hasShownNearDeadlineToastRef.current = true;
+      showToast("남은 시간 5분! 서둘러주세요.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNearDeadline]);
+
   if (session.status === "loading") {
     return (
       <View style={styles.stateScreen}>
         <ActivityIndicator color={BRAND_PURPLE} size="large" />
+      </View>
+    );
+  }
+
+  if (session.status === "expired") {
+    return (
+      <View style={styles.stateScreen}>
+        <Text style={styles.stateText}>
+          제한 시간이 지나 이번 회차가 자동으로 종료됐어요.{"\n"}
+          지금까지 푼 답변은 기록되지만, 이번 회차는 완료 처리되지 않아요.{"\n"}
+          새로 시작해주세요.
+        </Text>
+        <Pressable style={styles.stateBackButton} onPress={onBack}>
+          <Text style={styles.stateBackButtonText}>돌아가기</Text>
+        </Pressable>
       </View>
     );
   }
@@ -268,9 +350,12 @@ export function ConceptSolveScreen({
   const currentQuestion = questions[currentIndex];
   const isLastQuestion = currentIndex === questions.length - 1;
   const progress = ((currentIndex + 1) / questions.length) * 100;
-  const elapsedTimeLabel = `${Math.floor(elapsedSeconds / 60)
-    .toString()
-    .padStart(2, "0")}:${(elapsedSeconds % 60).toString().padStart(2, "0")}`;
+  const remainingTimeLabel =
+    remainingSeconds !== null
+      ? `${Math.floor(remainingSeconds / 60)
+          .toString()
+          .padStart(2, "0")}:${(remainingSeconds % 60).toString().padStart(2, "0")}`
+      : null;
 
   const handleContinue = async () => {
     if (!selectedAnswer || isSubmitting) {
@@ -295,6 +380,7 @@ export function ConceptSolveScreen({
       setCurrentIndex((index) => index + 1);
       setSelectedAnswer(null);
       setIsHintVisible(false);
+      setHintState({ status: "idle" });
       return;
     }
 
@@ -340,6 +426,7 @@ export function ConceptSolveScreen({
         setCurrentIndex((index) => index + 1);
         setSelectedAnswer(null);
         setIsHintVisible(false);
+        setHintState({ status: "idle" });
         return;
       }
 
@@ -392,6 +479,10 @@ export function ConceptSolveScreen({
       }
     } catch (error) {
       console.error("[solve] 답안 제출/완료 실패", error);
+      if (getApiErrorCode(error) === "SOLVE_SESSION_EXPIRED") {
+        setSession({ status: "expired" });
+        return;
+      }
       setSession({
         status: "error",
         message: getApiErrorMessage(error, "제출에 실패했습니다. 다시 시도해주세요."),
@@ -434,6 +525,40 @@ export function ConceptSolveScreen({
       console.error("[bookmark] 북마크 토글 실패", error);
     } finally {
       setIsBookmarkPending(false);
+    }
+  };
+
+  const handleToggleHint = async () => {
+    if (isHintVisible) {
+      setIsHintVisible(false);
+      return;
+    }
+    setIsHintVisible(true);
+
+    const cached = hintCacheRef.current.get(currentQuestion.questionId);
+    if (cached !== undefined) {
+      setHintState(
+        cached === null ? { status: "unavailable" } : { status: "ready", text: cached },
+      );
+      return;
+    }
+
+    setHintState({ status: "loading" });
+    try {
+      const hint = await solveApi.getHint(currentQuestion.questionId);
+      hintCacheRef.current.set(currentQuestion.questionId, hint.hintText);
+      setHintState({ status: "ready", text: hint.hintText });
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        hintCacheRef.current.set(currentQuestion.questionId, null);
+        setHintState({ status: "unavailable" });
+        return;
+      }
+      console.error("[solve] 힌트 조회 실패", error);
+      setHintState({
+        status: "error",
+        message: getApiErrorMessage(error, "힌트를 불러오지 못했습니다."),
+      });
     }
   };
 
@@ -490,7 +615,11 @@ export function ConceptSolveScreen({
             문제 {currentIndex + 1} / {questions.length}
           </Text>
           {isGuest && <Text style={styles.guestBadge}>게스트 체험</Text>}
-          {isTimedSession && <Text style={styles.timerText}>{elapsedTimeLabel}</Text>}
+          {isTimedSession && remainingTimeLabel !== null && (
+            <Text style={[styles.timerText, isNearDeadline && styles.timerTextWarning]}>
+              남은 시간 {remainingTimeLabel}
+            </Text>
+          )}
         </View>
         <View style={styles.progressTrack}>
           <View style={[styles.progressValue, { width: `${progress}%` }]} />
@@ -540,7 +669,7 @@ export function ConceptSolveScreen({
           <Pressable
             accessibilityRole="button"
             style={styles.hintButton}
-            onPress={() => setIsHintVisible((currentValue) => !currentValue)}
+            onPress={handleToggleHint}
           >
             <CircleHelp color={BRAND_PURPLE} size={19} strokeWidth={2.2} />
             <Text style={styles.hintButtonText}>힌트 보기</Text>
@@ -559,7 +688,19 @@ export function ConceptSolveScreen({
                   <X color={BRAND_PURPLE} size={18} strokeWidth={2.3} />
                 </Pressable>
               </View>
-              <Text style={styles.hintText}>{DUMMY_HINT_TEXT}</Text>
+              {hintState.status === "loading" ? (
+                <ActivityIndicator
+                  color={BRAND_PURPLE}
+                  size="small"
+                  style={styles.hintLoading}
+                />
+              ) : hintState.status === "ready" ? (
+                <Text style={styles.hintText}>{hintState.text}</Text>
+              ) : hintState.status === "unavailable" ? (
+                <Text style={styles.hintText}>이 문제에는 힌트가 없어요.</Text>
+              ) : hintState.status === "error" ? (
+                <Text style={styles.hintText}>{hintState.message}</Text>
+              ) : null}
             </View>
           )}
         </View>
@@ -574,6 +715,7 @@ export function ConceptSolveScreen({
             setCurrentIndex((index) => index - 1);
             setSelectedAnswer(null);
             setIsHintVisible(false);
+            setHintState({ status: "idle" });
           }}
         >
           <ChevronLeft color={currentIndex === 0 ? "#aab2bd" : "#475569"} size={20} />
@@ -688,6 +830,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
+  timerTextWarning: {
+    color: "#dc2626",
+  },
   progressTrack: {
     height: 7,
     overflow: "hidden",
@@ -733,6 +878,7 @@ const styles = StyleSheet.create({
   hintButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 24 },
   hintButtonText: { color: BRAND_PURPLE, fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "700" },
   hintPanel: { borderRadius: 8, backgroundColor: "#F1EFFF", marginTop: 14, padding: 15 },
+  hintLoading: { marginTop: 8, alignSelf: "flex-start" },
   hintHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   hintTitle: { color: "#5144cf", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
   hintText: { color: "#494365", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "500", lineHeight: 22, marginTop: 8 },

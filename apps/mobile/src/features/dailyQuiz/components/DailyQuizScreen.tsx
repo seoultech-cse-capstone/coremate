@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, CircleHelp, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,7 +11,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
+import { HttpError } from "../../../shared/api/httpClient";
 import { getApiErrorMessage } from "../../../shared/utils/apiError";
+import { solveApi } from "../../solve/solveApi";
 import { dailyQuizApi } from "../dailyQuizApi";
 import type {
   DailyQuizAnswerInput,
@@ -26,6 +28,13 @@ type Session =
   | { status: "error"; message: string }
   | { status: "alreadySolved" }
   | { status: "ready"; dailyQuizSetId: number; questions: DailyQuizQuestion[] };
+
+type HintState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "ready"; text: string }
+  | { status: "unavailable" }
+  | { status: "error"; message: string };
 
 type DailyQuizAnswerState = Omit<DailyQuizAnswerInput, "questionId">;
 
@@ -58,8 +67,11 @@ export function DailyQuizScreen({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<DailyQuizAnswerState[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isHintVisible, setIsHintVisible] = useState(false);
+  const [hintState, setHintState] = useState<HintState>({ status: "idle" });
   const questionStartedAtRef = useRef(Date.now());
   const optionChangeCountRef = useRef(0);
+  const hintCacheRef = useRef<Map<number, string | null>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +113,8 @@ export function DailyQuizScreen({
   useEffect(() => {
     questionStartedAtRef.current = Date.now();
     optionChangeCountRef.current = 0;
+    setIsHintVisible(false);
+    setHintState({ status: "idle" });
   }, [currentIndex]);
 
   const answeredCount = useMemo(
@@ -161,6 +175,52 @@ export function DailyQuizScreen({
       };
       return nextAnswers;
     });
+  };
+
+  const handleToggleHint = async () => {
+    if (isHintVisible) {
+      setIsHintVisible(false);
+      return;
+    }
+    setIsHintVisible(true);
+
+    const questionId = currentQuestion.questionId;
+    setAnswers((currentAnswers) => {
+      const nextAnswers = [...currentAnswers];
+      const previous = nextAnswers[currentIndex];
+      nextAnswers[currentIndex] = {
+        ...previous,
+        hintUsed: true,
+        hintCount: previous.hintCount + 1,
+      };
+      return nextAnswers;
+    });
+
+    const cached = hintCacheRef.current.get(questionId);
+    if (cached !== undefined) {
+      setHintState(
+        cached === null ? { status: "unavailable" } : { status: "ready", text: cached },
+      );
+      return;
+    }
+
+    setHintState({ status: "loading" });
+    try {
+      const hint = await solveApi.getHint(questionId);
+      hintCacheRef.current.set(questionId, hint.hintText);
+      setHintState({ status: "ready", text: hint.hintText });
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 404) {
+        hintCacheRef.current.set(questionId, null);
+        setHintState({ status: "unavailable" });
+        return;
+      }
+      console.error("[dailyQuiz] 힌트 조회 실패", error);
+      setHintState({
+        status: "error",
+        message: getApiErrorMessage(error, "힌트를 불러오지 못했습니다."),
+      });
+    }
   };
 
   const recordTimeSpent = () => {
@@ -301,6 +361,48 @@ export function DailyQuizScreen({
               );
             })}
           </View>
+
+          {currentQuestion.hasHint ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.hintButton}
+                onPress={handleToggleHint}
+              >
+                <CircleHelp color={BRAND_PURPLE} size={19} strokeWidth={2.2} />
+                <Text style={styles.hintButtonText}>힌트 보기</Text>
+              </Pressable>
+
+              {isHintVisible ? (
+                <View style={styles.hintPanel}>
+                  <View style={styles.hintHeader}>
+                    <Text style={styles.hintTitle}>힌트</Text>
+                    <Pressable
+                      accessibilityLabel="힌트 닫기"
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      onPress={() => setIsHintVisible(false)}
+                    >
+                      <X color={BRAND_PURPLE} size={18} strokeWidth={2.3} />
+                    </Pressable>
+                  </View>
+                  {hintState.status === "loading" ? (
+                    <ActivityIndicator
+                      color={BRAND_PURPLE}
+                      size="small"
+                      style={styles.hintLoading}
+                    />
+                  ) : hintState.status === "ready" ? (
+                    <Text style={styles.hintText}>{hintState.text}</Text>
+                  ) : hintState.status === "unavailable" ? (
+                    <Text style={styles.hintText}>이 문제에는 힌트가 없어요.</Text>
+                  ) : hintState.status === "error" ? (
+                    <Text style={styles.hintText}>{hintState.message}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -445,6 +547,13 @@ const styles = StyleSheet.create({
   selectedChoiceNumberText: { color: "#ffffff" },
   choiceText: { flex: 1, color: "#334155", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "500", lineHeight: 21 },
   selectedChoiceText: { color: "#5144cf", fontWeight: "700" },
+  hintButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 24 },
+  hintButtonText: { color: BRAND_PURPLE, fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "700" },
+  hintPanel: { borderRadius: 8, backgroundColor: "#F1EFFF", marginTop: 14, padding: 15 },
+  hintHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  hintTitle: { color: "#5144cf", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
+  hintLoading: { marginTop: 8, alignSelf: "flex-start" },
+  hintText: { color: "#494365", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "500", lineHeight: 22, marginTop: 8 },
   footer: { flexDirection: "row", gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#e5e7eb", backgroundColor: "#ffffff", paddingHorizontal: 20, paddingTop: 12 },
   previousButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 1, borderRadius: 8, backgroundColor: "#eef1f5", paddingHorizontal: 18 },
   previousButtonText: { color: "#475569", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "700" },
