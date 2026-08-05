@@ -84,8 +84,8 @@ public class SolveSessionController {
 
     @Operation(
             summary = "과목 모의고사 풀이 세션 시작 (회원 전용)",
-            description = "과목 범위의 모의고사를 시작한다. 완료/미완료 개념 구분 없이 해당 범위 내에서 랜덤하게 총 50문제를 제공한다. "
-                    + "(만약 총 문제가 50문제가 안되면, 해당 범위 내에 존재하는 모든 문제를 반환)"
+            description = "과목 범위의 모의고사를 시작한다. 완료/미완료 개념 구분 없이 해당 범위 내에서 랜덤하게 총 30문제를 제공한다. "
+                    + "(만약 총 문제가 30문제가 안되면, 해당 범위 내에 존재하는 모든 문제를 반환)"
     )
     @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     @PostMapping("/mocks/subject")
