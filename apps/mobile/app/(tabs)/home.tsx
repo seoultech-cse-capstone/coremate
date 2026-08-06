@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useNavigation } from "expo-router";
-import { ListChecks } from "lucide-react-native";
+import { Bell, ListChecks } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
@@ -16,6 +16,7 @@ import {
 import { FONT } from "../../constants/fonts";
 import { useAuth } from "../../src/features/auth";
 import { dailyQuizApi } from "../../src/features/dailyQuiz";
+import { useUnreadCountQuery } from "../../src/features/notification";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -67,6 +68,8 @@ export default function HomeScreen() {
   }, [isGuest, accessToken]);
 
   // FR-GUEST-02: 게스트가 회원 전용 기능을 선택하면 로그인 필요 안내로 보낸다.
+  const { data: unreadCount = 0 } = useUnreadCountQuery();
+
   const goToMemberFeature = (memberHref: Parameters<typeof router.push>[0]) => {
     if (isGuest) {
       router.push("/login-required");
@@ -105,6 +108,26 @@ export default function HomeScreen() {
     >
       <View style={[styles.bottomPanel, { minHeight: height }]}>
         <View style={styles.panelContent}>
+          <View style={styles.notificationRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadCount > 0 ? `알림 ${unreadCount}건` : "알림"
+              }
+              hitSlop={8}
+              onPress={() => goToMemberFeature("/notifications")}
+              style={styles.notificationButton}
+            >
+              <Bell color="#1F2937" size={22} strokeWidth={2} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
           <View style={styles.levelBarTrack}>
             <LinearGradient
               colors={["#6D5DFB", "#2EE6A6"]}
@@ -178,6 +201,35 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  notificationRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingBottom: 8,
+  },
+  notificationButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontFamily: FONT.pretendard,
+    fontSize: 10,
+    fontWeight: "700",
+  },
   container: {
     flex: 1,
   },
