@@ -3,6 +3,7 @@ package com.coremate.backend.auth.service;
 import com.coremate.backend.auth.entity.DevicePlatform;
 import com.coremate.backend.auth.entity.SessionRevokeReason;
 import com.coremate.backend.auth.entity.UserSession;
+import com.coremate.backend.notification.service.NotificationMessages;
 import com.coremate.backend.auth.repository.UserSessionRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +51,7 @@ public class UserSessionService {
     private static final int DEVICE_NAME_MAX_LENGTH = 64;
 
     private final UserSessionRepository userSessionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** 로그인 응답에 돌려줄 값. 앱은 deviceId 를 저장해 다음 로그인에 다시 보낸다. */
     public record SessionRegistration(String deviceId, String sessionId) {
@@ -74,6 +77,14 @@ public class UserSessionService {
         // 복구하지 않는 이유는, 제약 위반이 발생한 트랜잭션은 이미 rollback-only 로 표시되어
         // 같은 트랜잭션 안에서 재조회·재저장을 해봐야 커밋되지 않기 때문이다. 부분 상태를 남기지 않고
         // 실패시키면 사용자가 한 번 더 로그인하는 것으로 스스로 해소된다.
+        // 새 기기 로그인 알림 판정은 세션을 만들기 "전"에 해야 한다. 만든 뒤에 세면 방금 만든
+        // 행까지 포함돼 항상 아는 기기로 보인다.
+        List<UserSession> sessionsBeforeLogin = userSessionRepository.findByUserId(userId);
+        boolean knownDevice = sessionsBeforeLogin.stream()
+                .anyMatch(existing -> deviceId.equals(existing.getDeviceId()));
+        boolean hadOtherDevices = sessionsBeforeLogin.stream()
+                .anyMatch(existing -> !deviceId.equals(existing.getDeviceId()));
+
         UserSession session = userSessionRepository.findByUserIdAndDeviceId(userId, deviceId)
                 .map(existing -> {
                     existing.relogin(sessionId, safeDeviceName, devicePlatform, safeOsVersion, now);
@@ -90,6 +101,12 @@ public class UserSessionService {
                         .build()));
 
         enforceMaxActiveSessions(userId, session.getSessionId(), now);
+
+        // 등록된 기기가 없던 최초 로그인에는 알리지 않는다(FR-NOTI-10). 방금 한 행동을 그대로
+        // 되돌려 알릴 뿐이고, 알릴 다른 기기도 없다.
+        if (!knownDevice && hadOtherDevices) {
+            eventPublisher.publishEvent(NotificationMessages.newDeviceLogin(userId, safeDeviceName));
+        }
 
         return new SessionRegistration(deviceId, session.getSessionId());
     }

@@ -22,6 +22,7 @@ import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.learninghistory.dto.response.LearningHistoryResponse;
 import com.coremate.backend.learninghistory.service.LearningHistoryService;
+import com.coremate.backend.notification.service.NotificationMessages;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,7 @@ public class FriendService {
     private final AttendanceRepository attendanceRepository;
     private final AvatarService avatarService;
     private final LearningHistoryService learningHistoryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public List<FriendSearchUserResponse> searchUsers(Long userId, String keyword) {
         findActiveUser(userId);
@@ -109,6 +112,9 @@ public class FriendService {
                 .map(existing -> reopenRequestIfPossible(existing, requester, receiver))
                 .orElseGet(() -> friendRepository.save(new Friend(requester, receiver)));
 
+        eventPublisher.publishEvent(NotificationMessages.friendRequestReceived(
+                receiver.getUserId(), requester.getNickname(), requester.getUserId()));
+
         return toFriendRequestResponse(friend, userId);
     }
 
@@ -123,6 +129,11 @@ public class FriendService {
 
         if (request.getStatus() == FriendStatus.ACCEPTED) {
             friend.accept(LocalDateTime.now());
+            // 거절은 알리지 않는다(FR-NOTI-08). 거절당한 사실을 통보받는 건 관계에 도움이 되지 않는다.
+            eventPublisher.publishEvent(NotificationMessages.friendRequestAccepted(
+                    friend.getRequester().getUserId(),
+                    friend.getReceiver().getNickname(),
+                    friend.getReceiver().getUserId()));
             return toFriendResponse(friend, userId);
         }
 
@@ -169,6 +180,8 @@ public class FriendService {
         User toUser = findActiveUser(request.getToUserId());
 
         FriendPoke friendPoke = friendPokeRepository.save(new FriendPoke(fromUser, toUser, request.getMessageType()));
+        eventPublisher.publishEvent(NotificationMessages.friendPoke(
+                toUser.getUserId(), fromUser.getNickname(), fromUser.getUserId()));
         return toFriendPokeResponse(friendPoke);
     }
 
