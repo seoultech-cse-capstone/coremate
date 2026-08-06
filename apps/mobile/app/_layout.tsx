@@ -2,12 +2,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
-import { getFcmToken } from "../src/features/notification/pushToken";
+import { usePushRegistration } from "../src/features/notification";
 import { queryClient } from "../src/shared/api/queryClient";
 import { LanguageProvider } from "../src/shared/language/LanguageContext";
 
@@ -17,12 +16,8 @@ export default function RootLayout() {
     [FONT.kufam]: require("../assets/fonts/Kufam-VariableFont_wght.ttf"),
   });
 
-  // Firebase 연동 확인용. FR-NOTI-02(기기 토큰 등록)를 구현할 때 서버 등록 호출로 바뀐다.
-  useEffect(() => {
-    getFcmToken()
-      .then((token) => console.log("[FCM] device token:", token))
-      .catch((error) => console.log("[FCM] token error:", error));
-  }, []);
+  // 로그인 상태의 기기 토큰 등록·해제와 알림 탭 딥링크(FR-NOTI-02).
+  usePushRegistration();
 
   if (!fontsLoaded) {
     return null;
@@ -97,6 +92,7 @@ export default function RootLayout() {
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="device-management" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>
           {/* Stack 바깥에 둔다. 세션이 끊기면 (tabs) 네비게이터가 재마운트되면서

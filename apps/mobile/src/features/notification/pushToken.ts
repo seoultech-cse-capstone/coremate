@@ -14,6 +14,17 @@ async function ensureAndroidChannel() {
   });
 }
 
+// 앱이 켜져 있을 때 알림을 어떻게 다룰지. 배너와 소리를 그대로 띄운다.
+// 이걸 지정하지 않으면 포그라운드에서는 알림이 앱에 전달만 되고 화면에는 보이지 않는다.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 // FCM 기기 토큰을 발급받는다. 권한이 없으면 null.
 //
 // getExpoPushTokenAsync 가 아니라 getDevicePushTokenAsync 를 쓴다. 백엔드가 Expo 푸시
