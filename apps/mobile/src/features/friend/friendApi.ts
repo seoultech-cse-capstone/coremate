@@ -1,0 +1,56 @@
+import { httpClient } from "../../shared/api/httpClient";
+import type { Friend, FriendPoke, FriendRequest, FriendSearchUser } from "./types";
+
+/**
+ * 친구 REST 호출. 전부 회원 전용이다.
+ *
+ * accessToken을 인자로 받는 것은 다른 도메인 API 모듈과 같은 컨벤션이다.
+ * (features/auth를 import하지 않으므로 모듈 순환이 생기지 않는다)
+ */
+export const friendApi = {
+  getFriends(accessToken: string): Promise<Friend[]> {
+    return httpClient.get<Friend[]>("/api/friends", { accessToken });
+  },
+
+  getRequests(direction: "RECEIVED" | "SENT" | "ALL", accessToken: string): Promise<FriendRequest[]> {
+    return httpClient.get<FriendRequest[]>(
+      `/api/friends/requests?direction=${direction}`,
+      { accessToken },
+    );
+  },
+
+  searchUsers(keyword: string, accessToken: string): Promise<FriendSearchUser[]> {
+    return httpClient.get<FriendSearchUser[]>(
+      `/api/friends/search?keyword=${encodeURIComponent(keyword)}`,
+      { accessToken },
+    );
+  },
+
+  sendRequest(receiverId: number, accessToken: string): Promise<FriendRequest> {
+    return httpClient.post<FriendRequest>("/api/friends/requests", { receiverId }, { accessToken });
+  },
+
+  respondRequest(
+    friendId: number,
+    status: "ACCEPTED" | "REJECTED",
+    accessToken: string,
+  ): Promise<Friend> {
+    return httpClient.post<Friend>(
+      "/api/friends/requests/respond",
+      { friendId, status },
+      { accessToken },
+    );
+  },
+
+  deleteFriend(friendUserId: number, accessToken: string): Promise<void> {
+    return httpClient.delete<void>(`/api/friends/${friendUserId}`, { accessToken });
+  },
+
+  poke(toUserId: number, accessToken: string): Promise<FriendPoke> {
+    return httpClient.post<FriendPoke>(
+      "/api/friends/pokes",
+      { toUserId, messageType: "POKE" },
+      { accessToken },
+    );
+  },
+};
