@@ -42,6 +42,9 @@ public class FriendService {
     private static final String REQUEST_DIRECTION_SENT = "SENT";
     private static final String REQUEST_DIRECTION_ALL = "ALL";
 
+    private static final int POKE_DAILY_LIMIT_PER_FRIEND = 3;
+    private static final int POKE_DAILY_LIMIT_TOTAL = 30;
+
     private final FriendRepository friendRepository;
     private final FriendPokeRepository friendPokeRepository;
     private final FriendUserSearchRepository friendUserSearchRepository;
@@ -161,6 +164,7 @@ public class FriendService {
     public FriendPokeResponse poke(Long userId, PokeFriendRequest request) {
         validateNotSelf(userId, request.getToUserId());
         validateAcceptedFriend(userId, request.getToUserId());
+        validatePokeLimit(userId, request.getToUserId());
         User fromUser = findActiveUser(userId);
         User toUser = findActiveUser(request.getToUserId());
 
@@ -187,6 +191,28 @@ public class FriendService {
             poke.markRead(LocalDateTime.now());
         }
         return toFriendPokeResponse(poke);
+    }
+
+    // 콕 찌르기 일일 제한. 컨테이너 타임존이 Asia/Seoul 이라 LocalDate.now() 가 곧 서비스 기준 날짜다.
+    // 전체 한도를 먼저 본다. 총량을 다 쓴 상태에서 "같은 친구에게는 3번까지"를 안내하면
+    // 다른 친구를 고르면 된다는 뜻으로 읽혀 사용자가 다시 시도하게 된다.
+    private void validatePokeLimit(Long fromUserId, Long toUserId) {
+        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime nextDayStart = dayStart.plusDays(1);
+
+        long sentToday = friendPokeRepository
+                .countByFromUser_UserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        fromUserId, dayStart, nextDayStart);
+        if (sentToday >= POKE_DAILY_LIMIT_TOTAL) {
+            throw new CoreMateException(ErrorCode.FRIEND_POKE_DAILY_LIMIT_EXCEEDED);
+        }
+
+        long sentToFriendToday = friendPokeRepository
+                .countByFromUser_UserIdAndToUser_UserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        fromUserId, toUserId, dayStart, nextDayStart);
+        if (sentToFriendToday >= POKE_DAILY_LIMIT_PER_FRIEND) {
+            throw new CoreMateException(ErrorCode.FRIEND_POKE_FRIEND_LIMIT_EXCEEDED);
+        }
     }
 
     private Friend reopenRequestIfPossible(Friend friend, User requester, User receiver) {

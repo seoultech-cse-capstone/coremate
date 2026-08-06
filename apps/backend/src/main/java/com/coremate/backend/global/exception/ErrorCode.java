@@ -55,6 +55,8 @@ public enum ErrorCode {
     // Friend
     FRIEND_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 관계를 찾을 수 없습니다"),
     FRIEND_POKE_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 콕 찌르기 기록을 찾을 수 없습니다"),
+    FRIEND_POKE_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 보낼 수 있는 콕 찌르기를 모두 사용했습니다"),
+    FRIEND_POKE_FRIEND_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "같은 친구에게는 하루 3번까지 보낼 수 있습니다"),
     FRIEND_SELF_REQUEST(HttpStatus.BAD_REQUEST, "자기 자신에게 친구 요청을 보낼 수 없습니다"),
     FRIEND_REQUEST_DUPLICATED(HttpStatus.CONFLICT, "이미 친구이거나 요청을 보낸 사용자입니다"),
     FRIEND_REQUEST_NOT_RECEIVED(HttpStatus.FORBIDDEN, "본인에게 온 친구 요청만 처리할 수 있습니다"),
