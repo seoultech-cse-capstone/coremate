@@ -2,10 +2,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
+import { getFcmToken } from "../src/features/notification/pushToken";
 import { queryClient } from "../src/shared/api/queryClient";
 import { LanguageProvider } from "../src/shared/language/LanguageContext";
 
@@ -14,6 +16,13 @@ export default function RootLayout() {
     [FONT.pretendard]: require("../assets/fonts/PretendardVariable.ttf"),
     [FONT.kufam]: require("../assets/fonts/Kufam-VariableFont_wght.ttf"),
   });
+
+  // Firebase 연동 확인용. FR-NOTI-02(기기 토큰 등록)를 구현할 때 서버 등록 호출로 바뀐다.
+  useEffect(() => {
+    getFcmToken()
+      .then((token) => console.log("[FCM] device token:", token))
+      .catch((error) => console.log("[FCM] token error:", error));
+  }, []);
 
   if (!fontsLoaded) {
     return null;
