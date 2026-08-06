@@ -53,3 +53,34 @@ export type FriendPoke = {
   isRead: boolean;
   createdAt: string;
 };
+
+export type FriendSubjectStat = {
+  subjectId: number;
+  solvedQuestionCount: number;
+  correctQuestionCount: number;
+  wrongQuestionCount: number;
+  /** 0~1 사이 비율을 문자열로 준다(예: "0.75") */
+  achievementRate: string | null;
+};
+
+export type FriendProfile = {
+  userId: number;
+  nickname: string;
+  level: number | null;
+  schoolName: string | null;
+  schoolVerified: boolean;
+  status: string;
+  attendedToday: boolean;
+  attendanceCount: number;
+  avatarProfile: AvatarProfile | null;
+  subjectStats: FriendSubjectStat[];
+};
+
+export type FriendLearningHistory = {
+  /** 모의고사 총 풀이 시간(초). 개념 문제집 제외 */
+  totalMockSolveTimeSec: number;
+  /** 개념 문제집에서 맞힌 서로 다른 문제 수 */
+  conceptCorrectQuestionCount: number;
+  /** PASS(전 문제 정답)로 통과한 개념 수 */
+  completedConceptCount: number;
+};

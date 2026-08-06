@@ -2,36 +2,36 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { Polygon, Text as SvgText } from "react-native-svg";
 
 import { FONT } from "../../../../constants/fonts";
-import type { FriendProgress } from "../friendData";
 
-const AXES = ["DS", "Algo", "OS", "DB", "Arch", "Net"];
-const POINTS = [
-  [150, 22],
-  [235, 70],
-  [235, 168],
-  [150, 216],
-  [65, 168],
-  [65, 70],
-];
+const CENTER_X = 150;
+const CENTER_Y = 119;
+const RADIUS = 97;
+/** 축 라벨을 도형 바깥에 두기 위한 여유. */
+const LABEL_OFFSET = 16;
 
-type FriendProgressStatsProps = {
-  progress: FriendProgress;
+export type ProgressAxis = {
+  label: string;
+  /** 0~100 */
+  value: number;
 };
 
-export function FriendProgressStats({ progress }: FriendProgressStatsProps) {
-  const values = [
-    progress.dataStructure,
-    progress.algorithm,
-    progress.operatingSystem,
-    progress.database,
-    progress.computerArchitecture,
-    progress.network,
-  ];
-  const chartPoints = values
-    .map((value, index) => {
-      const [x, y] = POINTS[index];
-      return `${150 + (x - 150) * (value / 100)},${119 + (y - 119) * (value / 100)}`;
-    })
+type FriendProgressStatsProps = {
+  axes: ProgressAxis[];
+};
+
+/**
+ * 과목별 달성률 레이더 차트.
+ *
+ * 축을 배열로 받아 좌표를 계산한다. 과목 수와 이름은 서버가 정하는 값이라 화면에 고정해
+ * 두면 과목이 하나 늘거나 줄 때마다 그림이 깨진다.
+ */
+export function FriendProgressStats({ axes }: FriendProgressStatsProps) {
+  if (axes.length < 3) {
+    return null;
+  }
+
+  const chartPoints = axes
+    .map((axis, index) => axisPoint(index, axes.length, clampRatio(axis.value)).join(","))
     .join(" ");
 
   return (
@@ -42,58 +42,75 @@ export function FriendProgressStats({ progress }: FriendProgressStatsProps) {
           <Polygon
             fill="none"
             key={scale}
-            points={POINTS.map(([x, y]) =>
-              `${150 + (x - 150) * scale},${119 + (y - 119) * scale}`,
-            ).join(" ")}
+            points={axes
+              .map((_, index) => axisPoint(index, axes.length, scale).join(","))
+              .join(" ")}
             stroke="#D9E1EE"
             strokeWidth={1}
           />
         ))}
-        {POINTS.map(([x, y], index) => (
-          <Polygon
-            fill="none"
-            key={AXES[index]}
-            points={`150,119 ${x},${y}`}
-            stroke="#E7ECF4"
-            strokeWidth={1}
-          />
-        ))}
+        {axes.map((axis, index) => {
+          const [x, y] = axisPoint(index, axes.length, 1);
+          return (
+            <Polygon
+              fill="none"
+              key={axis.label}
+              points={`${CENTER_X},${CENTER_Y} ${x},${y}`}
+              stroke="#E7ECF4"
+              strokeWidth={1}
+            />
+          );
+        })}
         <Polygon
           fill="rgba(109, 93, 251, 0.24)"
           points={chartPoints}
           stroke="#6D5DFB"
           strokeWidth={2}
         />
-        <SvgText fill="#64748B" fontSize="12" x="142" y="13">
-          DS
-        </SvgText>
-        <SvgText fill="#64748B" fontSize="12" x="246" y="66">
-          Algo
-        </SvgText>
-        <SvgText fill="#64748B" fontSize="12" x="247" y="181">
-          OS
-        </SvgText>
-        <SvgText fill="#64748B" fontSize="12" x="141" y="238">
-          DB
-        </SvgText>
-        <SvgText fill="#64748B" fontSize="12" x="20" y="181">
-          Arch
-        </SvgText>
-        <SvgText fill="#64748B" fontSize="12" x="30" y="66">
-          Net
-        </SvgText>
+        {axes.map((axis, index) => {
+          const [x, y] = axisPoint(index, axes.length, 1, LABEL_OFFSET);
+          return (
+            <SvgText
+              fill="#64748B"
+              fontSize="12"
+              key={axis.label}
+              textAnchor="middle"
+              x={x}
+              y={y + 4}
+            >
+              {axis.label}
+            </SvgText>
+          );
+        })}
       </Svg>
 
       <View style={styles.statGrid}>
-        {AXES.map((axis, index) => (
-          <View key={axis} style={styles.statItem}>
-            <Text style={styles.statLabel}>{axis}</Text>
-            <Text style={styles.statValue}>{values[index]}%</Text>
+        {axes.map((axis) => (
+          <View key={axis.label} style={styles.statItem}>
+            <Text style={styles.statLabel}>{axis.label}</Text>
+            <Text style={styles.statValue}>{Math.round(axis.value)}%</Text>
           </View>
         ))}
       </View>
     </View>
   );
+}
+
+// 12시 방향부터 시계 방향으로 축을 배치한다.
+function axisPoint(index: number, count: number, scale: number, extra = 0): [number, number] {
+  const angle = (Math.PI * 2 * index) / count - Math.PI / 2;
+  const radius = RADIUS * scale + extra;
+  return [
+    Math.round(CENTER_X + radius * Math.cos(angle)),
+    Math.round(CENTER_Y + radius * Math.sin(angle)),
+  ];
+}
+
+function clampRatio(value: number): number {
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+  return Math.min(1, Math.max(0, value / 100));
 }
 
 const styles = StyleSheet.create({
