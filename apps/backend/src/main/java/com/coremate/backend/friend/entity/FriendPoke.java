@@ -25,8 +25,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
         name = "friend_pokes",
         indexes = {
                 @Index(name = "idx_friend_pokes_from_user_id", columnList = "from_user_id"),
-                @Index(name = "idx_friend_pokes_to_user_id", columnList = "to_user_id"),
-                @Index(name = "idx_friend_pokes_to_user_read", columnList = "to_user_id,is_read")
+                @Index(name = "idx_friend_pokes_to_user_id", columnList = "to_user_id")
         }
 )
 @Getter
@@ -52,23 +51,15 @@ public class FriendPoke {
     @Column(name = "message_type", nullable = false, length = 50)
     private String messageType;
 
-    // 읽음 여부는 DB 명세서상 컬럼이지만 갱신하는 경로가 없다. 콕 찌르기 수신은
-    // 인앱 알림함(FR-NOTI-05)이 담당하고, 읽음 상태도 notifications 쪽에서 관리한다.
-    @Column(name = "is_read", nullable = false)
-    private boolean read;
-
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "read_at")
-    private LocalDateTime readAt;
-
+    // 읽음 상태를 두지 않는다. 수신자에게 보이는 목록과 읽음 처리는 인앱 알림함(FR-NOTI-05)이 담당한다.
     public FriendPoke(User fromUser, User toUser, String messageType) {
         this.fromUser = fromUser;
         this.toUser = toUser;
         this.messageType = normalizeMessageType(messageType);
-        this.read = false;
     }
 
     private String normalizeMessageType(String messageType) {

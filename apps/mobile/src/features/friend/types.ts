@@ -50,7 +50,6 @@ export type FriendPoke = {
   toUserId: number;
   toNickname: string;
   messageType: string;
-  isRead: boolean;
   createdAt: string;
 };
 

@@ -292,9 +292,7 @@ public class FriendService {
                 poke.getToUser().getUserId(),
                 poke.getToUser().getNickname(),
                 poke.getMessageType(),
-                poke.isRead(),
-                poke.getCreatedAt(),
-                poke.getReadAt()
+                poke.getCreatedAt()
         );
     }
 
