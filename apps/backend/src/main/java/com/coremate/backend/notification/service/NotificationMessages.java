@@ -54,6 +54,41 @@ public final class NotificationMessages {
         );
     }
 
+    public static NotificationCommand dailyQuizOpen(Long userId) {
+        return NotificationCommand.of(
+                userId,
+                NotificationType.DAILY_QUIZ_OPEN,
+                "오늘의 CS 퀴즈가 나왔어요",
+                "5문제 풀고 출석까지 한 번에 끝내볼까요?",
+                NotificationTargetType.DAILY_QUIZ,
+                null
+        );
+    }
+
+    public static NotificationCommand attendanceReminder(Long userId) {
+        return NotificationCommand.of(
+                userId,
+                NotificationType.ATTENDANCE_REMINDER,
+                "오늘 아직 출석 전이에요",
+                "오늘의 퀴즈를 풀면 출석이 완료됩니다",
+                NotificationTargetType.DAILY_QUIZ,
+                null
+        );
+    }
+
+    // 이동 대상을 두지 않는다. 알림을 누르면 앱이 열리면서 홈으로 들어가므로
+    // FR-NOTI-07 이 말하는 "홈 화면으로 이동"이 그대로 성립한다.
+    public static NotificationCommand learningReminder(Long userId) {
+        return NotificationCommand.of(
+                userId,
+                NotificationType.LEARNING_REMINDER,
+                "며칠 쉬었네요",
+                "가볍게 한 문제집만 풀어볼까요?",
+                NotificationTargetType.NONE,
+                null
+        );
+    }
+
     public static NotificationCommand newDeviceLogin(Long userId, String deviceName) {
         return NotificationCommand.of(
                 userId,
