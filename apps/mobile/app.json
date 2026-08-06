@@ -1,16 +1,19 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "CoreMate",
+    "slug": "coremate",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/splash-icon.png",
-    "scheme": "mobile",
+    "scheme": "coremate",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/splash-icon.png"
+      "icon": "./assets/images/splash-icon.png",
+      "bundleIdentifier": "com.coremate.app"
     },
     "android": {
+      "package": "com.coremate.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0760FD",
         "foregroundImage": "./assets/images/splash-icon.png",
@@ -33,7 +36,8 @@
           "backgroundColor": "#0760FD"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
