@@ -112,7 +112,7 @@ class FriendServiceTest {
     }
 
     @Test
-    void pokeCanBeSentAndMarkedReadAfterFriendAccepted() {
+    void pokeCanBeSentAfterFriendAccepted() {
         User requester = createUser("alice4@example.com", "alice4");
         User receiver = createUser("bob4@example.com", "bob4");
         FriendRequestResponse request = friendService.sendRequest(
@@ -135,13 +135,9 @@ class FriendServiceTest {
                         .build()
         );
 
-        assertThat(poke.isRead()).isFalse();
-        assertThat(friendService.getReceivedPokes(receiver.getUserId(), true)).hasSize(1);
-
-        FriendPokeResponse readPoke = friendService.markPokeRead(receiver.getUserId(), poke.pokeId());
-
-        assertThat(readPoke.isRead()).isTrue();
-        assertThat(readPoke.readAt()).isNotNull();
+        assertThat(poke.pokeId()).isNotNull();
+        assertThat(poke.fromUserId()).isEqualTo(requester.getUserId());
+        assertThat(poke.toUserId()).isEqualTo(receiver.getUserId());
     }
 
     @Test

@@ -52,6 +52,8 @@ public class FriendPoke {
     @Column(name = "message_type", nullable = false, length = 50)
     private String messageType;
 
+    // 읽음 여부는 DB 명세서상 컬럼이지만 갱신하는 경로가 없다. 콕 찌르기 수신은
+    // 인앱 알림함(FR-NOTI-05)이 담당하고, 읽음 상태도 notifications 쪽에서 관리한다.
     @Column(name = "is_read", nullable = false)
     private boolean read;
 
@@ -67,11 +69,6 @@ public class FriendPoke {
         this.toUser = toUser;
         this.messageType = normalizeMessageType(messageType);
         this.read = false;
-    }
-
-    public void markRead(LocalDateTime readAt) {
-        this.read = true;
-        this.readAt = readAt;
     }
 
     private String normalizeMessageType(String messageType) {
