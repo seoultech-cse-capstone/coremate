@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { router } from "expo-router";
+import { router, useRootNavigationState } from "expo-router";
 
 import { useAuth } from "../auth/AuthContext";
 import { deviceStorage } from "../device/deviceStorage";
@@ -36,7 +37,12 @@ function openTarget(data: Record<string, unknown> | undefined) {
  * 다른 사람이 그 기기를 쓰면 남의 알림을 보게 된다.
  */
 export function usePushRegistration() {
-  const { accessToken, isAuthenticated } = useAuth();
+  const { accessToken, isAuthenticated, status } = useAuth();
+  const queryClient = useQueryClient();
+  // 앱이 꺼진 상태에서 알림으로 열리면 화면이 준비되기 전에 이동을 시도하게 된다.
+  // key 가 생기면 라우터가 첫 화면을 올린 뒤다.
+  const navigationState = useRootNavigationState();
+  const navigationReady = Boolean(navigationState?.key);
   // 로그아웃 시점에는 이미 토큰이 비어 있어, 해제에 쓸 값을 미리 들고 있어야 한다.
   const registeredRef = useRef<{ token: string; accessToken: string } | null>(null);
 
@@ -78,21 +84,40 @@ export function usePushRegistration() {
     };
   }, [accessToken, isAuthenticated]);
 
+  // 알림을 눌러 앱이 열린 경우(백그라운드에서 복귀).
   useEffect(() => {
-    // 알림을 눌러 앱이 열린 경우(백그라운드에서 복귀).
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       openTarget(response.notification.request.content.data as Record<string, unknown>);
     });
+    return () => subscription.remove();
+  }, []);
 
-    // 앱이 완전히 꺼진 상태에서 알림으로 열린 경우. 위 리스너로는 잡히지 않는다.
+  // 앱이 완전히 꺼진 상태에서 알림으로 열린 경우. 위 리스너로는 잡히지 않는다.
+  //
+  // 라우터 준비와 인증 복원이 "둘 다" 끝난 뒤에 이동해야 한다. 앱 진입 화면(app/index.tsx)이
+  // 인증 복원을 마치면 홈으로 replace 하는데, 그보다 먼저 이동하면 그 replace 가 덮어쓴다.
+  // 앱을 종료해 두는 게 보통이라 실제로는 이 경로가 더 자주 쓰인다.
+  const coldStartHandled = useRef(false);
+  useEffect(() => {
+    if (!navigationReady || status === "loading" || coldStartHandled.current) {
+      return;
+    }
+    coldStartHandled.current = true;
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {
         openTarget(response.notification.request.content.data as Record<string, unknown>);
       }
     });
+  }, [navigationReady, status]);
 
+  // 앱이 켜져 있는 동안 알림이 오면 배지와 목록을 새로 읽는다.
+  // 이게 없으면 화면에 들어올 때만 갱신돼, 앱을 켜 둔 채로 받은 알림이 배지에 반영되지 않는다.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(() => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    });
     return () => subscription.remove();
-  }, []);
+  }, [queryClient]);
 }
 
 function platformOf(): "IOS" | "ANDROID" {
