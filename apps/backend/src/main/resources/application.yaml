@@ -49,6 +49,12 @@ spring:
           starttls:
             enable: true
 
+firebase:
+  # FCM 발송용 서비스 계정 JSON 경로. git 미추적이라 없는 환경이 있을 수 있고,
+  # 그 경우 알림만 빠진 채로 기동한다(FirebaseConfig 참고).
+  # 기본값은 호스트에서 bootRun 할 때 기준. Docker 는 compose 가 절대경로로 주입한다.
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:secrets/firebase-service-account.json}
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiry-sec: 3600      # 1시간
