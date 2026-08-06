@@ -30,6 +30,18 @@ Notifications.setNotificationHandler({
 // getExpoPushTokenAsync 가 아니라 getDevicePushTokenAsync 를 쓴다. 백엔드가 Expo 푸시
 // 서비스를 경유하지 않고 FCM 에 직접 발송하므로(NFR-COMP-11), 네이티브 FCM 토큰이어야
 // 한다. 두 토큰은 형식이 달라 섞어 쓰면 발송이 실패한다.
+// 마지막으로 서버에 등록한 토큰. 로그아웃 때 해제 대상을 알아야 하는데, 그 시점에는
+// 이미 인증 상태가 비워져 훅에서 값을 들고 있기 어렵다.
+let registeredToken: string | null = null;
+
+export function rememberRegisteredToken(token: string | null) {
+  registeredToken = token;
+}
+
+export function getRegisteredToken(): string | null {
+  return registeredToken;
+}
+
 export async function getFcmToken(): Promise<string | null> {
   await ensureAndroidChannel();
 

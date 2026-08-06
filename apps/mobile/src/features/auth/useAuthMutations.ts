@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import { getDeviceInfo } from "../device/deviceInfo";
 import { deviceStorage } from "../device/deviceStorage";
+import { unregisterPushToken } from "../notification/notificationApi";
 import { authApi } from "./authApi";
 import { useAuth } from "./AuthContext";
 import { tokenStorage } from "./tokenStorage";
@@ -78,6 +79,11 @@ export function useLogoutMutation() {
         }
         return refreshToken;
       };
+
+      // 기기 토큰 해제를 세션 해지보다 먼저 한다. 순서가 뒤바뀌면 해제 요청이 이미
+      // 무효해진 토큰으로 나가 401 로 실패하고, 서버에는 활성 토큰이 남아 로그아웃한
+      // 기기로도 알림이 계속 간다.
+      await unregisterPushToken();
 
       const sentRefreshToken = await attemptLogout();
       if (sentRefreshToken) {

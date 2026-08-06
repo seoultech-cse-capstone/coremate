@@ -1,4 +1,6 @@
 import { httpClient } from "../../shared/api/httpClient";
+import { tokenStorage } from "../auth/tokenStorage";
+import { getRegisteredToken, rememberRegisteredToken } from "./pushToken";
 import type {
   AppNotification,
   DevicePlatform,
@@ -54,3 +56,27 @@ export const notificationApi = {
     return httpClient.patch<void>("/api/notifications/read-all", undefined, { accessToken });
   },
 };
+
+/**
+ * 로그아웃 시 기기 토큰을 해제한다.
+ *
+ * 세션이 해지되기 "전"에 불려야 한다. 뒤에 부르면 이미 무효해진 토큰으로 요청이 나가
+ * 401 로 실패하고, 서버에는 활성 토큰이 남아 로그아웃한 기기로도 알림이 계속 간다.
+ * 실패해도 로그아웃 자체를 막지 않는다.
+ */
+export async function unregisterPushToken(): Promise<void> {
+  const token = getRegisteredToken();
+  if (!token) {
+    return;
+  }
+  const accessToken = await tokenStorage.getAccessToken();
+  if (!accessToken) {
+    return;
+  }
+  try {
+    await notificationApi.unregisterDeviceToken(token, accessToken);
+    rememberRegisteredToken(null);
+  } catch {
+    // 서버가 다른 계정의 같은 토큰 등록 시점에도 이전 등록을 내리므로 치명적이지 않다.
+  }
+}
