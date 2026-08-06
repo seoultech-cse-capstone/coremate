@@ -2,12 +2,10 @@ package com.coremate.backend.notification.service;
 
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
-// 실제 FCM 발송 전까지 쓰는 구현. 발송 대상과 내용을 로그로만 남기고 성공으로 처리한다.
-// 이 단계에서 검증하려는 것은 "누구에게 무엇을 보내기로 판단했는가"이지 전송 자체가 아니다.
+// Firebase 자격증명이 없는 환경에서 쓰는 구현. 발송 대상과 내용을 로그로만 남기고
+// 성공으로 처리해, 자격증명 없이도 발송 판단 로직을 그대로 검증할 수 있게 한다.
 @Slf4j
-@Component
 public class LoggingPushSender implements PushSender {
 
     @Override
