@@ -1,5 +1,12 @@
 import { httpClient } from "../../shared/api/httpClient";
-import type { Friend, FriendPoke, FriendRequest, FriendSearchUser } from "./types";
+import type {
+  Friend,
+  FriendLearningHistory,
+  FriendPoke,
+  FriendProfile,
+  FriendRequest,
+  FriendSearchUser,
+} from "./types";
 
 /**
  * 친구 REST 호출. 전부 회원 전용이다.
@@ -44,6 +51,17 @@ export const friendApi = {
 
   deleteFriend(friendUserId: number, accessToken: string): Promise<void> {
     return httpClient.delete<void>(`/api/friends/${friendUserId}`, { accessToken });
+  },
+
+  getProfile(friendUserId: number, accessToken: string): Promise<FriendProfile> {
+    return httpClient.get<FriendProfile>(`/api/friends/${friendUserId}/profile`, { accessToken });
+  },
+
+  getLearningHistory(friendUserId: number, accessToken: string): Promise<FriendLearningHistory> {
+    return httpClient.get<FriendLearningHistory>(
+      `/api/friends/${friendUserId}/learning-history`,
+      { accessToken },
+    );
   },
 
   poke(toUserId: number, accessToken: string): Promise<FriendPoke> {

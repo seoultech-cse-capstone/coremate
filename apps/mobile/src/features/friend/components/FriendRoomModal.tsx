@@ -2,23 +2,25 @@ import { Armchair, BookOpen, Lamp, Sparkles, X } from "lucide-react-native";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
-import type { Friend } from "../friendData";
+import { getAvatarColor } from "../avatarColor";
 import { FriendAvatar } from "./FriendAvatar";
 
 type FriendRoomModalProps = {
-  friend: Friend;
+  nickname: string;
   visible: boolean;
   onClose: () => void;
 };
 
-export function FriendRoomModal({ friend, visible, onClose }: FriendRoomModalProps) {
+export function FriendRoomModal({ nickname, visible, onClose }: FriendRoomModalProps) {
+  const avatarColor = getAvatarColor(nickname);
+
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.overlay}>
         <View style={styles.modal}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>{friend.nickname}{"'s Room"}</Text>
+              <Text style={styles.title}>{nickname}{"'s Room"}</Text>
               <Text style={styles.subtitle}>Avatar & Room</Text>
             </View>
             <Pressable accessibilityLabel="Close" hitSlop={8} onPress={onClose}>
@@ -45,11 +47,11 @@ export function FriendRoomModal({ friend, visible, onClose }: FriendRoomModalPro
             </View>
             <View style={styles.avatarSpot}>
               <FriendAvatar
-                backgroundColor={friend.avatarColor}
-                color={friend.avatarAccentColor}
+                backgroundColor={avatarColor.background}
+                color={avatarColor.accent}
                 size={74}
               />
-              <Text style={styles.avatarName}>{friend.nickname}</Text>
+              <Text style={styles.avatarName}>{nickname}</Text>
             </View>
             <View style={styles.floorLine} />
           </View>

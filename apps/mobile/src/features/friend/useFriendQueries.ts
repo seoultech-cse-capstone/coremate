@@ -3,7 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getApiErrorCode } from "../../shared/utils/apiError";
 import { useAuth } from "../auth/AuthContext";
 import { friendApi } from "./friendApi";
-import type { Friend, FriendRequest, FriendSearchUser } from "./types";
+import type {
+  Friend,
+  FriendLearningHistory,
+  FriendProfile,
+  FriendRequest,
+  FriendSearchUser,
+} from "./types";
 
 const FRIENDS_QUERY_KEY = ["friends"];
 const FRIEND_REQUESTS_QUERY_KEY = ["friends", "requests"];
@@ -105,5 +111,26 @@ export function usePokeMutation() {
 
   return useMutation({
     mutationFn: (toUserId: number) => friendApi.poke(toUserId, accessToken as string),
+  });
+}
+
+/** 친구 상세 프로필. 과목별 스탯이 함께 온다. */
+export function useFriendProfileQuery(friendUserId: number | null) {
+  const { accessToken } = useAuth();
+
+  return useQuery<FriendProfile>({
+    queryKey: ["friends", "profile", friendUserId],
+    queryFn: () => friendApi.getProfile(friendUserId as number, accessToken as string),
+    enabled: Boolean(accessToken) && friendUserId !== null,
+  });
+}
+
+export function useFriendLearningHistoryQuery(friendUserId: number | null) {
+  const { accessToken } = useAuth();
+
+  return useQuery<FriendLearningHistory>({
+    queryKey: ["friends", "learning-history", friendUserId],
+    queryFn: () => friendApi.getLearningHistory(friendUserId as number, accessToken as string),
+    enabled: Boolean(accessToken) && friendUserId !== null,
   });
 }
