@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Flame, Hand, MapPin } from "lucide-react-native";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -39,7 +39,6 @@ const OVERSCROLL_BUFFER = 96;
 export default function FriendProfileScreen() {
   useRequireMember();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
   const { friendId } = useLocalSearchParams<{ friendId?: string }>();
   const friendUserId = Number(friendId);
   const targetUserId = Number.isFinite(friendUserId) ? friendUserId : null;
@@ -150,7 +149,6 @@ export default function FriendProfileScreen() {
       <ScrollView
         bounces
         contentContainerStyle={[styles.scrollContent, { paddingTop: 60 + insets.top }]}
-        ref={scrollRef}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.profileArea}>

@@ -26,10 +26,6 @@ type FriendProgressStatsProps = {
  * 두면 과목이 하나 늘거나 줄 때마다 그림이 깨진다.
  */
 export function FriendProgressStats({ axes }: FriendProgressStatsProps) {
-  if (axes.length < 3) {
-    return null;
-  }
-
   const chartPoints = axes
     .map((axis, index) => axisPoint(index, axes.length, clampRatio(axis.value)).join(","))
     .join(" ");
@@ -37,6 +33,8 @@ export function FriendProgressStats({ axes }: FriendProgressStatsProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Learning Stats</Text>
+      {/* 축이 3개 미만이면 도형이 점이나 선이 돼 버린다. 그럴 땐 아래 수치만 보여준다. */}
+      {axes.length >= 3 ? (
       <Svg height={242} viewBox="0 0 300 242" width="100%">
         {[1, 0.75, 0.5, 0.25].map((scale) => (
           <Polygon
@@ -83,6 +81,7 @@ export function FriendProgressStats({ axes }: FriendProgressStatsProps) {
           );
         })}
       </Svg>
+      ) : null}
 
       <View style={styles.statGrid}>
         {axes.map((axis) => (
