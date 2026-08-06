@@ -185,27 +185,6 @@ public class FriendService {
         return toFriendPokeResponse(friendPoke);
     }
 
-    public List<FriendPokeResponse> getReceivedPokes(Long userId, Boolean unreadOnly) {
-        findActiveUser(userId);
-        boolean onlyUnread = Boolean.TRUE.equals(unreadOnly);
-        List<FriendPoke> pokes = onlyUnread
-                ? friendPokeRepository.findByToUser_UserIdAndReadFalseOrderByCreatedAtDesc(userId)
-                : friendPokeRepository.findByToUser_UserIdOrderByCreatedAtDesc(userId);
-        return pokes.stream()
-                .map(this::toFriendPokeResponse)
-                .toList();
-    }
-
-    @Transactional
-    public FriendPokeResponse markPokeRead(Long userId, Long pokeId) {
-        FriendPoke poke = friendPokeRepository.findByPokeIdAndToUser_UserId(pokeId, userId)
-                .orElseThrow(() -> new CoreMateException(ErrorCode.FRIEND_POKE_NOT_FOUND));
-        if (!poke.isRead()) {
-            poke.markRead(LocalDateTime.now());
-        }
-        return toFriendPokeResponse(poke);
-    }
-
     // 콕 찌르기 일일 제한. 컨테이너 타임존이 Asia/Seoul 이라 LocalDate.now() 가 곧 서비스 기준 날짜다.
     // 전체 한도를 먼저 본다. 총량을 다 쓴 상태에서 "같은 친구에게는 3번까지"를 안내하면
     // 다른 친구를 고르면 된다는 뜻으로 읽혀 사용자가 다시 시도하게 된다.
