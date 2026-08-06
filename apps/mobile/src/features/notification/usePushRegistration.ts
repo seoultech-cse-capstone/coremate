@@ -7,7 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { deviceStorage } from "../device/deviceStorage";
 import { getDeviceInfo } from "../device/deviceInfo";
 import { notificationApi } from "./notificationApi";
-import { getFcmToken } from "./pushToken";
+import { getFcmToken, rememberRegisteredToken } from "./pushToken";
 import type { NotificationTargetType } from "./types";
 
 /** 알림 종류별로 열어 줄 화면. NONE이면 앱만 열고 홈에 머문다. */
@@ -43,20 +43,8 @@ export function usePushRegistration() {
   // key 가 생기면 라우터가 첫 화면을 올린 뒤다.
   const navigationState = useRootNavigationState();
   const navigationReady = Boolean(navigationState?.key);
-  // 로그아웃 시점에는 이미 토큰이 비어 있어, 해제에 쓸 값을 미리 들고 있어야 한다.
-  const registeredRef = useRef<{ token: string; accessToken: string } | null>(null);
-
   useEffect(() => {
     if (!isAuthenticated || !accessToken) {
-      const registered = registeredRef.current;
-      registeredRef.current = null;
-      if (registered) {
-        // 실패해도 사용자가 할 수 있는 일이 없다. 서버는 다른 계정이 같은 토큰을
-        // 등록하는 시점에도 이전 등록을 내린다.
-        notificationApi
-          .unregisterDeviceToken(registered.token, registered.accessToken)
-          .catch(() => undefined);
-      }
       return;
     }
 
@@ -73,7 +61,8 @@ export function usePushRegistration() {
           { token, platform: platformOf(), deviceId },
           accessToken,
         );
-        registeredRef.current = { token, accessToken };
+        // 로그아웃 때 해제할 대상. 해제 호출 자체는 로그아웃 흐름이 담당한다.
+        rememberRegisteredToken(token);
       } catch {
         // 등록 실패는 알림만 못 받는 상태다. 다음 실행에서 다시 시도한다.
       }
