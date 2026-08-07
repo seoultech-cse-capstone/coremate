@@ -442,6 +442,8 @@ public class RewardService {
             case ATTENDANCE_REWARD, DAILY_QUIZ_ATTENDANCE -> CurrencyReason.ATTENDANCE_REWARD;
             case CATEGORY_MOCK_FIRST_PASS_COIN -> CurrencyReason.CATEGORY_MOCK_FIRST_PASS_REWARD;
             case SUBJECT_MOCK_FIRST_PASS_COIN -> CurrencyReason.SUBJECT_MOCK_FIRST_PASS_REWARD;
+            case CATEGORY_MOCK_RETRY_COIN -> CurrencyReason.CATEGORY_MOCK_RETRY_REWARD;
+            case SUBJECT_MOCK_RETRY_COIN -> CurrencyReason.SUBJECT_MOCK_RETRY_REWARD;
             case LEVEL_UP_5, LEVEL_UP_10, LEVEL_UP_20, LEVEL_UP_30, LEVEL_UP_40, LEVEL_UP_50
                     -> CurrencyReason.LEVEL_UP_REWARD;
             case STARTER_PACK -> CurrencyReason.STARTER_PACK;
