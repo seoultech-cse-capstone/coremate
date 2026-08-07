@@ -6,7 +6,12 @@ from typing import Any
 
 from dotenv import load_dotenv
 
-from server.core.paths import AI_PIPELINE_ROOT, OUTPUTS_DIR, to_relative_path
+from server.core.paths import (
+    AI_PIPELINE_ROOT,
+    INFRA_ENV_FILE,
+    OUTPUTS_DIR,
+    to_relative_path,
+)
 from server.models.content_import import (
     ContentImportArtifactSummary,
     ContentImportRequest,
@@ -68,7 +73,12 @@ class MySQLConnectionSettings:
 
     @classmethod
     def from_env(cls) -> "MySQLConnectionSettings":
+        # DB 비밀번호는 infra/.env 한 곳에만 둔다(백엔드 컨테이너와 같은 값이라
+        # 두 벌로 두면 한쪽만 바꿨을 때 조용히 어긋난다). load_dotenv 는 이미 있는
+        # 값을 덮지 않으므로, 파이프라인 전용 .env 를 먼저 읽어 COREMATE_* 가
+        # 우선하게 하고 infra/.env 의 MYSQL_PASSWORD 는 폴백으로만 쓰인다.
         load_dotenv(AI_PIPELINE_ROOT / ".env")
+        load_dotenv(INFRA_ENV_FILE)
 
         host = _env("COREMATE_MYSQL_HOST", "MYSQL_HOST", default="127.0.0.1")
         port_raw = _env("COREMATE_MYSQL_PORT", "MYSQL_PORT", default="3306")

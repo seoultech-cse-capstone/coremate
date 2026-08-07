@@ -1,6 +1,8 @@
 from pathlib import Path
 
 AI_PIPELINE_ROOT = Path(__file__).resolve().parents[2]
+# 도커 컴포즈와 공유하는 환경 파일. DB 비밀번호의 단일 출처다.
+INFRA_ENV_FILE = AI_PIPELINE_ROOT.parents[1] / "infra" / ".env"
 CONFIG_DIR = AI_PIPELINE_ROOT / "configs"
 RAW_DATA_DIR = AI_PIPELINE_ROOT / "data" / "raw"
 EXTRACTED_DATA_DIR = AI_PIPELINE_ROOT / "data" / "extracted"
