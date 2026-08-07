@@ -1,6 +1,7 @@
 package com.coremate.backend.solve.service;
 
 import com.coremate.backend.reward.entity.RewardLog;
+import com.coremate.backend.reward.entity.type.RewardSkipReason;
 import com.coremate.backend.reward.entity.type.RewardSource;
 import com.coremate.backend.reward.entity.type.RewardStatus;
 import com.coremate.backend.reward.entity.type.RewardTargetType;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <ul>
  *   <li>XP는 정답률과 무관하게 "완료 + 일일 한도"로만 판정한다.</li>
  *   <li>코인은 챕터/과목 모의고사에서만 나오고, 정답률 기준과 범위별 최초 1회를 함께 본다.</li>
+ *   <li>최초 1회를 이미 받은 범위는 정답률만 다시 보고 소액의 재응시 코인을 준다(2026-08-07).</li>
  *   <li>일일 한도를 넘겨도 풀이와 기록은 이미 정상 저장돼 있고 보상만 지급되지 않는다.</li>
  * </ul>
  *
@@ -74,19 +76,18 @@ public class SolveRewardService {
     }
 
     // 코인은 챕터/과목 모의고사만 대상이다. 개념 문제집과 오늘의 퀴즈는 여기서 제외된다.
+    //
+    // 최초 통과 정책을 먼저 태우고, 그게 "이미 이 범위에서 받았음"으로 걸린 회차만
+    // 재응시 정책으로 다시 판정한다. 한 회차가 두 보상을 모두 받는 일은 없다.
     private RewardLog grantCoinIfEligible(SolveSession session, BigDecimal correctRate) {
         SolveSessionType type = session.getSessionType();
         if (!type.isMock()) {
             return null;
         }
 
-        RewardType coinType = type == SolveSessionType.SUBJECT_MOCK
-                ? RewardType.SUBJECT_MOCK_FIRST_PASS_COIN
-                : RewardType.CATEGORY_MOCK_FIRST_PASS_COIN;
-
-        return rewardService.grantPolicyReward(
+        RewardLog firstPassLog = rewardService.grantPolicyReward(
                 session.getUserId(),
-                coinType,
+                firstPassCoinType(type),
                 RewardSource.SOLVE_SESSION,
                 session.getSolveSessionId(),
                 resolveCoinTargetType(type),
@@ -94,6 +95,38 @@ public class SolveRewardService {
                 session.getSolveSessionId(),
                 correctRate
         );
+
+        // ALREADY_REWARDED 일 때만 넘어간다. 정답률 미달이나 일일 한도 초과로 걸린
+        // 회차까지 재응시로 넘기면, 최초 통과 조건을 한 번도 못 넘긴 풀이가
+        // 재응시 보상으로 우회 지급된다.
+        if (firstPassLog.getSkipReason() != RewardSkipReason.ALREADY_REWARDED) {
+            return firstPassLog;
+        }
+
+        // 재응시는 범위별 중복 판정을 하지 않으므로(first_reward_only = FALSE)
+        // target 을 넘기지 않는다. 어느 범위였는지는 source_id(= solve_session_id)로 남는다.
+        return rewardService.grantPolicyReward(
+                session.getUserId(),
+                retryCoinType(type),
+                RewardSource.SOLVE_SESSION,
+                session.getSolveSessionId(),
+                null,
+                null,
+                session.getSolveSessionId(),
+                correctRate
+        );
+    }
+
+    private RewardType firstPassCoinType(SolveSessionType type) {
+        return type == SolveSessionType.SUBJECT_MOCK
+                ? RewardType.SUBJECT_MOCK_FIRST_PASS_COIN
+                : RewardType.CATEGORY_MOCK_FIRST_PASS_COIN;
+    }
+
+    private RewardType retryCoinType(SolveSessionType type) {
+        return type == SolveSessionType.SUBJECT_MOCK
+                ? RewardType.SUBJECT_MOCK_RETRY_COIN
+                : RewardType.CATEGORY_MOCK_RETRY_COIN;
     }
 
     private RewardType resolveXpRewardType(SolveSessionType type) {
@@ -133,7 +166,7 @@ public class SolveRewardService {
         return log != null && log.getRewardStatus() == RewardStatus.GRANTED ? log.getCoinAmount() : 0;
     }
 
-    private com.coremate.backend.reward.entity.type.RewardSkipReason skipReasonOf(RewardLog log) {
+    private RewardSkipReason skipReasonOf(RewardLog log) {
         return log == null ? null : log.getSkipReason();
     }
 }
