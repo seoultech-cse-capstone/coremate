@@ -280,6 +280,19 @@ export default function FavoriteProblemsScreen() {
                           hitSlop={6}
                           onPress={(event) => {
                             event.stopPropagation();
+                            router.push({
+                              pathname: "/favorite-problem-detail",
+                              params: { questionId: String(item.questionId) },
+                            });
+                          }}
+                        >
+                          <Text style={styles.linkText}>문제 해설 보기</Text>
+                        </Pressable>
+                        <Text style={styles.footerDivider}>|</Text>
+                        <Pressable
+                          hitSlop={6}
+                          onPress={(event) => {
+                            event.stopPropagation();
                             openMemoModal(item);
                           }}
                         >
