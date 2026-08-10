@@ -16,7 +16,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { useSignupMutation } from "../src/features/auth";
+import {
+  useSendSignupCodeMutation,
+  useSignupMutation,
+  useVerifySignupCodeMutation,
+} from "../src/features/auth";
 import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
 
 const NAME_MAX_LENGTH = 50;
@@ -256,7 +260,8 @@ export default function RegisterScreen() {
   const [emailTaken, setEmailTaken] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
-  const [codeInvalid, setCodeInvalid] = useState(false);
+  const [codeErrorMessage, setCodeErrorMessage] = useState<string | null>(null);
+  const [sendCodeErrorMessage, setSendCodeErrorMessage] = useState<string | null>(null);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -264,6 +269,8 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const signupMutation = useSignupMutation();
+  const sendSignupCodeMutation = useSendSignupCodeMutation();
+  const verifySignupCodeMutation = useVerifySignupCodeMutation();
 
   const step = STEPS[stepIndex];
   const primaryInputRef = useRef<TextInput>(null);
@@ -312,27 +319,54 @@ export default function RegisterScreen() {
     );
   };
 
-  // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 발송 API 호출로 교체.
   const handleSendCode = () => {
-    if (!emailValid || resendCooldown > 0) {
+    if (!emailValid || resendCooldown > 0 || sendSignupCodeMutation.isPending) {
       return;
     }
-    setIsCodeSent(true);
-    setCodeInvalid(false);
-    setVerificationCode("");
-    setResendCooldown(RESEND_COOLDOWN_SEC);
+    setSendCodeErrorMessage(null);
+    sendSignupCodeMutation.mutate(
+      { email: email.trim() },
+      {
+        onSuccess: () => {
+          setIsCodeSent(true);
+          setCodeErrorMessage(null);
+          setVerificationCode("");
+          setResendCooldown(RESEND_COOLDOWN_SEC);
+        },
+        onError: (error) => {
+          const code = getApiErrorCode(error);
+          if (code === "EMAIL_ALREADY_EXISTS") {
+            setEmailTaken(true);
+            return;
+          }
+          setSendCodeErrorMessage(
+            getApiErrorMessage(error, "인증번호 발송에 실패했어요."),
+          );
+        },
+      },
+    );
   };
 
-  // TODO(#99 후속): 회원가입용 이메일 인증 API가 머지되면 실제 검증 API 호출로 교체.
-  // 그 전까지는 UI 흐름 확인용으로 6자리 숫자면 통과시킨다.
   const handleVerifyCode = () => {
-    if (verificationCode.trim().length !== 6) {
-      setCodeInvalid(true);
+    if (verificationCode.trim().length !== 6 || verifySignupCodeMutation.isPending) {
+      setCodeErrorMessage("인증번호 6자리를 입력해주세요.");
       return;
     }
-    setCodeInvalid(false);
-    setIsEmailVerified(true);
-    setVerifiedEmail(email.trim());
+    verifySignupCodeMutation.mutate(
+      { email: email.trim(), code: verificationCode.trim() },
+      {
+        onSuccess: () => {
+          setCodeErrorMessage(null);
+          setIsEmailVerified(true);
+          setVerifiedEmail(email.trim());
+        },
+        onError: (error) => {
+          setCodeErrorMessage(
+            getApiErrorMessage(error, "인증번호가 올바르지 않습니다."),
+          );
+        },
+      },
+    );
   };
 
   useEffect(() => {
@@ -396,6 +430,14 @@ export default function RegisterScreen() {
             setNicknameTaken(true);
           } else if (code === "EMAIL_ALREADY_EXISTS") {
             setEmailTaken(true);
+          } else if (code === "EMAIL_NOT_VERIFIED") {
+            // 인증 후 30분이 지나 서버 인증 상태가 만료된 경우. 처음부터 다시 인증받게 한다.
+            setIsEmailVerified(false);
+            setVerifiedEmail(null);
+            setIsCodeSent(false);
+            setSendCodeErrorMessage(
+              "이메일 인증이 만료되었어요. 인증번호를 다시 받아주세요.",
+            );
           }
         },
       },
@@ -673,18 +715,28 @@ export default function RegisterScreen() {
                               이메일 인증이 완료되었습니다.
                             </Text>
                           ) : !isCodeSent ? (
-                            <Pressable
-                              style={[
-                                styles.sendCodeButton,
-                                !emailValid && styles.buttonDisabled,
-                              ]}
-                              onPress={handleSendCode}
-                              disabled={!emailValid}
-                            >
-                              <Text style={styles.sendCodeButtonText}>
-                                인증번호 받기
-                              </Text>
-                            </Pressable>
+                            <>
+                              <Pressable
+                                style={[
+                                  styles.sendCodeButton,
+                                  (!emailValid || sendSignupCodeMutation.isPending) &&
+                                    styles.buttonDisabled,
+                                ]}
+                                onPress={handleSendCode}
+                                disabled={!emailValid || sendSignupCodeMutation.isPending}
+                              >
+                                <Text style={styles.sendCodeButtonText}>
+                                  {sendSignupCodeMutation.isPending
+                                    ? "발송 중…"
+                                    : "인증번호 받기"}
+                                </Text>
+                              </Pressable>
+                              {sendCodeErrorMessage ? (
+                                <Text style={styles.errorText}>
+                                  {sendCodeErrorMessage}
+                                </Text>
+                              ) : null}
+                            </>
                           ) : (
                             <>
                               <TextInput
@@ -700,17 +752,20 @@ export default function RegisterScreen() {
                                   setVerificationCode(
                                     text.replace(/\D/g, "").slice(0, 6),
                                   );
-                                  setCodeInvalid(false);
+                                  setCodeErrorMessage(null);
                                 }}
                               />
-                              {codeInvalid ? (
+                              {codeErrorMessage ? (
+                                <Text style={styles.errorText}>{codeErrorMessage}</Text>
+                              ) : null}
+                              {sendCodeErrorMessage ? (
                                 <Text style={styles.errorText}>
-                                  인증번호가 올바르지 않습니다.
+                                  {sendCodeErrorMessage}
                                 </Text>
                               ) : null}
                               <View style={styles.verifyActionRow}>
                                 <Pressable
-                                  disabled={resendCooldown > 0}
+                                  disabled={resendCooldown > 0 || sendSignupCodeMutation.isPending}
                                   onPress={handleSendCode}
                                 >
                                   <Text
@@ -727,10 +782,11 @@ export default function RegisterScreen() {
                                 </Pressable>
                                 <Pressable
                                   style={styles.verifyConfirmButton}
+                                  disabled={verifySignupCodeMutation.isPending}
                                   onPress={handleVerifyCode}
                                 >
                                   <Text style={styles.verifyConfirmButtonText}>
-                                    확인
+                                    {verifySignupCodeMutation.isPending ? "확인 중…" : "확인"}
                                   </Text>
                                 </Pressable>
                               </View>

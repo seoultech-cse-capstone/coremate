@@ -4,8 +4,12 @@ import type {
   LoginRequest,
   LoginResponse,
   ReissueRequest,
+  SendSignupCodeRequest,
+  SignupCodeResponse,
   SignupRequest,
   SignupResponse,
+  SignupVerifyResponse,
+  VerifySignupCodeRequest,
 } from "./types";
 
 /**
@@ -18,6 +22,14 @@ export const authApi = {
 
   signup(body: SignupRequest): Promise<SignupResponse> {
     return httpClient.post<SignupResponse>("/api/auth/signup", body);
+  },
+
+  sendSignupCode(body: SendSignupCodeRequest): Promise<SignupCodeResponse> {
+    return httpClient.post<SignupCodeResponse>("/api/auth/email/send-code", body);
+  },
+
+  verifySignupCode(body: VerifySignupCodeRequest): Promise<SignupVerifyResponse> {
+    return httpClient.post<SignupVerifyResponse>("/api/auth/email/verify-code", body);
   },
 
   reissue(body: ReissueRequest): Promise<AuthTokenResponse> {
