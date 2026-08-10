@@ -1,10 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
-import { CalendarDays, Check, ChevronRight, X } from "lucide-react-native";
+import { CalendarDays, Check, ChevronRight, Trash2, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,9 +28,18 @@ import type { CompletedProblemSetSummary } from "../../src/features/logWeak/type
 import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
+import {
+  useEligibleSolveSessions,
+  useWeaknessReports,
+  weaknessApi,
+} from "../../src/features/weakness";
+import type {
+  AnalysisScopeType,
+  EligibleSolveSession,
+  WeaknessAnalysisReportSummary,
+} from "../../src/features/weakness";
 
 type LogWeakMode = "wrongNote" | "weakness";
-type DepthFilter = "subject" | "Chapter1" | "Chapter2" | "concept";
 
 type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
@@ -92,15 +103,58 @@ function toExamHistoryDisplayItem(
   };
 }
 
-type WeaknessReportItem = {
-  id: number;
-  subject: string;
-  depth: DepthFilter;
-  date: string;
-  examNames: string[];
-  // 분석표를 끝까지 읽었는지 여부. 읽은 분석표만 초록 체크로 표시한다.
-  isRead: boolean;
+type AnalysisScope = {
+  analysisScopeType: AnalysisScopeType;
+  subjectId: number;
+  categoryLv1Id: number | null;
+  categoryLv2Id: number | null;
+  conceptId: number | null;
 };
+
+// 선택한 회차들이 공유하는 가장 좁은 범위를 찾는다. 과목이 다르면(백엔드가
+// 어차피 WEAKNESS_MIXED_SUBJECT로 막지만) 여기서 먼저 걸러 안내한다.
+function deriveAnalysisScope(sessions: EligibleSolveSession[]): AnalysisScope | null {
+  const [first, ...rest] = sessions;
+  if (!first || first.subjectId === null) {
+    return null;
+  }
+  if (!rest.every((session) => session.subjectId === first.subjectId)) {
+    return null;
+  }
+
+  const categoryLv1Id = rest.every(
+    (session) => session.categoryLv1Id === first.categoryLv1Id,
+  )
+    ? first.categoryLv1Id
+    : null;
+  const categoryLv2Id =
+    categoryLv1Id !== null &&
+    rest.every((session) => session.categoryLv2Id === first.categoryLv2Id)
+      ? first.categoryLv2Id
+      : null;
+  const conceptId =
+    categoryLv2Id !== null &&
+    rest.every((session) => session.conceptId === first.conceptId)
+      ? first.conceptId
+      : null;
+
+  const analysisScopeType: AnalysisScopeType =
+    conceptId !== null
+      ? "CONCEPT"
+      : categoryLv2Id !== null
+        ? "CATEGORY_LV2"
+        : categoryLv1Id !== null
+          ? "CATEGORY_LV1"
+          : "SUBJECT";
+
+  return {
+    analysisScopeType,
+    subjectId: first.subjectId,
+    categoryLv1Id,
+    categoryLv2Id,
+    conceptId,
+  };
+}
 
 const HEADER_HEIGHT = 60;
 const OVERSCROLL_BUFFER = 96;
@@ -112,45 +166,6 @@ const PANEL_GRAY = "#F3F3F3";
 const conceptStats = {
   totalCount: 500,
   solvedConceptCount: 100,
-};
-
-const weaknessReports: WeaknessReportItem[] = [
-  {
-    id: 1,
-    subject: "Data Structure",
-    depth: "Chapter1",
-    date: "26-04-25",
-    examNames: ["Linear Structure", "Array", "Linked List"],
-    isRead: true,
-  },
-  {
-    id: 2,
-    subject: "Data Structure",
-    depth: "Chapter1",
-    date: "26-04-25",
-    examNames: ["Linear Structure", "Stack", "Queue"],
-    isRead: true,
-  },
-  {
-    id: 3,
-    subject: "Data Structure",
-    depth: "Chapter2",
-    date: "26-04-24",
-    examNames: [
-      "Array",
-      "Dynamic Array",
-      "Static Array",
-      "Indexing",
-      "Linked List",
-    ],
-    isRead: false,
-  },
-];
-
-// 약점 분석표 통계는 분석표를 정독한 횟수(isRead)를 기준으로 계산한다.
-const weaknessReportStats = {
-  totalCount: weaknessReports.length,
-  readCount: weaknessReports.filter((report) => report.isRead).length,
 };
 
 export default function LogWeakScreen() {
@@ -166,6 +181,9 @@ export default function LogWeakScreen() {
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedExamIds, setSelectedExamIds] = useState<number[]>([]);
+  const [createReportError, setCreateReportError] = useState<string | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
   const isWrongNote = mode === "wrongNote";
   const title = isWrongNote ? "Mistake Notes" : "Weakness Notes";
   const headerHeight = HEADER_HEIGHT + insets.top;
@@ -192,6 +210,21 @@ export default function LogWeakScreen() {
   const completedProblemSetsQuery = useCompletedProblemSets(accessToken, {
     subjectId: selectedSubjectId ?? undefined,
   });
+  // AI 분석용 문제집 선택 중에는 모의고사만 대상으로 하는 별도 후보 목록을 쓴다
+  // (오답노트 목록은 개념 문제집까지 섞여 있어 분석 대상으로 그대로 쓸 수 없음).
+  const eligibleSessionsQuery = useEligibleSolveSessions(
+    accessToken,
+    {
+      subjectId: selectedSubjectId ?? undefined,
+      categoryLv1Id: selectedChapter1Id ?? undefined,
+      categoryLv2Id: selectedChapter2Id ?? undefined,
+    },
+    isSelecting,
+  );
+  const eligibleSessions = useMemo(
+    () => eligibleSessionsQuery.data ?? [],
+    [eligibleSessionsQuery.data],
+  );
   const subjectScopedSets = useMemo(
     () => completedProblemSetsQuery.data ?? [],
     [completedProblemSetsQuery.data],
@@ -337,21 +370,24 @@ export default function LogWeakScreen() {
     categoryLv2NameById,
   ]);
 
+  const weaknessReportsQuery = useWeaknessReports(accessToken);
+  const weaknessReports = useMemo(
+    () => weaknessReportsQuery.data ?? [],
+    [weaknessReportsQuery.data],
+  );
+
+  // analysisScopeNameSnapshot은 현재 과목명만 담고 있어(백엔드가 아직 대분류/
+  // 중분류까지는 스냅샷하지 않음), 대분류/중분류 필터는 적용할 수 없고 과목
+  // 단위로만 좁힐 수 있다.
   const filteredWeaknessReports = useMemo(
     () =>
       weaknessReports.filter((item) => {
-        if (selectedSubject && item.subject !== selectedSubject.label) {
-          return false;
-        }
-        if (selectedPath.length === 2 && item.depth !== "Chapter1") {
-          return false;
-        }
-        if (selectedPath.length === 3 && item.depth !== "Chapter2") {
+        if (selectedSubject && item.analysisScopeNameSnapshot !== selectedSubject.label) {
           return false;
         }
         return true;
       }),
-    [selectedSubject, selectedPath.length],
+    [weaknessReports, selectedSubject],
   );
 
   const updateMode = (nextMode: LogWeakMode) => {
@@ -406,6 +442,7 @@ export default function LogWeakScreen() {
   const handleAiButtonPress = () => {
     if (!isSelecting) {
       setIsSelecting(true);
+      setCreateReportError(null);
       return;
     }
 
@@ -413,12 +450,67 @@ export default function LogWeakScreen() {
       return;
     }
 
-    updateMode("weakness");
+    const selectedSessions = eligibleSessions.filter((session) =>
+      selectedExamIds.includes(session.solveSessionId),
+    );
+    const scope = deriveAnalysisScope(selectedSessions);
+    if (!scope) {
+      setCreateReportError("같은 과목의 모의고사만 함께 분석할 수 있어요.");
+      return;
+    }
+
+    setCreateReportError(null);
+    const totals = selectedSessions.reduce(
+      (sum, session) => ({
+        totalQuestionCount: sum.totalQuestionCount + session.totalQuestionCount,
+        totalWrongCount: sum.totalWrongCount + session.wrongCount,
+        totalLongTimeCount: sum.totalLongTimeCount + session.longTimeCount,
+        totalHintUsedCount: sum.totalHintUsedCount + session.hintUsedCount,
+      }),
+      { totalQuestionCount: 0, totalWrongCount: 0, totalLongTimeCount: 0, totalHintUsedCount: 0 },
+    );
+
+    router.push({
+      pathname: "/weakness-confirm",
+      params: {
+        solveSessionIds: JSON.stringify(selectedExamIds),
+        analysisScopeType: scope.analysisScopeType,
+        subjectId: String(scope.subjectId),
+        categoryLv1Id: scope.categoryLv1Id !== null ? String(scope.categoryLv1Id) : undefined,
+        categoryLv2Id: scope.categoryLv2Id !== null ? String(scope.categoryLv2Id) : undefined,
+        conceptId: scope.conceptId !== null ? String(scope.conceptId) : undefined,
+        selectedSessionCount: String(selectedSessions.length),
+        totalQuestionCount: String(totals.totalQuestionCount),
+        totalWrongCount: String(totals.totalWrongCount),
+        totalLongTimeCount: String(totals.totalLongTimeCount),
+        totalHintUsedCount: String(totals.totalHintUsedCount),
+      },
+    });
   };
 
   const cancelSelection = () => {
     setIsSelecting(false);
     setSelectedExamIds([]);
+    setCreateReportError(null);
+  };
+
+  const handleDeleteReport = async (analysisReportId: number) => {
+    if (!accessToken || deletingReportId !== null) {
+      return;
+    }
+    setDeletingReportId(analysisReportId);
+    try {
+      await weaknessApi.deleteReport(analysisReportId, accessToken);
+      queryClient.setQueryData<WeaknessAnalysisReportSummary[]>(
+        ["weakness", "reports"],
+        (current) =>
+          current?.filter((report) => report.analysisReportId !== analysisReportId),
+      );
+    } catch (error) {
+      console.error("[weakness] 분석표 삭제 실패", error);
+    } finally {
+      setDeletingReportId(null);
+    }
   };
 
   useEffect(() => {
@@ -585,30 +677,54 @@ export default function LogWeakScreen() {
         >
           {isWrongNote && isSelecting && <View style={styles.selectionDim} />}
 
-          <StatsSummary accentColor={activePurple} isWrongNote={isWrongNote} />
+          <StatsSummary
+            accentColor={activePurple}
+            isWrongNote={isWrongNote}
+            weaknessReports={weaknessReports}
+          />
 
           <View style={styles.divider} />
 
+          {isWrongNote && isSelecting && eligibleSessionsQuery.isLoading ? (
+            <ActivityIndicator
+              color={activePurple}
+              size="large"
+              style={styles.eligibleLoading}
+            />
+          ) : null}
+
           <View style={[styles.cardList, isSelecting && styles.activeCardList]}>
             {isWrongNote
-              ? examHistoryItems.map((item) => (
-                  <ExamHistoryCard
-                    accentColor={activePurple}
-                    isSelecting={isSelecting}
-                    isSelected={selectedExamIds.includes(item.solveSessionId)}
-                    item={item}
-                    key={item.solveSessionId}
-                    onPress={() => openExamReview(item)}
-                  />
-                ))
+              ? isSelecting
+                ? eligibleSessions.map((session) => (
+                    <EligibleSessionCard
+                      accentColor={activePurple}
+                      isSelected={selectedExamIds.includes(session.solveSessionId)}
+                      item={session}
+                      key={session.solveSessionId}
+                      onPress={() => toggleSelectedExam(session.solveSessionId)}
+                    />
+                  ))
+                : examHistoryItems.map((item) => (
+                    <ExamHistoryCard
+                      accentColor={activePurple}
+                      isSelecting={isSelecting}
+                      isSelected={selectedExamIds.includes(item.solveSessionId)}
+                      item={item}
+                      key={item.solveSessionId}
+                      onPress={() => openExamReview(item)}
+                    />
+                  ))
               : filteredWeaknessReports.map((item) => (
                   <WeaknessReportCard
+                    isDeleting={deletingReportId === item.analysisReportId}
                     item={item}
-                    key={item.id}
+                    key={item.analysisReportId}
+                    onDelete={() => handleDeleteReport(item.analysisReportId)}
                     onPress={() =>
                       router.push({
                         pathname: "/weakness-report",
-                        params: { reportId: item.id.toString() },
+                        params: { reportId: item.analysisReportId.toString() },
                       })
                     }
                   />
@@ -616,6 +732,10 @@ export default function LogWeakScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {isWrongNote && createReportError ? (
+        <Text style={styles.createReportErrorText}>{createReportError}</Text>
+      ) : null}
 
       {isWrongNote && (
         <View style={styles.aiButtonWrap}>
@@ -658,10 +778,21 @@ export default function LogWeakScreen() {
 function StatsSummary({
   accentColor,
   isWrongNote,
+  weaknessReports,
 }: {
   accentColor: string;
   isWrongNote: boolean;
+  weaknessReports: WeaknessAnalysisReportSummary[];
 }) {
+  const totalAnalyzedQuestions = weaknessReports.reduce(
+    (sum, report) => sum + report.totalQuestionCount,
+    0,
+  );
+  const totalWeaknessesFound = weaknessReports.reduce(
+    (sum, report) => sum + report.totalWrongCount,
+    0,
+  );
+
   const stats = isWrongNote
     ? [
         { value: conceptStats.totalCount.toString(), label: "총 개념" },
@@ -678,16 +809,11 @@ function StatsSummary({
       ]
     : [
         {
-          value: weaknessReportStats.totalCount.toString(),
+          value: weaknessReports.length.toString(),
           label: "내 약점 분석표",
         },
-        { value: weaknessReportStats.readCount.toString(), label: "완벽해요" },
-        {
-          value: (
-            weaknessReportStats.totalCount - weaknessReportStats.readCount
-          ).toString(),
-          label: "아직 모자라요",
-        },
+        { value: totalAnalyzedQuestions.toString(), label: "분석한 문제" },
+        { value: totalWeaknessesFound.toString(), label: "발견한 약점" },
       ];
 
   return (
@@ -759,64 +885,129 @@ function ExamHistoryCard({
   );
 }
 
-function WeaknessReportCard({
+// AI 분석용 문제집 선택 화면 전용 카드. eligible-solve-sessions는 모의고사만
+// 후보로 내려주며, 회차별로 선택 가능 여부(eligible)와 안내 문구를 함께 준다.
+function EligibleSessionCard({
+  accentColor,
+  isSelected,
   item,
   onPress,
 }: {
-  item: WeaknessReportItem;
+  accentColor: string;
+  isSelected: boolean;
+  item: EligibleSolveSession;
   onPress: () => void;
 }) {
-  const primaryExamNames = item.examNames.slice(0, 3);
-  const secondaryExamNames = item.examNames.slice(3, 5);
+  const scopePath = [item.subjectName, item.categoryLv1Name, item.categoryLv2Name].filter(
+    (name): name is string => Boolean(name),
+  );
 
   return (
-    <Pressable style={styles.weaknessCard} onPress={onPress}>
+    <Pressable
+      disabled={!item.eligible}
+      style={[
+        styles.card,
+        isSelected && { borderColor: accentColor },
+        !item.eligible && styles.ineligibleCard,
+      ]}
+      onPress={onPress}
+    >
       <View style={styles.cardHeader}>
-        <Text style={styles.reportNumber}>#{item.id}</Text>
+        <View style={styles.cardTitleRow}>
+          <Text style={styles.subjectBadge}>{item.subjectName ?? ""}</Text>
+          <Text style={styles.dot}>·</Text>
+          <Text style={styles.categoryText}>{item.title}</Text>
+        </View>
 
-        <ChevronRight color="#6b7280" size={22} strokeWidth={2.2} />
+        <View
+          style={[
+            styles.selectCircle,
+            isSelected && { backgroundColor: accentColor },
+          ]}
+        >
+          {isSelected && <Check color="#ffffff" size={15} strokeWidth={3} />}
+        </View>
       </View>
 
       <View style={styles.dateRow}>
         <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
-        <Text style={styles.dateText}>{item.date}</Text>
+        <Text style={styles.dateText}>{formatCompletedDate(item.completedAt)}</Text>
       </View>
 
-      <View style={styles.reportExamRow}>
-        <View style={styles.reportExamColumn}>
-          {primaryExamNames.map((examName) => (
-            <Text
-              adjustsFontSizeToFit
-              key={`primary-${examName}`}
-              minimumFontScale={0.82}
-              numberOfLines={1}
-              style={styles.reportExamName}
-            >
-              {examName}
-            </Text>
-          ))}
+      <View style={styles.resultRow}>
+        <View>
+          <Text style={styles.wrongLabel}>Wrong</Text>
+          <Text style={styles.wrongValue}>
+            {item.wrongCount}/{item.totalQuestionCount}
+          </Text>
+          <Text style={styles.scopePathText}>{scopePath.join("  >  ")}</Text>
         </View>
-        {secondaryExamNames.length > 0 && (
-          <View style={styles.reportExamColumn}>
-            {secondaryExamNames.map((examName) => (
-              <Text
-                adjustsFontSizeToFit
-                key={`secondary-${examName}`}
-                minimumFontScale={0.82}
-                numberOfLines={1}
-                style={styles.reportExamName}
-              >
-                {examName}
-              </Text>
-            ))}
-          </View>
-        )}
-        <Check
-          color={item.isRead ? "#20D63A" : "#9ca3af"}
-          size={24}
-          strokeWidth={3}
-        />
       </View>
+
+      {!item.eligible && item.warningMessage ? (
+        <Text style={styles.ineligibleWarningText}>{item.warningMessage}</Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
+function WeaknessReportCard({
+  isDeleting,
+  item,
+  onDelete,
+  onPress,
+}: {
+  isDeleting: boolean;
+  item: WeaknessAnalysisReportSummary;
+  onDelete: () => void;
+  onPress: () => void;
+}) {
+  const generatedDate = item.generatedAt
+    ? item.generatedAt.slice(0, 10).replace(/-/g, ".")
+    : null;
+
+  return (
+    <Pressable
+      disabled={isDeleting}
+      style={[styles.weaknessCard, isDeleting && styles.deletingCard]}
+      onPress={onPress}
+    >
+      <View style={styles.cardHeader}>
+        <Text numberOfLines={1} style={styles.reportTitleText}>
+          {item.title}
+        </Text>
+
+        <Pressable
+          accessibilityLabel="분석표 삭제"
+          accessibilityRole="button"
+          disabled={isDeleting}
+          hitSlop={8}
+          onPress={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Trash2 color="#9ca3af" size={20} strokeWidth={2} />
+        </Pressable>
+      </View>
+
+      {generatedDate ? (
+        <View style={styles.dateRow}>
+          <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
+          <Text style={styles.dateText}>{generatedDate}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.reportStatsRow}>
+        <Text style={styles.reportScopeText}>{item.analysisScopeNameSnapshot}</Text>
+        <Text style={styles.reportWrongText}>
+          오답 {item.totalWrongCount}/{item.totalQuestionCount}
+        </Text>
+      </View>
+
+      <Text style={styles.reportSessionCountText}>
+        분석에 사용한 문제집 {item.selectedSessionCount}개
+      </Text>
     </Pressable>
   );
 }
@@ -1025,11 +1216,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-  reportNumber: {
-    color: "#6D5DFB",
+  reportTitleText: {
+    flex: 1,
+    marginRight: 12,
+    color: "#1f2937",
     fontFamily: FONT.kufam,
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "700",
+  },
+  deletingCard: {
+    opacity: 0.5,
   },
   dateRow: {
     flexDirection: "row",
@@ -1050,23 +1246,30 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 18,
   },
-  reportExamRow: {
+  reportStatsRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 14,
   },
-  reportExamColumn: {
-    flex: 1,
-    gap: 4,
+  reportScopeText: {
+    color: "#6D5DFB",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "700",
   },
-  reportExamName: {
-    alignSelf: "flex-start",
+  reportWrongText: {
     color: "#475569",
     fontFamily: FONT.kufam,
     fontSize: 13,
+    fontWeight: "600",
+  },
+  reportSessionCountText: {
+    marginTop: 6,
+    color: "#9ca3af",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
     fontWeight: "500",
-    lineHeight: 19,
   },
   wrongLabel: {
     color: "#6b7280",
@@ -1088,6 +1291,16 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 17,
     marginTop: 8,
+  },
+  ineligibleCard: {
+    opacity: 0.5,
+  },
+  ineligibleWarningText: {
+    marginTop: 10,
+    color: "#dc2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
   },
   selectCircle: {
     alignItems: "center",
@@ -1119,6 +1332,25 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#8493A0",
     paddingHorizontal: 18,
+  },
+  createReportErrorText: {
+    position: "absolute",
+    left: 50,
+    right: 50,
+    bottom: 70,
+    zIndex: 20,
+    color: "#ffffff",
+    backgroundColor: "rgba(220, 38, 38, 0.92)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  eligibleLoading: {
+    marginTop: 24,
   },
   aiButtonText: {
     color: "#ffffff",
