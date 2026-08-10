@@ -6,18 +6,23 @@ import com.coremate.backend.auth.dto.request.LogoutRequest;
 import com.coremate.backend.auth.dto.request.ReissueTokenRequest;
 import com.coremate.backend.auth.dto.request.ResetPasswordRequest;
 import com.coremate.backend.auth.dto.request.SendResetCodeRequest;
+import com.coremate.backend.auth.dto.request.SendSignupCodeRequest;
 import com.coremate.backend.auth.dto.request.SignupRequest;
 import com.coremate.backend.auth.dto.request.VerifyResetCodeRequest;
+import com.coremate.backend.auth.dto.request.VerifySignupCodeRequest;
 import com.coremate.backend.auth.dto.request.WithdrawRequest;
 import com.coremate.backend.auth.dto.response.AuthTokenResponse;
 import com.coremate.backend.auth.dto.response.FindEmailResponse;
 import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.ResetCodeResponse;
 import com.coremate.backend.auth.dto.response.ResetTokenResponse;
+import com.coremate.backend.auth.dto.response.SignupCodeResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
+import com.coremate.backend.auth.dto.response.SignupVerifyResponse;
 import com.coremate.backend.auth.service.AccountRecoveryService;
 import com.coremate.backend.auth.service.AuthService;
 import com.coremate.backend.auth.service.PasswordResetService;
+import com.coremate.backend.auth.service.SignupEmailVerificationService;
 import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,8 +47,23 @@ public class AuthController {
     private final AuthService authService;
     private final AccountRecoveryService accountRecoveryService;
     private final PasswordResetService passwordResetService;
+    private final SignupEmailVerificationService signupEmailVerificationService;
 
-    @Operation(summary = "회원가입")
+    @Operation(summary = "회원가입 이메일 인증번호 발송",
+            description = "회원가입할 이메일로 6자리 인증번호를 발송한다. 이미 가입된 이메일이면 실패한다.")
+    @PostMapping("/email/send-code")
+    public SignupCodeResponse sendSignupCode(@Valid @RequestBody SendSignupCodeRequest request) {
+        return signupEmailVerificationService.sendCode(request);
+    }
+
+    @Operation(summary = "회원가입 이메일 인증번호 검증",
+            description = "인증번호 검증에 성공하면 해당 이메일을 인증 완료 상태로 표시한다. 이후 유효시간 안에 회원가입을 완료해야 한다.")
+    @PostMapping("/email/verify-code")
+    public SignupVerifyResponse verifySignupCode(@Valid @RequestBody VerifySignupCodeRequest request) {
+        return signupEmailVerificationService.verifyCode(request);
+    }
+
+    @Operation(summary = "회원가입", description = "이메일 인증이 완료된 이메일만 가입할 수 있다.")
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public SignupResponse signup(@Valid @RequestBody SignupRequest request) {
