@@ -277,7 +277,8 @@ export default function RegisterScreen() {
 
   const nameInvalid = name.length > 0 && !NAME_RULE.test(name.trim());
   const nameValid = name.trim().length > 0 && !nameInvalid;
-  const nicknameValid = nickname.trim().length > 0;
+  const nicknameValid =
+    nickname.trim().length > 0 && nickname.trim().length <= NICKNAME_MAX_LENGTH;
   const phoneInvalid = phone.length > 0 && !PHONE_RULE.test(phone);
   const phoneValid = phone.trim().length > 0 && !phoneInvalid;
   const emailInvalid = email.length > 0 && !EMAIL_RULE.test(email);
