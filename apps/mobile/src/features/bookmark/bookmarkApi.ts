@@ -1,5 +1,5 @@
 import { httpClient } from "../../shared/api/httpClient";
-import type { Bookmark, BookmarkedQuestion } from "./types";
+import type { Bookmark, BookmarkedQuestion, BookmarkedQuestionDetail } from "./types";
 
 /**
  * 북마크(즐겨찾기) 도메인 REST 호출. 회원 전용(인증 필수), ApiResponse 래핑 없이
@@ -10,6 +10,16 @@ export const bookmarkApi = {
     return httpClient.get<BookmarkedQuestion[]>("/api/bookmarks/questions", {
       accessToken,
     });
+  },
+
+  getBookmarkedQuestionDetail(
+    questionId: number,
+    accessToken: string,
+  ): Promise<BookmarkedQuestionDetail> {
+    return httpClient.get<BookmarkedQuestionDetail>(
+      `/api/bookmarks/questions/${questionId}`,
+      { accessToken },
+    );
   },
 
   create(questionId: number, accessToken: string): Promise<Bookmark> {

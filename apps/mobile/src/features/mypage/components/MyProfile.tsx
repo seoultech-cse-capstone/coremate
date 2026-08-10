@@ -1,18 +1,25 @@
 import { Image, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
+import { useAuth } from "../../auth";
+import { useMyProfile } from "../../user";
 
+// TODO: 레벨별 필요 XP 커브가 백엔드에 없어 진행률 바는 아직 임시값이다. 코인도
+// 별도 /api/currency/me 연동이 필요해 이번엔 손대지 않았다.
 const currentXp = 11111;
 const maxXp = 50000;
 const xpPercent = Math.round((currentXp / maxXp) * 1000) / 10;
 
-const stats = [
-  { label: "Level", value: "Lv.1" },
-  { label: "Day Streak", value: "7" },
-  { label: "Coins", value: "120" },
-];
-
 export function MyProfile() {
+  const { accessToken } = useAuth();
+  const { data: profile } = useMyProfile(accessToken);
+
+  const stats = [
+    { label: "Level", value: `Lv.${profile?.level ?? 1}` },
+    { label: "Day Streak", value: `${profile?.attendanceCount ?? 0}` },
+    { label: "Coins", value: "120" },
+  ];
+
   return (
     <View style={styles.container}>
       <View style={styles.userRow}>
@@ -23,8 +30,13 @@ export function MyProfile() {
         />
 
         <View style={styles.userText}>
-          <Text style={styles.nickname}>코어메이트</Text>
-          <Text style={styles.school}>서울과학기술대학교</Text>
+          <Text style={styles.nickname}>{profile?.nickname ?? "코어메이트"}</Text>
+          <Text style={styles.school}>{profile?.schoolName ?? "학교 미등록"}</Text>
+          {profile?.lastAttendanceDate ? (
+            <Text style={styles.school}>
+              최근 출석 {profile.lastAttendanceDate.slice(0, 10).replace(/-/g, ".")}
+            </Text>
+          ) : null}
 
           <View style={styles.xpArea}>
             <View style={styles.xpTextRow}>

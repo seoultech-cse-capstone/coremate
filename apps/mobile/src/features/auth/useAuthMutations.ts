@@ -6,7 +6,15 @@ import { unregisterPushToken } from "../notification/notificationApi";
 import { authApi } from "./authApi";
 import { useAuth } from "./AuthContext";
 import { tokenStorage } from "./tokenStorage";
-import type { LoginRequest, SignupRequest, SignupResponse } from "./types";
+import type {
+  LoginRequest,
+  SendSignupCodeRequest,
+  SignupCodeResponse,
+  SignupRequest,
+  SignupResponse,
+  SignupVerifyResponse,
+  VerifySignupCodeRequest,
+} from "./types";
 
 /**
  * 로그인 → 성공 시 세션 저장 + 인증 상태 전환.
@@ -48,6 +56,20 @@ export function useLoginMutation() {
 export function useSignupMutation() {
   return useMutation<SignupResponse, unknown, SignupRequest>({
     mutationFn: (body) => authApi.signup(body),
+  });
+}
+
+/** 회원가입 이메일 인증코드 발송. */
+export function useSendSignupCodeMutation() {
+  return useMutation<SignupCodeResponse, unknown, SendSignupCodeRequest>({
+    mutationFn: (body) => authApi.sendSignupCode(body),
+  });
+}
+
+/** 회원가입 이메일 인증코드 확인. */
+export function useVerifySignupCodeMutation() {
+  return useMutation<SignupVerifyResponse, unknown, VerifySignupCodeRequest>({
+    mutationFn: (body) => authApi.verifySignupCode(body),
   });
 }
 

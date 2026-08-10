@@ -23,6 +23,26 @@ export type ReissueRequest = {
   refreshToken: string;
 };
 
+export type SendSignupCodeRequest = {
+  email: string;
+};
+
+/** POST /api/auth/email/send-code 응답 */
+export type SignupCodeResponse = {
+  expiresInSec: number;
+};
+
+export type VerifySignupCodeRequest = {
+  email: string;
+  code: string;
+};
+
+/** POST /api/auth/email/verify-code 응답 */
+export type SignupVerifyResponse = {
+  verified: boolean;
+  expiresInSec: number;
+};
+
 /** POST /api/auth/login 응답 */
 export type LoginResponse = {
   accessToken: string;

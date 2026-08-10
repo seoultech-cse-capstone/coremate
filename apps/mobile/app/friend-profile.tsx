@@ -217,6 +217,11 @@ export default function FriendProfileScreen() {
                 누적 {profile.attendanceCount}일 ·{" "}
                 {profile.attendedToday ? "오늘 출석 완료" : "오늘 아직 출석 전"}
               </Text>
+              {profile.lastAttendanceDate ? (
+                <Text style={styles.attendanceText}>
+                  최근 출석 {profile.lastAttendanceDate.slice(0, 10).replace(/-/g, ".")}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.learningCard}>
               <Text style={styles.learningTitle}>Learning History</Text>

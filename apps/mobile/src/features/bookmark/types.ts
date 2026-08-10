@@ -18,3 +18,19 @@ export type BookmarkedQuestion = {
   memo: string | null;
   bookmarkedAt: string;
 };
+
+export type BookmarkedQuestionDetail = {
+  bookmarkId: number;
+  questionId: number;
+  conceptId: number;
+  conceptName: string;
+  questionFormat: string;
+  questionType: string;
+  difficultyLevel: number;
+  questionText: string;
+  choices: { key: string; text: string }[];
+  correctAnswer: string;
+  explanationText: string;
+  expectedSolveSec: number;
+  memo: string | null;
+};
