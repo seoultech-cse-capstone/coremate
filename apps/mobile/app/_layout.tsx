@@ -6,8 +6,19 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
+import { usePushRegistration } from "../src/features/notification";
 import { queryClient } from "../src/shared/api/queryClient";
 import { LanguageProvider } from "../src/shared/language/LanguageContext";
+
+// 기기 토큰 등록·해제와 알림 탭 딥링크(FR-NOTI-02).
+//
+// RootLayout 이 아니라 별도 컴포넌트로 둔 이유는, RootLayout 이 AuthProvider 를 "렌더링하는"
+// 쪽이라 그 안에서 useAuth 를 부르면 아직 Provider 바깥이라 앱이 통째로 뜨지 않는다.
+// 화면에 그릴 것이 없어 null 을 반환한다.
+function PushRegistration() {
+  usePushRegistration();
+  return null;
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -22,6 +33,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <PushRegistration />
         <LanguageProvider>
         <SafeAreaProvider>
           <Stack
@@ -88,6 +100,7 @@ export default function RootLayout() {
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="device-management" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>
           {/* Stack 바깥에 둔다. 세션이 끊기면 (tabs) 네비게이터가 재마운트되면서

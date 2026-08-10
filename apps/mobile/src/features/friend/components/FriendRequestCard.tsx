@@ -2,33 +2,40 @@ import { Check, X } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
-import type { Friend } from "../friendData";
+import { getAvatarColor } from "../avatarColor";
 import { FriendAvatar } from "./FriendAvatar";
 
 type FriendRequestCardProps = {
-  friend: Friend;
+  nickname: string;
+  /** 학교가 비어 있을 수 있어 없으면 줄 자체를 숨긴다. */
+  schoolName: string | null;
   onAccept: () => void;
   onDecline: () => void;
 };
 
 export function FriendRequestCard({
-  friend,
+  nickname,
+  schoolName,
   onAccept,
   onDecline,
 }: FriendRequestCardProps) {
+  const avatarColor = getAvatarColor(nickname);
+
   return (
     <View style={styles.card}>
       <FriendAvatar
-        backgroundColor={friend.avatarColor}
-        color={friend.avatarAccentColor}
+        backgroundColor={avatarColor.background}
+        color={avatarColor.accent}
       />
       <View style={styles.info}>
         <Text numberOfLines={1} style={styles.name}>
-          {friend.nickname}
+          {nickname}
         </Text>
-        <Text numberOfLines={1} style={styles.detail}>
-          {friend.school} · {friend.department}
-        </Text>
+        {schoolName ? (
+          <Text numberOfLines={1} style={styles.detail}>
+            {schoolName}
+          </Text>
+        ) : null}
       </View>
       <Pressable accessibilityLabel="요청 거절" hitSlop={8} onPress={onDecline} style={styles.decline}>
         <X color="#64748B" size={18} strokeWidth={2.2} />

@@ -3,6 +3,7 @@ package com.coremate.backend.bookmark.controller;
 import com.coremate.backend.bookmark.dto.request.CreateBookmarkRequest;
 import com.coremate.backend.bookmark.dto.request.UpdateBookmarkMemoRequest;
 import com.coremate.backend.bookmark.dto.response.BookmarkResponse;
+import com.coremate.backend.bookmark.dto.response.BookmarkedQuestionDetailResponse;
 import com.coremate.backend.bookmark.dto.response.BookmarkedQuestionResponse;
 import com.coremate.backend.bookmark.service.BookmarkService;
 import com.coremate.backend.global.config.OpenApiConfig;
@@ -46,6 +47,16 @@ public class BookmarkController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         return bookmarkService.getBookmarkedQuestions(userDetails.getUserId());
+    }
+
+    @Operation(summary = "북마크한 문제 상세 조회",
+            description = "북마크한 문제의 본문·선택지·정답·해설을 조회한다. 내가 북마크한 활성 문제만 조회할 수 있다.")
+    @GetMapping("/questions/{questionId}")
+    public BookmarkedQuestionDetailResponse getBookmarkedQuestionDetail(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long questionId
+    ) {
+        return bookmarkService.getBookmarkedQuestionDetail(userDetails.getUserId(), questionId);
     }
 
     @Operation(summary = "북마크 생성")

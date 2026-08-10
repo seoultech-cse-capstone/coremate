@@ -36,8 +36,10 @@ import com.coremate.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import com.coremate.backend.notification.service.NotificationMessages;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +61,7 @@ public class RewardService {
     private final RewardLogRepository rewardLogRepository;
     private final DailyRewardLimitRepository dailyRewardLimitRepository;
     private final RewardPolicyRepository rewardPolicyRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 마이페이지/홈에서 쓰는 XP, 레벨, 코인 요약.
     @Transactional
@@ -186,6 +189,9 @@ public class RewardService {
         if (levelAfter <= levelBefore) {
             return;
         }
+
+        // 보상 구간이 아닌 레벨도 상승 자체는 알린다. 성장이 눈에 보이는 게 재방문 이유다.
+        eventPublisher.publishEvent(NotificationMessages.levelUp(userId, levelAfter));
 
         for (Integer level : LevelPolicy.rewardLevelsUpTo(levelAfter)) {
             RewardType rewardType = resolveLevelUpRewardType(level);
@@ -436,6 +442,8 @@ public class RewardService {
             case ATTENDANCE_REWARD, DAILY_QUIZ_ATTENDANCE -> CurrencyReason.ATTENDANCE_REWARD;
             case CATEGORY_MOCK_FIRST_PASS_COIN -> CurrencyReason.CATEGORY_MOCK_FIRST_PASS_REWARD;
             case SUBJECT_MOCK_FIRST_PASS_COIN -> CurrencyReason.SUBJECT_MOCK_FIRST_PASS_REWARD;
+            case CATEGORY_MOCK_RETRY_COIN -> CurrencyReason.CATEGORY_MOCK_RETRY_REWARD;
+            case SUBJECT_MOCK_RETRY_COIN -> CurrencyReason.SUBJECT_MOCK_RETRY_REWARD;
             case LEVEL_UP_5, LEVEL_UP_10, LEVEL_UP_20, LEVEL_UP_30, LEVEL_UP_40, LEVEL_UP_50
                     -> CurrencyReason.LEVEL_UP_REWARD;
             case STARTER_PACK -> CurrencyReason.STARTER_PACK;

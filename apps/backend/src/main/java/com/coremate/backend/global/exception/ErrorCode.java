@@ -30,6 +30,7 @@ public enum ErrorCode {
     SESSION_REVOKED_BY_USER(HttpStatus.UNAUTHORIZED, "기기 관리에서 이 기기의 로그인이 해지되었습니다"),
     SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "세션이 만료되었습니다. 다시 로그인해 주세요"),
     CANNOT_REVOKE_CURRENT_SESSION(HttpStatus.BAD_REQUEST, "현재 사용 중인 기기입니다. 로그아웃을 이용해 주세요"),
+    EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증이 완료되지 않았거나 만료되었습니다"),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다"),
@@ -54,12 +55,17 @@ public enum ErrorCode {
 
     // Friend
     FRIEND_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 관계를 찾을 수 없습니다"),
-    FRIEND_POKE_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 콕 찌르기 기록을 찾을 수 없습니다"),
+    FRIEND_POKE_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 보낼 수 있는 콕 찌르기를 모두 사용했습니다"),
+    FRIEND_POKE_FRIEND_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "같은 친구에게는 하루 3번까지 보낼 수 있습니다"),
     FRIEND_SELF_REQUEST(HttpStatus.BAD_REQUEST, "자기 자신에게 친구 요청을 보낼 수 없습니다"),
     FRIEND_REQUEST_DUPLICATED(HttpStatus.CONFLICT, "이미 친구이거나 요청을 보낸 사용자입니다"),
     FRIEND_REQUEST_NOT_RECEIVED(HttpStatus.FORBIDDEN, "본인에게 온 친구 요청만 처리할 수 있습니다"),
     FRIEND_RELATION_REQUIRED(HttpStatus.FORBIDDEN, "친구 관계인 사용자만 확인할 수 있습니다"),
     INVALID_FRIEND_STATUS(HttpStatus.BAD_REQUEST, "친구 요청 응답 상태가 올바르지 않습니다"),
+
+    // Notification
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다"),
+    NOTIFICATION_CATEGORY_NOT_CONFIGURABLE(HttpStatus.BAD_REQUEST, "계정 보안 알림은 수신 설정을 변경할 수 없습니다"),
 
     // DailyQuiz / Attendance
     DAILY_QUIZ_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 CS 퀴즈를 찾을 수 없습니다"),

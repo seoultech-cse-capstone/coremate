@@ -25,14 +25,15 @@ public class SignupRequest {
     @NotBlank
     private String password;
 
-    @Schema(example = "coremate")
+    @Schema(example = "코어", description = "닉네임 (최대 6글자)")
     @NotBlank
-    @Size(max = 50)
+    @Size(max = 6, message = "닉네임은 최대 6글자까지 가능합니다")
     private String nickname;
 
-    @Schema(example = "홍길동")
+    @Schema(example = "홍길동", description = "이름 (한글 또는 영문만, 특수문자·숫자·공백 불가)")
     @NotBlank
     @Size(max = 50)
+    @Pattern(regexp = "^[가-힣a-zA-Z]+$", message = "이름은 한글 또는 영문만 사용할 수 있습니다")
     private String name;
 
     @Schema(example = "01012345678")

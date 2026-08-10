@@ -1,17 +1,22 @@
 package com.coremate.backend.user.service;
 
+import com.coremate.backend.attendance.entity.Attendance;
+import com.coremate.backend.attendance.repository.AttendanceRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
 import com.coremate.backend.user.dto.response.UserLearningProgressResponse;
 import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
 import com.coremate.backend.user.dto.response.UserSummaryResponse;
+import java.time.LocalDate;
 import java.util.List;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final AttendanceRepository attendanceRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public MyProfileResponse getMyProfile(Long userId) {
         User user = findUser(userId);
@@ -60,6 +67,17 @@ public class UserService {
                 .build();
     }
 
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = findUser(userId);
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new CoreMateException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+    }
+
     public UserLearningProgressResponse getLearningProgress(Long userId) {
         User user = findUser(userId);
         return UserLearningProgressResponse.builder()
@@ -82,8 +100,14 @@ public class UserService {
     }
 
     private MyProfileResponse toMyProfileResponse(User user) {
+        Long userId = user.getUserId();
+        LocalDate lastAttendanceDate = attendanceRepository
+                .findTopByUser_UserIdOrderByAttendanceDateDesc(userId)
+                .map(Attendance::getAttendanceDate)
+                .orElse(null);
+
         return MyProfileResponse.builder()
-                .userId(user.getUserId())
+                .userId(userId)
                 .email(user.getEmail())
                 .nickname(user.getNickname())
                 .role(user.getRole().name())
@@ -95,6 +119,9 @@ public class UserService {
                 .status(user.getStatus().name())
                 .createdAt(user.getCreatedAt())
                 .lastLoginAt(user.getLastLoginAt())
+                .attendedToday(LocalDate.now().equals(lastAttendanceDate))
+                .attendanceCount(attendanceRepository.countByUser_UserId(userId))
+                .lastAttendanceDate(lastAttendanceDate)
                 .build();
     }
 }

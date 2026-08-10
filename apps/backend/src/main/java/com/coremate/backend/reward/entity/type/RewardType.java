@@ -11,6 +11,10 @@ public enum RewardType {
     ATTENDANCE_REWARD,
     CATEGORY_MOCK_FIRST_PASS_COIN,
     SUBJECT_MOCK_FIRST_PASS_COIN,
+    // 최초 통과 보상을 이미 받은 범위를 다시 풀었을 때의 소액 보상.
+    // 최초 통과와 별도 타입이라 일일 한도도 별도로 쌓인다.
+    CATEGORY_MOCK_RETRY_COIN,
+    SUBJECT_MOCK_RETRY_COIN,
     // 레벨업 보상은 구간마다 지급량이 달라 정책 행을 나눠 관리한다.
     // reward_policies.reward_type이 UNIQUE라 단일 값으로는 구간별 값을 담을 수 없다.
     LEVEL_UP_5,

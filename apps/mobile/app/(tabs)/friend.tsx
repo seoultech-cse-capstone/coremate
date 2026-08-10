@@ -1,7 +1,7 @@
 import { BlurView } from "expo-blur";
 import { router, useNavigation } from "expo-router";
 import { Search, UserPlus } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -23,12 +23,16 @@ import {
 } from "../../src/features/friend/components/FriendActionModals";
 import { FriendListCard } from "../../src/features/friend/components/FriendListCard";
 import {
-  FRIEND_REQUESTS,
-  FRIEND_SEARCH_RESULTS,
-  FRIENDS,
-  MAX_FRIEND_REQUESTS,
-  type Friend,
-} from "../../src/features/friend/friendData";
+  isPokeLimitError,
+  usePokeMutation,
+  useFriendsQuery,
+  useReceivedRequestsQuery,
+  useRespondRequestMutation,
+  useSendFriendRequestMutation,
+  useUserSearchQuery,
+} from "../../src/features/friend";
+import type { Friend } from "../../src/features/friend/types";
+import { getApiErrorMessage } from "../../src/shared/utils/apiError";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -45,25 +49,37 @@ export default function FriendScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
-  const [friends, setFriends] = useState(FRIENDS);
-  const [receivedRequests, setReceivedRequests] = useState(FRIEND_REQUESTS);
-  const [pokedFriendIds, setPokedFriendIds] = useState<string[]>([]);
+  const [pokedFriendIds, setPokedFriendIds] = useState<number[]>([]);
+  // 서버가 한도 초과로 막은 대상. 다음 날까지 버튼을 비활성으로 둔다.
+  const [pokeBlockedIds, setPokeBlockedIds] = useState<number[]>([]);
+  const [pokeMessage, setPokeMessage] = useState<string | null>(null);
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isReceivedModalVisible, setIsReceivedModalVisible] = useState(false);
   const [friendQuery, setFriendQuery] = useState("");
   const [addQuery, setAddQuery] = useState("");
-  const [sentRequestIds, setSentRequestIds] = useState<string[]>([]);
+  const [sentUserIds, setSentUserIds] = useState<number[]>([]);
+
+  const { data: friends = [] } = useFriendsQuery();
+  const { data: receivedRequests = [] } = useReceivedRequestsQuery();
+  const { data: searchResults = [] } = useUserSearchQuery(addQuery);
+  const sendRequestMutation = useSendFriendRequestMutation();
+  const respondRequestMutation = useRespondRequestMutation();
+  const pokeMutation = usePokeMutation();
+
   const panelMinHeight = Math.max(0, height - (60 + insets.top));
-  const onlineFriends = friends.filter((friend) => friend.isOnline);
-  const offlineFriends = friends.filter((friend) => !friend.isOnline);
-  const searchedFriends = friends.filter((friend) =>
-    friend.nickname.toLowerCase().includes(friendQuery.trim().toLowerCase()),
+
+  // 온라인 여부는 서버가 내려주지 않고 요구사항에도 없다. SCR-FRIEND-01 이 정의한
+  // "오늘 출석 여부"로 두 묶음을 나눈다.
+  const attendedFriends = useMemo(() => friends.filter((f) => f.attendedToday), [friends]);
+  const notAttendedFriends = useMemo(() => friends.filter((f) => !f.attendedToday), [friends]);
+  const searchedFriends = useMemo(
+    () =>
+      friends.filter((friend) =>
+        friend.nickname.toLowerCase().includes(friendQuery.trim().toLowerCase()),
+      ),
+    [friends, friendQuery],
   );
-  const addCandidates = FRIEND_SEARCH_RESULTS.filter((friend) =>
-    friend.nickname.toLowerCase().includes(addQuery.trim().toLowerCase()),
-  );
-  const isRequestLimitReached = sentRequestIds.length >= MAX_FRIEND_REQUESTS;
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
@@ -89,21 +105,34 @@ export default function FriendScreen() {
     );
   };
 
-  const togglePoke = (friendId: string) => {
-    setPokedFriendIds((current) =>
-      current.includes(friendId)
-        ? current.filter((id) => id !== friendId)
-        : [...current, friendId],
-    );
+  // 콕 찌르기는 취소가 없다. 서버에 기록이 남는 행위라 다시 눌러도 되돌릴 수 없다.
+  const poke = (friendUserId: number) => {
+    if (pokedFriendIds.includes(friendUserId) || pokeBlockedIds.includes(friendUserId)) {
+      return;
+    }
+    pokeMutation.mutate(friendUserId, {
+      onSuccess: () => {
+        setPokedFriendIds((current) => [...current, friendUserId]);
+        setPokeMessage(null);
+      },
+      onError: (error) => {
+        if (isPokeLimitError(error)) {
+          setPokeBlockedIds((current) => [...current, friendUserId]);
+        }
+        setPokeMessage(getApiErrorMessage(error));
+      },
+    });
   };
 
-  const acceptRequest = (friend: Friend) => {
-    setReceivedRequests((current) => current.filter(({ id }) => id !== friend.id));
-    setFriends((current) => [...current, friend]);
+  const openProfile = (friendUserId: number) =>
+    router.push({ pathname: "/friend-profile", params: { friendId: String(friendUserId) } });
+
+  const acceptRequest = (friendId: number) => {
+    respondRequestMutation.mutate({ friendId, status: "ACCEPTED" });
   };
 
-  const declineRequest = (friendId: string) => {
-    setReceivedRequests((current) => current.filter(({ id }) => id !== friendId));
+  const declineRequest = (friendId: number) => {
+    respondRequestMutation.mutate({ friendId, status: "REJECTED" });
   };
 
   return (
@@ -164,24 +193,23 @@ export default function FriendScreen() {
                 <Text style={styles.requestCountText}>{receivedRequests.length}</Text>
               </View>
             </Pressable>
+            {pokeMessage ? <Text style={styles.pokeMessage}>{pokeMessage}</Text> : null}
             <FriendSection
-              friends={onlineFriends}
-              isPoked={(friendId) => pokedFriendIds.includes(friendId)}
-              onOpenProfile={(friendId) =>
-                router.push({ pathname: "/friend-profile", params: { friendId } })
-              }
-              onPoke={togglePoke}
-              title="Online Now"
+              friends={attendedFriends}
+              isPoked={(id) => pokedFriendIds.includes(id)}
+              isPokeDisabled={(id) => pokeBlockedIds.includes(id)}
+              onOpenProfile={openProfile}
+              onPoke={poke}
+              title="오늘 출석"
               statusColor="#22C55E"
             />
             <FriendSection
-              friends={offlineFriends}
-              isPoked={(friendId) => pokedFriendIds.includes(friendId)}
-              onOpenProfile={(friendId) =>
-                router.push({ pathname: "/friend-profile", params: { friendId } })
-              }
-              onPoke={togglePoke}
-              title="Offline Now"
+              friends={notAttendedFriends}
+              isPoked={(id) => pokedFriendIds.includes(id)}
+              isPokeDisabled={(id) => pokeBlockedIds.includes(id)}
+              onOpenProfile={openProfile}
+              onPoke={poke}
+              title="아직 출석 전"
               statusColor="#94A3B8"
             />
           </View>
@@ -193,34 +221,35 @@ export default function FriendScreen() {
           setIsSearchModalVisible(false);
           setFriendQuery("");
         }}
-        onOpenProfile={(friendId) => {
+        onOpenProfile={(friendUserId) => {
           setIsSearchModalVisible(false);
           setFriendQuery("");
-          router.push({ pathname: "/friend-profile", params: { friendId } });
+          openProfile(friendUserId);
         }}
         onQueryChange={setFriendQuery}
         query={friendQuery}
         visible={isSearchModalVisible}
       />
       <AddFriendModal
-        friends={addCandidates}
+        users={searchResults}
         onClose={() => {
           setIsAddModalVisible(false);
           setAddQuery("");
+          setSentUserIds([]);
         }}
         onQueryChange={setAddQuery}
-        isRequestLimitReached={isRequestLimitReached}
-        onSendRequest={(friendId) => {
-          if (!isRequestLimitReached) {
-            setSentRequestIds((current) => [...current, friendId]);
-          }
+        isRequestLimitReached={false}
+        onSendRequest={(userId) => {
+          sendRequestMutation.mutate(userId, {
+            onSuccess: () => setSentUserIds((current) => [...current, userId]),
+          });
         }}
         query={addQuery}
-        sentRequestIds={sentRequestIds}
+        sentUserIds={sentUserIds}
         visible={isAddModalVisible}
       />
       <ReceivedRequestsModal
-        friends={receivedRequests}
+        requests={receivedRequests}
         onAccept={acceptRequest}
         onClose={() => setIsReceivedModalVisible(false)}
         onDecline={declineRequest}
@@ -234,9 +263,10 @@ type FriendSectionProps = {
   friends: Friend[];
   title: string;
   statusColor: string;
-  isPoked: (friendId: string) => boolean;
-  onOpenProfile: (friendId: string) => void;
-  onPoke: (friendId: string) => void;
+  isPoked: (friendUserId: number) => boolean;
+  isPokeDisabled: (friendUserId: number) => boolean;
+  onOpenProfile: (friendUserId: number) => void;
+  onPoke: (friendUserId: number) => void;
 };
 
 function FriendSection({
@@ -244,9 +274,14 @@ function FriendSection({
   title,
   statusColor,
   isPoked,
+  isPokeDisabled,
   onOpenProfile,
   onPoke,
 }: FriendSectionProps) {
+  if (friends.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionTitleRow}>
@@ -257,10 +292,11 @@ function FriendSection({
         {friends.map((friend) => (
           <FriendListCard
             friend={friend}
-            isPoked={isPoked(friend.id)}
-            key={friend.id}
-            onPoke={() => onPoke(friend.id)}
-            onPress={() => onOpenProfile(friend.id)}
+            isPoked={isPoked(friend.friendUserId)}
+            isPokeDisabled={isPokeDisabled(friend.friendUserId)}
+            key={friend.friendUserId}
+            onPoke={() => onPoke(friend.friendUserId)}
+            onPress={() => onOpenProfile(friend.friendUserId)}
           />
         ))}
       </View>
@@ -269,6 +305,12 @@ function FriendSection({
 }
 
 const styles = StyleSheet.create({
+  pokeMessage: {
+    color: "#DC2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    paddingBottom: 8,
+  },
   container: { flex: 1 },
   titleArea: {
     position: "absolute",

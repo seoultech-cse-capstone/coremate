@@ -13,6 +13,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
 
     long countByUser_UserId(Long userId);
 
+    // 마이페이지 "최근 출석" 표시용: 가장 최근 출석 1건
+    Optional<Attendance> findTopByUser_UserIdOrderByAttendanceDateDesc(Long userId);
+
     @EntityGraph(attributePaths = "user")
     Optional<Attendance> findByUser_UserIdAndAttendanceDate(Long userId, LocalDate attendanceDate);
 

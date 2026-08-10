@@ -2,6 +2,7 @@ package com.coremate.backend.friend.dto.response;
 
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDate;
 import java.util.List;
 
 @Schema(description = "친구 프로필 응답")
@@ -12,8 +13,9 @@ public record FriendProfileResponse(
         @Schema(example = "서울과학기술대학교") String schoolName,
         @Schema(example = "true") Boolean schoolVerified,
         @Schema(example = "ACTIVE") String status,
-        @Schema(example = "true") Boolean attendedToday,
-        @Schema(example = "12") Long attendanceCount,
+        @Schema(example = "true", description = "오늘 출석 여부") Boolean attendedToday,
+        @Schema(example = "12", description = "누적 출석 일수") Long attendanceCount,
+        @Schema(example = "2026-05-12", description = "가장 최근 출석일 (없으면 null)") LocalDate lastAttendanceDate,
         @Schema(description = "친구의 공개 아바타 프로필") AvatarProfileResponse avatarProfile,
         @Schema(description = "친구 공개 과목별 요약 스탯") List<FriendSubjectStatResponse> subjectStats
 ) {
