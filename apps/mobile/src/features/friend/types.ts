@@ -71,6 +71,8 @@ export type FriendProfile = {
   status: string;
   attendedToday: boolean;
   attendanceCount: number;
+  /** 가장 최근 출석일. 출석 기록이 없으면 null */
+  lastAttendanceDate: string | null;
   avatarProfile: AvatarProfile | null;
   subjectStats: FriendSubjectStat[];
 };
