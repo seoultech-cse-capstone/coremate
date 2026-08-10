@@ -79,4 +79,8 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
 
     // 선택 검증: 사용자 소유의 특정 회차들 조회
     List<SolveSession> findBySolveSessionIdInAndUserId(Collection<Long> solveSessionIds, Long userId);
+
+    // 진행 중 회차 조회. 새 모의고사 시작 시 기존 모의고사 회차를 중단 처리하는 데 사용한다.
+    List<SolveSession> findByUserIdAndStatusAndSessionTypeIn(
+            Long userId, SolveSessionStatus status, Collection<SolveSessionType> sessionTypes);
 }

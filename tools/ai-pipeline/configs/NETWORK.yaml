@@ -184,7 +184,18 @@ common_mistake_rules:
 
 question_rules:
   question_format: MCQ_4
-  questions_per_concept: 2
+  questions_per_concept: 7
+
+  # 개념당 만들 난이도 구성. 기존 문항의 난이도를 뺀 나머지를 그 회차에 요청한다.
+  # 기존 생성분이 난이도 1~3에 몰려 있어 4~5를 명시적으로 배분한다.
+  difficulty_mix:
+    - 1
+    - 2
+    - 2
+    - 3
+    - 3
+    - 4
+    - 5
 
   choice_key_type: key
   answer_keys:

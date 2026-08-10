@@ -1,4 +1,4 @@
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 type RequestOptions = {
   headers?: Record<string, string>;
@@ -32,7 +32,35 @@ type AuthHandlers = {
   getRefreshToken: () => Promise<string | null>;
   onTokensRefreshed: (accessToken: string, refreshToken: string) => Promise<void> | void;
   onRefreshFailed: () => Promise<void> | void;
+  /** 기기 세션이 해지되어 끊긴 경우. 사유를 받아 안내 모달을 띄운다. */
+  onSessionRevoked: (code: SessionRevokedCode) => Promise<void> | void;
 };
+
+/** 사용자에게 이유를 알려야 하는 해지 사유. 서버 ErrorCode와 문자열이 일치한다. */
+export type SessionRevokedCode =
+  | "SESSION_REVOKED_BY_OTHER_DEVICE"
+  | "SESSION_REVOKED_BY_USER";
+
+const SESSION_REVOKED_CODES: SessionRevokedCode[] = [
+  "SESSION_REVOKED_BY_OTHER_DEVICE",
+  "SESSION_REVOKED_BY_USER",
+];
+
+/** 세션은 끝났지만 사용자가 이미 이유를 아는 경우(본인 로그아웃·비밀번호 재설정·탈퇴). */
+const SESSION_EXPIRED_CODE = "SESSION_EXPIRED";
+
+function readErrorCode(data: unknown): string | null {
+  if (data && typeof data === "object" && "code" in data) {
+    const code = (data as { code?: unknown }).code;
+    return typeof code === "string" ? code : null;
+  }
+  return null;
+}
+
+function toRevokedCode(data: unknown): SessionRevokedCode | null {
+  const code = readErrorCode(data);
+  return SESSION_REVOKED_CODES.find((candidate) => candidate === code) ?? null;
+}
 
 let authHandlers: AuthHandlers | null = null;
 
@@ -67,8 +95,15 @@ async function refreshAccessToken(): Promise<string | null> {
         );
         await handlers.onTokensRefreshed(tokens.accessToken, tokens.refreshToken);
         return tokens.accessToken;
-      } catch {
-        await handlers.onRefreshFailed();
+      } catch (error) {
+        // 재발급 요청 자체가 해지 사유를 들고 실패할 수도 있다(만료된 access로 먼저
+        // 재발급을 시도한 경우). 위 분기와 이 경로 둘 다 막아야 사유가 새지 않는다.
+        const revokedCode = error instanceof HttpError ? toRevokedCode(error.data) : null;
+        if (revokedCode) {
+          await handlers.onSessionRevoked(revokedCode);
+        } else {
+          await handlers.onRefreshFailed();
+        }
         return null;
       } finally {
         refreshPromise = null;
@@ -108,6 +143,22 @@ async function request<TResponse>(
   const data = await parseJson(response);
 
   if (response.status === 401 && options.accessToken && !isRetry) {
+    // 재발급을 시도하기 "전에" 사유를 본다. 해지된 세션으로 재발급을 부르면 어차피
+    // 같은 이유로 거절당하는 요청을 한 번 더 보내는 셈이고, 사용자에게 띄울 사유도
+    // 잃어버린다.
+    const revokedCode = toRevokedCode(data);
+    if (revokedCode) {
+      await authHandlers?.onSessionRevoked(revokedCode);
+      throw new HttpError(response.status, data);
+    }
+
+    // 세션이 끝난 건 맞지만 사용자가 이유를 아는 경우. 조용히 로그아웃만 한다.
+    if (readErrorCode(data) === SESSION_EXPIRED_CODE) {
+      await authHandlers?.onRefreshFailed();
+      throw new HttpError(response.status, data);
+    }
+
+    // code가 없는 401 = 단순 만료. 지금까지와 동일하게 조용히 재발급한다.
     const newAccessToken = await refreshAccessToken();
     if (newAccessToken) {
       return request<TResponse>(method, path, { ...options, accessToken: newAccessToken }, true);
@@ -144,6 +195,9 @@ export const httpClient = {
   },
   put<TResponse>(path: string, body?: unknown, options?: RequestOptions) {
     return request<TResponse>('PUT', path, { ...options, body });
+  },
+  patch<TResponse>(path: string, body?: unknown, options?: RequestOptions) {
+    return request<TResponse>('PATCH', path, { ...options, body });
   },
   delete<TResponse>(path: string, options?: RequestOptions) {
     return request<TResponse>('DELETE', path, options);

@@ -23,6 +23,7 @@ import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.learninghistory.dto.response.LearningHistoryResponse;
 import com.coremate.backend.learninghistory.service.LearningHistoryService;
+import com.coremate.backend.notification.service.NotificationMessages;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
@@ -30,6 +31,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +45,9 @@ public class FriendService {
     private static final String REQUEST_DIRECTION_SENT = "SENT";
     private static final String REQUEST_DIRECTION_ALL = "ALL";
 
+    private static final int POKE_DAILY_LIMIT_PER_FRIEND = 3;
+    private static final int POKE_DAILY_LIMIT_TOTAL = 30;
+
     private final FriendRepository friendRepository;
     private final FriendPokeRepository friendPokeRepository;
     private final FriendUserSearchRepository friendUserSearchRepository;
@@ -50,6 +55,7 @@ public class FriendService {
     private final AttendanceRepository attendanceRepository;
     private final AvatarService avatarService;
     private final LearningHistoryService learningHistoryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public List<FriendSearchUserResponse> searchUsers(Long userId, String keyword) {
         findActiveUser(userId);
@@ -107,6 +113,9 @@ public class FriendService {
                 .map(existing -> reopenRequestIfPossible(existing, requester, receiver))
                 .orElseGet(() -> friendRepository.save(new Friend(requester, receiver)));
 
+        eventPublisher.publishEvent(NotificationMessages.friendRequestReceived(
+                receiver.getUserId(), requester.getNickname(), requester.getUserId()));
+
         return toFriendRequestResponse(friend, userId);
     }
 
@@ -121,6 +130,11 @@ public class FriendService {
 
         if (request.getStatus() == FriendStatus.ACCEPTED) {
             friend.accept(LocalDateTime.now());
+            // 거절은 알리지 않는다(FR-NOTI-08). 거절당한 사실을 통보받는 건 관계에 도움이 되지 않는다.
+            eventPublisher.publishEvent(NotificationMessages.friendRequestAccepted(
+                    friend.getRequester().getUserId(),
+                    friend.getReceiver().getNickname(),
+                    friend.getReceiver().getUserId()));
             return toFriendResponse(friend, userId);
         }
 
@@ -162,32 +176,36 @@ public class FriendService {
     public FriendPokeResponse poke(Long userId, PokeFriendRequest request) {
         validateNotSelf(userId, request.getToUserId());
         validateAcceptedFriend(userId, request.getToUserId());
+        validatePokeLimit(userId, request.getToUserId());
         User fromUser = findActiveUser(userId);
         User toUser = findActiveUser(request.getToUserId());
 
         FriendPoke friendPoke = friendPokeRepository.save(new FriendPoke(fromUser, toUser, request.getMessageType()));
+        eventPublisher.publishEvent(NotificationMessages.friendPoke(
+                toUser.getUserId(), fromUser.getNickname(), fromUser.getUserId()));
         return toFriendPokeResponse(friendPoke);
     }
 
-    public List<FriendPokeResponse> getReceivedPokes(Long userId, Boolean unreadOnly) {
-        findActiveUser(userId);
-        boolean onlyUnread = Boolean.TRUE.equals(unreadOnly);
-        List<FriendPoke> pokes = onlyUnread
-                ? friendPokeRepository.findByToUser_UserIdAndReadFalseOrderByCreatedAtDesc(userId)
-                : friendPokeRepository.findByToUser_UserIdOrderByCreatedAtDesc(userId);
-        return pokes.stream()
-                .map(this::toFriendPokeResponse)
-                .toList();
-    }
+    // 콕 찌르기 일일 제한. 컨테이너 타임존이 Asia/Seoul 이라 LocalDate.now() 가 곧 서비스 기준 날짜다.
+    // 전체 한도를 먼저 본다. 총량을 다 쓴 상태에서 "같은 친구에게는 3번까지"를 안내하면
+    // 다른 친구를 고르면 된다는 뜻으로 읽혀 사용자가 다시 시도하게 된다.
+    private void validatePokeLimit(Long fromUserId, Long toUserId) {
+        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
+        LocalDateTime nextDayStart = dayStart.plusDays(1);
 
-    @Transactional
-    public FriendPokeResponse markPokeRead(Long userId, Long pokeId) {
-        FriendPoke poke = friendPokeRepository.findByPokeIdAndToUser_UserId(pokeId, userId)
-                .orElseThrow(() -> new CoreMateException(ErrorCode.FRIEND_POKE_NOT_FOUND));
-        if (!poke.isRead()) {
-            poke.markRead(LocalDateTime.now());
+        long sentToday = friendPokeRepository
+                .countByFromUser_UserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        fromUserId, dayStart, nextDayStart);
+        if (sentToday >= POKE_DAILY_LIMIT_TOTAL) {
+            throw new CoreMateException(ErrorCode.FRIEND_POKE_DAILY_LIMIT_EXCEEDED);
         }
-        return toFriendPokeResponse(poke);
+
+        long sentToFriendToday = friendPokeRepository
+                .countByFromUser_UserIdAndToUser_UserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
+                        fromUserId, toUserId, dayStart, nextDayStart);
+        if (sentToFriendToday >= POKE_DAILY_LIMIT_PER_FRIEND) {
+            throw new CoreMateException(ErrorCode.FRIEND_POKE_FRIEND_LIMIT_EXCEEDED);
+        }
     }
 
     private Friend reopenRequestIfPossible(Friend friend, User requester, User receiver) {
@@ -276,9 +294,7 @@ public class FriendService {
                 poke.getToUser().getUserId(),
                 poke.getToUser().getNickname(),
                 poke.getMessageType(),
-                poke.isRead(),
-                poke.getCreatedAt(),
-                poke.getReadAt()
+                poke.getCreatedAt()
         );
     }
 

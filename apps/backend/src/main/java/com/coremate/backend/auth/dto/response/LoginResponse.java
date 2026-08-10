@@ -26,4 +26,8 @@ public class LoginResponse {
 
     @Schema(example = "coremate")
     private String nickname;
+
+    @Schema(description = "이 기기에 저장해 두고 다음 로그인에 그대로 보낼 기기 식별자",
+            example = "3f0c1b1e-2a4d-4f8b-9c1a-77d0f4e5a1b2")
+    private String deviceId;
 }

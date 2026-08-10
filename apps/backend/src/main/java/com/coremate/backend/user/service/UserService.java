@@ -4,6 +4,7 @@ import com.coremate.backend.attendance.entity.Attendance;
 import com.coremate.backend.attendance.repository.AttendanceRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
@@ -15,6 +16,7 @@ import java.util.List;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public MyProfileResponse getMyProfile(Long userId) {
         User user = findUser(userId);
@@ -62,6 +65,17 @@ public class UserService {
                 .level(user.getLevel())
                 .avatarImageUrl(null)
                 .build();
+    }
+
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = findUser(userId);
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new CoreMateException(ErrorCode.INVALID_PASSWORD);
+        }
+
+        user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
     }
 
     public UserLearningProgressResponse getLearningProgress(Long userId) {

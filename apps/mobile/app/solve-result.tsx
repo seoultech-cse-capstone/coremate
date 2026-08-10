@@ -3,14 +3,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import {
   SolveResultScreen,
 } from "../src/features/solve/components/SolveResultScreen";
-import type { SolveSessionType } from "../src/features/solve/components/SolveQuestionScreen";
+import type { SolveSessionType } from "../src/features/solve/types";
 
 const sessionTypes: SolveSessionType[] = [
   "SUBJECT_MOCK",
   "CATEGORY_LV1_MOCK",
   "CATEGORY_LV2_MOCK",
   "CONCEPT_PRACTICE",
-  "DAILY_QUIZ",
 ];
 
 export default function SolveResultRoute() {

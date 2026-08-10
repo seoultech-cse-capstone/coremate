@@ -18,6 +18,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class JwtProvider {
 
+    /** 기기 세션 식별자(user_sessions.session_id). 해지 판정의 기준 단위다. */
+    public static final String SESSION_ID_CLAIM = "sid";
+
     @Value("${jwt.secret}")
     private String secret;
 
@@ -35,21 +38,23 @@ public class JwtProvider {
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String createAccessToken(Long userId, UserRole role) {
+    public String createAccessToken(Long userId, UserRole role, String sessionId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("role", role.name())
+                .claim(SESSION_ID_CLAIM, sessionId)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + accessTokenExpirySec * 1000))
                 .signWith(key)
                 .compact();
     }
 
-    public String createRefreshToken(Long userId) {
+    public String createRefreshToken(Long userId, String sessionId) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId.toString())
+                .claim(SESSION_ID_CLAIM, sessionId)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + refreshTokenExpirySec * 1000))
                 .signWith(key)
@@ -66,6 +71,11 @@ public class JwtProvider {
 
     public Long getUserId(String token) {
         return Long.parseLong(parseClaims(token).getSubject());
+    }
+
+    /** sid 클레임 도입 전에 발급된 토큰이면 null 이다. 호출부는 재로그인 유도로 처리한다. */
+    public String getSessionId(String token) {
+        return parseClaims(token).get(SESSION_ID_CLAIM, String.class);
     }
 
     public boolean validateToken(String token) {

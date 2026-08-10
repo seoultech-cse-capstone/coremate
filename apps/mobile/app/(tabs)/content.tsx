@@ -320,10 +320,16 @@ export default function ContentScreen() {
     language,
   ]);
 
+  const { refetch: refetchSubjects } = subjectsQuery;
+
   const resetContent = useCallback(() => {
     setTrail([{ depth: "subject" }]);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, []);
+    // 다른 깊이(대분류/중분류/개념)의 쿼리는 parentId가 null로 바뀌며
+    // enabled 전환으로 다음에 드릴다운할 때 알아서 새로 불러온다. 항상
+    // 켜져 있는 과목 목록만 여기서 직접 다시 불러온다.
+    refetchSubjects();
+  }, [refetchSubjects]);
 
   const scrollToTop = useCallback(() => {
     requestAnimationFrame(() => {

@@ -1,23 +1,25 @@
 import { router } from "expo-router";
 
-import { useRequireMember } from "../src/features/auth";
-import { SolveQuestionScreen } from "../src/features/solve/components/SolveQuestionScreen";
+import { useAuth, useRequireMember } from "../src/features/auth";
+import { DailyQuizScreen } from "../src/features/dailyQuiz/components/DailyQuizScreen";
 
-export default function DailyQuizScreen() {
+export default function DailyQuizPage() {
   useRequireMember();
+  const { accessToken } = useAuth();
+
+  if (!accessToken) {
+    return null;
+  }
 
   return (
-    <SolveQuestionScreen
-      sessionType="DAILY_QUIZ"
-      title="오늘의 CS 퀴즈"
+    <DailyQuizScreen
+      accessToken={accessToken}
       onBack={() => router.back()}
-      onComplete={(correctCount, totalCount) =>
+      onAlreadySolved={() => router.replace("/daily-quiz-review")}
+      onComplete={(result) =>
         router.replace({
           pathname: "/daily-quiz-result",
-          params: {
-            correctCount: correctCount.toString(),
-            totalCount: totalCount.toString(),
-          },
+          params: { resultJson: JSON.stringify(result) },
         })
       }
     />

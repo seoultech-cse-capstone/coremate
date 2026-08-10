@@ -8,10 +8,14 @@ import com.coremate.backend.content.entity.Subject;
 import com.coremate.backend.dailyquiz.dto.request.SubmitDailyQuizAnswerRequest;
 import com.coremate.backend.dailyquiz.dto.request.SubmitDailyQuizRequest;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizQuestionResponse;
+import com.coremate.backend.dailyquiz.dto.response.DailyQuizResultQuestionResponse;
+import com.coremate.backend.dailyquiz.dto.response.DailyQuizResultResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizRewardResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizSetResponse;
 import com.coremate.backend.dailyquiz.dto.response.DailyQuizSubmitResponse;
+import com.coremate.backend.dailyquiz.entity.DailyQuizAnswerLog;
 import com.coremate.backend.dailyquiz.entity.DailyQuizSet;
+import com.coremate.backend.dailyquiz.repository.DailyQuizAnswerLogRepository;
 import com.coremate.backend.dailyquiz.repository.DailyQuizQuestionPickerRepository;
 import com.coremate.backend.dailyquiz.repository.DailyQuizSetRepository;
 import com.coremate.backend.global.exception.CoreMateException;
@@ -20,13 +24,14 @@ import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.problemset.dto.type.QuestionFormat;
 import com.coremate.backend.problemset.dto.type.QuestionType;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
@@ -38,10 +43,11 @@ import tools.jackson.databind.ObjectMapper;
 public class DailyQuizService {
 
     private static final int DAILY_QUIZ_QUESTION_COUNT = 6;
-    private static final int DAILY_QUIZ_CANDIDATE_POOL_SIZE = 100;
+    private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     private final DailyQuizSetRepository dailyQuizSetRepository;
     private final DailyQuizQuestionPickerRepository dailyQuizQuestionPickerRepository;
+    private final DailyQuizAnswerLogRepository dailyQuizAnswerLogRepository;
     private final AttendanceService attendanceService;
     private final ObjectMapper objectMapper;
 
@@ -70,6 +76,9 @@ public class DailyQuizService {
         int totalTimeSpentSec = resolveTotalTimeSpentSec(request);
         Long representativeSetId = quizEntries.get(0).getDailyQuizSetId();
 
+        // 문항별 답안 로그를 저장한다(재제출 시 기존 로그를 덮어씀). 해설/이력 조회의 원천이 된다.
+        persistAnswerLogs(userId, today, entriesByQuestionId, answersByQuestionId);
+
         AttendanceRewardResponse attendanceReward = attendanceService.processDailyQuizCompletion(
                 userId,
                 today,
@@ -94,6 +103,70 @@ public class DailyQuizService {
         return toDailyQuizRewardResponse(attendanceService.getTodayReward(userId));
     }
 
+    // 오늘 내가 제출한 오늘의 퀴즈의 문항별 정답/해설과 내가 선택한 선지를 함께 반환한다.
+    // 오늘 제출(풀이)한 기록이 있어야 한다.
+    public DailyQuizResultResponse getDailyQuizResult(Long userId) {
+        LocalDate today = LocalDate.now();
+        List<DailyQuizAnswerLog> logs =
+                dailyQuizAnswerLogRepository.findByUserIdAndQuizDateOrderBySortOrderAsc(userId, today);
+        if (logs.isEmpty()) {
+            // 아직 오늘의 퀴즈를 제출하지 않았으면 정답/해설을 노출하지 않는다.
+            throw new CoreMateException(ErrorCode.DAILY_QUIZ_INCOMPLETE);
+        }
+
+        List<DailyQuizResultQuestionResponse> questions = logs.stream()
+                .map(this::toResultQuestion)
+                .toList();
+
+        return new DailyQuizResultResponse(today, questions);
+    }
+
+    // 매일 자정(KST) 스케줄러가 호출한다. 오늘 이전 날짜의 선지 기록을 모두 삭제해 DB에 당일 데이터만 남긴다.
+    @Transactional
+    public long deleteOutdatedAnswerLogs() {
+        return dailyQuizAnswerLogRepository.deleteByQuizDateBefore(LocalDate.now(KST_ZONE));
+    }
+
+    private void persistAnswerLogs(
+            Long userId,
+            LocalDate quizDate,
+            Map<Long, DailyQuizSet> entriesByQuestionId,
+            Map<Long, SubmitDailyQuizAnswerRequest> answersByQuestionId
+    ) {
+        dailyQuizAnswerLogRepository.deleteByUserIdAndQuizDate(userId, quizDate);
+
+        List<DailyQuizAnswerLog> logs = new ArrayList<>();
+        for (Map.Entry<Long, DailyQuizSet> entry : entriesByQuestionId.entrySet()) {
+            DailyQuizSet quizEntry = entry.getValue();
+            Question question = quizEntry.getQuestion();
+            SubmitDailyQuizAnswerRequest answer = answersByQuestionId.get(entry.getKey());
+            logs.add(DailyQuizAnswerLog.builder()
+                    .userId(userId)
+                    .quizDate(quizDate)
+                    .question(question)
+                    .sortOrder(quizEntry.getSortOrder())
+                    .selectedAnswer(answer.selectedAnswer())
+                    .build());
+        }
+        dailyQuizAnswerLogRepository.saveAll(logs);
+    }
+
+    private DailyQuizResultQuestionResponse toResultQuestion(DailyQuizAnswerLog log) {
+        Question question = log.getQuestion();
+        return new DailyQuizResultQuestionResponse(
+                question.getQuestionId(),
+                log.getSortOrder(),
+                resolveSubject(question).getSubjectName(),
+                question.getConcept().getConceptName(),
+                question.getQuestionText(),
+                parseChoices(question.getChoicesJson()),
+                question.getCorrectAnswer(),
+                question.getExplanationText(),
+                log.getSelectedAnswer(),
+                isCorrect(log.getSelectedAnswer(), question.getCorrectAnswer())
+        );
+    }
+
     private List<DailyQuizSet> getOrCreateDailyQuizSet(LocalDate quizDate) {
         List<DailyQuizSet> existing = dailyQuizSetRepository.findByQuizDateOrderBySortOrderAsc(quizDate);
         if (!existing.isEmpty()) {
@@ -116,20 +189,41 @@ public class DailyQuizService {
     }
 
     private List<Question> selectDailyQuizQuestions(LocalDate quizDate) {
-        List<Question> candidates = dailyQuizQuestionPickerRepository.findDailyQuizCandidates(
-                PageRequest.of(0, DAILY_QUIZ_CANDIDATE_POOL_SIZE)
-        );
-        if (candidates.isEmpty()) {
+        List<Long> candidateIds = dailyQuizQuestionPickerRepository.findDailyQuizCandidateIds();
+        if (candidateIds.isEmpty()) {
             throw new CoreMateException(ErrorCode.DAILY_QUIZ_NOT_FOUND);
         }
 
-        int questionCount = Math.min(DAILY_QUIZ_QUESTION_COUNT, candidates.size());
-        int startIndex = Math.floorMod((int) quizDate.toEpochDay(), candidates.size());
-        List<Question> selected = new ArrayList<>();
-        for (int i = 0; i < questionCount; i++) {
-            selected.add(candidates.get((startIndex + i) % candidates.size()));
+        List<Long> selectedIds = selectDailyQuizQuestionIds(candidateIds, quizDate, DAILY_QUIZ_QUESTION_COUNT);
+
+        Map<Long, Question> questionById = new HashMap<>();
+        for (Question question : dailyQuizQuestionPickerRepository.findAllForDailyQuizByIds(selectedIds)) {
+            questionById.put(question.getQuestionId(), question);
         }
-        return selected;
+        return selectedIds.stream().map(questionById::get).toList();
+    }
+
+    // 후보 전체를 한 바퀴 다 소진한 뒤에 다시 출제되도록 날짜를 블록 단위로 매핑한다.
+    // 한 사이클(= 후보수 / 출제수 일)의 순서는 사이클 번호를 시드로 고정하므로,
+    // 같은 날짜면 항상 같은 문항이 나오고 사이클 안에서는 하루도 겹치지 않는다.
+    static List<Long> selectDailyQuizQuestionIds(List<Long> candidateIds, LocalDate quizDate, int count) {
+        int blocksPerCycle = candidateIds.size() / count;
+        if (blocksPerCycle == 0) {
+            // 후보가 출제 수보다 적으면 그날 있는 만큼만 낸다.
+            List<Long> remaining = new ArrayList<>(candidateIds);
+            Collections.shuffle(remaining, new Random(quizDate.toEpochDay()));
+            return List.copyOf(remaining);
+        }
+
+        long epochDay = quizDate.toEpochDay();
+        long cycleIndex = Math.floorDiv(epochDay, blocksPerCycle);
+        int blockIndex = (int) Math.floorMod(epochDay, blocksPerCycle);
+
+        List<Long> shuffledIds = new ArrayList<>(candidateIds);
+        Collections.shuffle(shuffledIds, new Random(cycleIndex));
+
+        int from = blockIndex * count;
+        return List.copyOf(shuffledIds.subList(from, from + count));
     }
 
     private DailyQuizSetResponse toSetResponse(List<DailyQuizSet> quizEntries, boolean solvedToday) {
@@ -159,6 +253,7 @@ public class DailyQuizService {
                 concept.getConceptId(),
                 concept.getConceptName(),
                 quizEntry.getSortOrder(),
+
                 parseQuestionFormat(question.getQuestionFormat()),
                 parseQuestionType(question.getQuestionType()),
                 question.getQuestionText(),
@@ -218,9 +313,12 @@ public class DailyQuizService {
     }
 
     private boolean isCorrect(Question question, SubmitDailyQuizAnswerRequest answer) {
-        String selectedAnswer = normalizeAnswer(answer.selectedAnswer());
-        String correctAnswer = normalizeAnswer(question.getCorrectAnswer());
-        return !selectedAnswer.isBlank() && selectedAnswer.equals(correctAnswer);
+        return isCorrect(answer.selectedAnswer(), question.getCorrectAnswer());
+    }
+
+    private boolean isCorrect(String selectedAnswer, String correctAnswer) {
+        String selected = normalizeAnswer(selectedAnswer);
+        return !selected.isBlank() && selected.equals(normalizeAnswer(correctAnswer));
     }
 
     private int resolveTotalTimeSpentSec(SubmitDailyQuizRequest request) {

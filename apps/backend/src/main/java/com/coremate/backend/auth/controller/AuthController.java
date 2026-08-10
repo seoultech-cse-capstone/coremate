@@ -6,18 +6,23 @@ import com.coremate.backend.auth.dto.request.LogoutRequest;
 import com.coremate.backend.auth.dto.request.ReissueTokenRequest;
 import com.coremate.backend.auth.dto.request.ResetPasswordRequest;
 import com.coremate.backend.auth.dto.request.SendResetCodeRequest;
+import com.coremate.backend.auth.dto.request.SendSignupCodeRequest;
 import com.coremate.backend.auth.dto.request.SignupRequest;
 import com.coremate.backend.auth.dto.request.VerifyResetCodeRequest;
+import com.coremate.backend.auth.dto.request.VerifySignupCodeRequest;
 import com.coremate.backend.auth.dto.request.WithdrawRequest;
 import com.coremate.backend.auth.dto.response.AuthTokenResponse;
 import com.coremate.backend.auth.dto.response.FindEmailResponse;
 import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.ResetCodeResponse;
 import com.coremate.backend.auth.dto.response.ResetTokenResponse;
+import com.coremate.backend.auth.dto.response.SignupCodeResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
+import com.coremate.backend.auth.dto.response.SignupVerifyResponse;
 import com.coremate.backend.auth.service.AccountRecoveryService;
 import com.coremate.backend.auth.service.AuthService;
 import com.coremate.backend.auth.service.PasswordResetService;
+import com.coremate.backend.auth.service.SignupEmailVerificationService;
 import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,8 +47,23 @@ public class AuthController {
     private final AuthService authService;
     private final AccountRecoveryService accountRecoveryService;
     private final PasswordResetService passwordResetService;
+    private final SignupEmailVerificationService signupEmailVerificationService;
 
-    @Operation(summary = "회원가입")
+    @Operation(summary = "회원가입 이메일 인증번호 발송",
+            description = "회원가입할 이메일로 6자리 인증번호를 발송한다. 이미 가입된 이메일이면 실패한다.")
+    @PostMapping("/email/send-code")
+    public SignupCodeResponse sendSignupCode(@Valid @RequestBody SendSignupCodeRequest request) {
+        return signupEmailVerificationService.sendCode(request);
+    }
+
+    @Operation(summary = "회원가입 이메일 인증번호 검증",
+            description = "인증번호 검증에 성공하면 해당 이메일을 인증 완료 상태로 표시한다. 이후 유효시간 안에 회원가입을 완료해야 한다.")
+    @PostMapping("/email/verify-code")
+    public SignupVerifyResponse verifySignupCode(@Valid @RequestBody VerifySignupCodeRequest request) {
+        return signupEmailVerificationService.verifyCode(request);
+    }
+
+    @Operation(summary = "회원가입", description = "이메일 인증이 완료된 이메일만 가입할 수 있다.")
     @PostMapping("/signup")
     @ResponseStatus(HttpStatus.CREATED)
     public SignupResponse signup(@Valid @RequestBody SignupRequest request) {
@@ -56,13 +76,15 @@ public class AuthController {
         return authService.login(request);
     }
 
-    @Operation(summary = "로그아웃")
+    @Operation(summary = "로그아웃", description = "현재 기기의 세션만 해지한다. 이미 해지된 상태여도 204 다.")
     @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request,
                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-        authService.logout(userDetails.getUserId(), request.getRefreshToken());
+        // 해지 대상은 토큰의 세션 식별자로 정한다. 바디의 refreshToken 은 구버전 앱과의 호환을 위해
+        // 받기만 하고 쓰지 않는다(와이어 포맷을 깨지 않아 백엔드/모바일 배포 순서 의존성을 줄인다).
+        authService.logout(userDetails.getUserId(), userDetails.getSessionId());
     }
 
     @Operation(summary = "토큰 재발급")

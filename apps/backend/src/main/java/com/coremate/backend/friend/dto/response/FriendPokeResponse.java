@@ -11,8 +11,6 @@ public record FriendPokeResponse(
         @Schema(example = "99") Long toUserId,
         @Schema(example = "corefriend") String toNickname,
         @Schema(example = "POKE") String messageType,
-        @Schema(example = "false") Boolean isRead,
-        @Schema(example = "2026-05-12T09:10:11") LocalDateTime createdAt,
-        @Schema(example = "2026-05-12T09:10:11") LocalDateTime readAt
+        @Schema(example = "2026-05-12T09:10:11") LocalDateTime createdAt
 ) {
 }

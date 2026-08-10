@@ -23,7 +23,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -122,30 +121,16 @@ public class FriendController {
         return friendService.getLearningHistory(userDetails.getUserId(), friendUserId);
     }
 
-    @Operation(summary = "친구 찌르기")
+    @Operation(
+            summary = "친구 찌르기",
+            description = "친구 관계(ACCEPTED)인 사용자에게만 보낼 수 있다. "
+                    + "같은 친구에게 1일 3회, 전체 1일 30회까지 보낼 수 있으며 한도는 매일 0시(KST)에 초기화된다."
+    )
     @PostMapping("/pokes")
     public FriendPokeResponse poke(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody PokeFriendRequest request
     ) {
         return friendService.poke(userDetails.getUserId(), request);
-    }
-
-    @Operation(summary = "받은 친구 콕 찌르기 조회")
-    @GetMapping("/pokes")
-    public List<FriendPokeResponse> getReceivedPokes(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false, defaultValue = "false") Boolean unreadOnly
-    ) {
-        return friendService.getReceivedPokes(userDetails.getUserId(), unreadOnly);
-    }
-
-    @Operation(summary = "친구 콕 찌르기 읽음 처리")
-    @PatchMapping("/pokes/{pokeId}/read")
-    public FriendPokeResponse markPokeRead(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long pokeId
-    ) {
-        return friendService.markPokeRead(userDetails.getUserId(), pokeId);
     }
 }
