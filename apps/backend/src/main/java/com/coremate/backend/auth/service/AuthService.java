@@ -6,6 +6,8 @@ import com.coremate.backend.auth.dto.request.SignupRequest;
 import com.coremate.backend.auth.dto.response.AuthTokenResponse;
 import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
+import com.coremate.backend.auth.entity.SessionRevokeReason;
+import com.coremate.backend.auth.entity.UserSession;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.reward.event.UserSignedUpEvent;
@@ -15,11 +17,9 @@ import com.coremate.backend.user.entity.UserRole;
 import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDateTime;
-import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,12 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AuthService {
 
-    private static final String REFRESH_KEY_PREFIX = "refresh:";
-
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
-    private final StringRedisTemplate redisTemplate;
+    private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
     private final SignupEmailVerificationService signupEmailVerificationService;
 
@@ -85,10 +83,17 @@ public class AuthService {
             throw new CoreMateException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
-        String accessToken = jwtProvider.createAccessToken(user.getUserId(), user.getRole());
-        String refreshToken = jwtProvider.createRefreshToken(user.getUserId());
+        // 토큰에 sid 를 실어야 하므로 세션 등록이 토큰 발급보다 먼저다.
+        UserSessionService.SessionRegistration registration = userSessionService.registerOnLogin(
+                user.getUserId(), request.getDeviceId(), request.getDeviceName(),
+                request.getPlatform(), request.getOsVersion());
 
-        saveRefreshToken(user.getUserId(), refreshToken);
+        String accessToken =
+                jwtProvider.createAccessToken(user.getUserId(), user.getRole(), registration.sessionId());
+        String refreshToken =
+                jwtProvider.createRefreshToken(user.getUserId(), registration.sessionId());
+
+        userSessionService.attachRefreshToken(registration.sessionId(), refreshToken, refreshExpiresAt());
         user.updateLastLoginAt(LocalDateTime.now());
 
         return LoginResponse.builder()
@@ -97,15 +102,16 @@ public class AuthService {
                 .expiresInSec(jwtProvider.getAccessTokenExpirySec())
                 .userId(user.getUserId())
                 .nickname(user.getNickname())
+                .deviceId(registration.deviceId())
                 .build();
     }
 
-    public void logout(Long userId, String refreshToken) {
-        String stored = redisTemplate.opsForValue().get(REFRESH_KEY_PREFIX + userId);
-        if (stored == null || !stored.equals(refreshToken)) {
-            throw new CoreMateException(ErrorCode.INVALID_TOKEN);
-        }
-        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+    /**
+     * 현재 기기의 세션만 해지한다. 이미 해지된 기기가 로그아웃을 눌러도 204 로 통과시킨다
+     * (다른 기기에 밀려난 사용자가 로그아웃 버튼을 눌렀을 때 401 을 보는 일이 없도록).
+     */
+    public void logout(Long userId, String sessionId) {
+        userSessionService.revokeCurrent(userId, sessionId, SessionRevokeReason.USER_LOGOUT);
     }
 
     public void withdraw(Long userId, String password) {
@@ -121,10 +127,9 @@ public class AuthService {
         }
 
         user.withdraw();
-        redisTemplate.delete(REFRESH_KEY_PREFIX + userId);
+        userSessionService.revokeAllAndAnonymize(userId);
     }
 
-    @Transactional(readOnly = true)
     public AuthTokenResponse reissue(ReissueTokenRequest request) {
         String refreshToken = request.getRefreshToken();
 
@@ -132,20 +137,21 @@ public class AuthService {
             throw new CoreMateException(ErrorCode.INVALID_TOKEN);
         }
 
-        Long userId = jwtProvider.getUserId(refreshToken);
-        String stored = redisTemplate.opsForValue().get(REFRESH_KEY_PREFIX + userId);
+        String sessionId = jwtProvider.getSessionId(refreshToken);
+        UserSession session = userSessionService.getForReissue(sessionId, refreshToken);
 
-        if (stored == null || !stored.equals(refreshToken)) {
-            throw new CoreMateException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
-        }
-
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(session.getUserId())
                 .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
 
-        String newAccessToken = jwtProvider.createAccessToken(user.getUserId(), user.getRole());
-        String newRefreshToken = jwtProvider.createRefreshToken(user.getUserId());
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new CoreMateException(ErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
 
-        saveRefreshToken(userId, newRefreshToken);
+        // 세션 자체는 유지하고 토큰만 회전한다. sid 가 그대로여야 기기 목록의 같은 행으로 이어진다.
+        String newAccessToken = jwtProvider.createAccessToken(user.getUserId(), user.getRole(), sessionId);
+        String newRefreshToken = jwtProvider.createRefreshToken(user.getUserId(), sessionId);
+
+        userSessionService.attachRefreshToken(sessionId, newRefreshToken, refreshExpiresAt());
 
         return AuthTokenResponse.builder()
                 .accessToken(newAccessToken)
@@ -154,12 +160,7 @@ public class AuthService {
                 .build();
     }
 
-    private void saveRefreshToken(Long userId, String refreshToken) {
-        redisTemplate.opsForValue().set(
-                REFRESH_KEY_PREFIX + userId,
-                refreshToken,
-                jwtProvider.getRefreshTokenExpirySec(),
-                TimeUnit.SECONDS
-        );
+    private LocalDateTime refreshExpiresAt() {
+        return LocalDateTime.now().plusSeconds(jwtProvider.getRefreshTokenExpirySec());
     }
 }

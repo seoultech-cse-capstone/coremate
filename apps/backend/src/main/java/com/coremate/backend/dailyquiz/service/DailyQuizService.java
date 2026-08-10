@@ -30,8 +30,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
@@ -43,7 +43,6 @@ import tools.jackson.databind.ObjectMapper;
 public class DailyQuizService {
 
     private static final int DAILY_QUIZ_QUESTION_COUNT = 6;
-    private static final int DAILY_QUIZ_CANDIDATE_POOL_SIZE = 100;
     private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
     private final DailyQuizSetRepository dailyQuizSetRepository;
@@ -190,20 +189,41 @@ public class DailyQuizService {
     }
 
     private List<Question> selectDailyQuizQuestions(LocalDate quizDate) {
-        List<Question> candidates = dailyQuizQuestionPickerRepository.findDailyQuizCandidates(
-                PageRequest.of(0, DAILY_QUIZ_CANDIDATE_POOL_SIZE)
-        );
-        if (candidates.isEmpty()) {
+        List<Long> candidateIds = dailyQuizQuestionPickerRepository.findDailyQuizCandidateIds();
+        if (candidateIds.isEmpty()) {
             throw new CoreMateException(ErrorCode.DAILY_QUIZ_NOT_FOUND);
         }
 
-        int questionCount = Math.min(DAILY_QUIZ_QUESTION_COUNT, candidates.size());
-        int startIndex = Math.floorMod((int) quizDate.toEpochDay(), candidates.size());
-        List<Question> selected = new ArrayList<>();
-        for (int i = 0; i < questionCount; i++) {
-            selected.add(candidates.get((startIndex + i) % candidates.size()));
+        List<Long> selectedIds = selectDailyQuizQuestionIds(candidateIds, quizDate, DAILY_QUIZ_QUESTION_COUNT);
+
+        Map<Long, Question> questionById = new HashMap<>();
+        for (Question question : dailyQuizQuestionPickerRepository.findAllForDailyQuizByIds(selectedIds)) {
+            questionById.put(question.getQuestionId(), question);
         }
-        return selected;
+        return selectedIds.stream().map(questionById::get).toList();
+    }
+
+    // 후보 전체를 한 바퀴 다 소진한 뒤에 다시 출제되도록 날짜를 블록 단위로 매핑한다.
+    // 한 사이클(= 후보수 / 출제수 일)의 순서는 사이클 번호를 시드로 고정하므로,
+    // 같은 날짜면 항상 같은 문항이 나오고 사이클 안에서는 하루도 겹치지 않는다.
+    static List<Long> selectDailyQuizQuestionIds(List<Long> candidateIds, LocalDate quizDate, int count) {
+        int blocksPerCycle = candidateIds.size() / count;
+        if (blocksPerCycle == 0) {
+            // 후보가 출제 수보다 적으면 그날 있는 만큼만 낸다.
+            List<Long> remaining = new ArrayList<>(candidateIds);
+            Collections.shuffle(remaining, new Random(quizDate.toEpochDay()));
+            return List.copyOf(remaining);
+        }
+
+        long epochDay = quizDate.toEpochDay();
+        long cycleIndex = Math.floorDiv(epochDay, blocksPerCycle);
+        int blockIndex = (int) Math.floorMod(epochDay, blocksPerCycle);
+
+        List<Long> shuffledIds = new ArrayList<>(candidateIds);
+        Collections.shuffle(shuffledIds, new Random(cycleIndex));
+
+        int from = blockIndex * count;
+        return List.copyOf(shuffledIds.subList(from, from + count));
     }
 
     private DailyQuizSetResponse toSetResponse(List<DailyQuizSet> quizEntries, boolean solvedToday) {
@@ -233,6 +253,7 @@ public class DailyQuizService {
                 concept.getConceptId(),
                 concept.getConceptName(),
                 quizEntry.getSortOrder(),
+
                 parseQuestionFormat(question.getQuestionFormat()),
                 parseQuestionType(question.getQuestionType()),
                 question.getQuestionText(),

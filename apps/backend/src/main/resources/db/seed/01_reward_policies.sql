@@ -41,6 +41,7 @@ UPDATE reward_policies
    AND reward_type NOT IN (
        'CONCEPT_PRACTICE_XP', 'CATEGORY_MOCK_XP', 'SUBJECT_MOCK_XP',
        'CATEGORY_MOCK_FIRST_PASS_COIN', 'SUBJECT_MOCK_FIRST_PASS_COIN',
+       'CATEGORY_MOCK_RETRY_COIN', 'SUBJECT_MOCK_RETRY_COIN',
        'DAILY_QUIZ_COMPLETE', 'ATTENDANCE_REWARD',
        'LEVEL_UP_5', 'LEVEL_UP_10', 'LEVEL_UP_20',
        'LEVEL_UP_30', 'LEVEL_UP_40', 'LEVEL_UP_50',
@@ -68,7 +69,7 @@ ON DUPLICATE KEY UPDATE
     description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
--- 코인 보상 (정답률 기준 + 범위별 최초 1회 + 일일 한도)
+-- 코인 보상 - 최초 통과 (정답률 기준 + 범위별 최초 1회 + 일일 한도)
 --   일일 한도 숫자는 XP 와 동일하게 맞춘다(챕터 7 / 과목 5).
 -- ---------------------------------------------------------------------------
 INSERT INTO reward_policies
@@ -84,6 +85,41 @@ VALUES
      '챕터 모의고사 최초 통과 코인. 정답률 70% 이상 + 해당 챕터 최초 1회. 하루 7회까지(대분류/중분류 합산). 중복 판정 범위는 회차 유형에 따라 대분류 또는 중분류', TRUE, NOW(), NOW()),
     ('SUBJECT_MOCK_FIRST_PASS_COIN', 'COIN', 100, 0, 5, NULL, 60.00, TRUE, 'PER_SUBJECT',
      '과목 모의고사 최초 통과 코인. 정답률 60% 이상 + 해당 과목 최초 1회. 하루 5회까지', TRUE, NOW(), NOW())
+ON DUPLICATE KEY UPDATE
+    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
+    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
+    monthly_limit = VALUES(monthly_limit), min_correct_rate = VALUES(min_correct_rate),
+    first_reward_only = VALUES(first_reward_only), reward_scope = VALUES(reward_scope),
+    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+
+-- ---------------------------------------------------------------------------
+-- 코인 보상 - 재응시 (정답률 기준 + 일일 한도. 범위별 중복 판정 없음)
+--
+-- 최초 통과 코인은 범위마다 평생 1회라, 156개 챕터 범위와 7개 과목을 모두
+-- 소진하면 학습으로 얻는 코인이 0 이 된다. 그 뒤의 반복 수입을 담당하는 정책이다.
+-- MVP 에는 광고 보상(AD_REWARD)이 들어가지 않으므로, 소진 후 무과금 사용자의
+-- 영구 수입은 출석 5 + 오늘의 퀴즈 10 = 하루 15 코인뿐이었다.
+--
+-- first_reward_only 를 FALSE 로 두는 게 최초 통과 정책과의 유일한 구조적 차이다.
+-- 정답률 기준은 최초 통과와 같은 값을 쓴다. 기준을 낮추면 쉬운 회차를 반복해
+-- 코인을 캐는 경로가 열린다.
+--
+-- ⚠️ 일일 한도는 최초 통과 정책과 "별도로" 쌓인다. daily_reward_limits 가
+--    reward_type 단위로 카운트하기 때문이다. 이론상 하루 판정 횟수는 챕터 14회
+--    (최초 7 + 재응시 7)까지 늘 수 있으나, 그러려면 챕터 280문항을 정답률
+--    기준을 넘겨 풀어야 해서 실질 상한은 기존과 같다(2026-08-07 결정).
+--
+-- 금액은 문항당 단가를 맞춘 값이다. 챕터 20문항에 5(0.25/문항),
+-- 과목 30문항에 10(0.33/문항). 과목만 반복하는 쪽이 유리해지지 않게 한다.
+-- ---------------------------------------------------------------------------
+INSERT INTO reward_policies
+    (reward_type, reward_kind, coin_amount, xp_amount, daily_limit, monthly_limit,
+     min_correct_rate, first_reward_only, reward_scope, description, is_active, created_at, updated_at)
+VALUES
+    ('CATEGORY_MOCK_RETRY_COIN', 'COIN', 5, 0, 7, NULL, 70.00, FALSE, 'PER_SESSION',
+     '챕터 모의고사 재응시 코인. 정답률 70% 이상 + 해당 챕터 최초 보상을 이미 받은 경우. 하루 7회까지(최초 통과 한도와 별도)', TRUE, NOW(), NOW()),
+    ('SUBJECT_MOCK_RETRY_COIN', 'COIN', 10, 0, 5, NULL, 60.00, FALSE, 'PER_SESSION',
+     '과목 모의고사 재응시 코인. 정답률 60% 이상 + 해당 과목 최초 보상을 이미 받은 경우. 하루 5회까지(최초 통과 한도와 별도)', TRUE, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
     reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
     xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),

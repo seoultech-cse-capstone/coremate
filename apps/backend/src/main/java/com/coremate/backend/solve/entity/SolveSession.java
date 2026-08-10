@@ -122,6 +122,15 @@ public class SolveSession {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * 회차를 중단 처리한다. 회차와 풀이 로그는 삭제하지 않고 상태만 바꾼다.
+     * 중단된 회차는 완료 기록/해설, 약점 분석, 보상, 학습 통계 대상에서 제외된다.
+     */
+    public void abandon() {
+        this.status = SolveSessionStatus.ABANDONED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void complete(int correctCount, int wrongCount, int totalTimeSpentSec) {
         this.correctCount = correctCount;
         this.wrongCount = wrongCount;

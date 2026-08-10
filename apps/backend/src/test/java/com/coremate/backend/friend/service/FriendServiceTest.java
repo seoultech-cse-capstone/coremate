@@ -112,7 +112,7 @@ class FriendServiceTest {
     }
 
     @Test
-    void pokeCanBeSentAndMarkedReadAfterFriendAccepted() {
+    void pokeCanBeSentAfterFriendAccepted() {
         User requester = createUser("alice4@example.com", "alice4");
         User receiver = createUser("bob4@example.com", "bob4");
         FriendRequestResponse request = friendService.sendRequest(
@@ -135,13 +135,66 @@ class FriendServiceTest {
                         .build()
         );
 
-        assertThat(poke.isRead()).isFalse();
-        assertThat(friendService.getReceivedPokes(receiver.getUserId(), true)).hasSize(1);
+        assertThat(poke.pokeId()).isNotNull();
+        assertThat(poke.fromUserId()).isEqualTo(requester.getUserId());
+        assertThat(poke.toUserId()).isEqualTo(receiver.getUserId());
+    }
 
-        FriendPokeResponse readPoke = friendService.markPokeRead(receiver.getUserId(), poke.pokeId());
+    @Test
+    void pokeIsBlockedAfterThreeTimesToSameFriend() {
+        User sender = createUser("alice5@example.com", "alice5");
+        User friend = createUser("bob5@example.com", "bob5");
+        becomeFriends(sender, friend);
 
-        assertThat(readPoke.isRead()).isTrue();
-        assertThat(readPoke.readAt()).isNotNull();
+        for (int i = 0; i < 3; i++) {
+            friendService.poke(sender.getUserId(), pokeRequest(friend.getUserId()));
+        }
+
+        assertThatThrownBy(() -> friendService.poke(sender.getUserId(), pokeRequest(friend.getUserId())))
+                .isInstanceOf(CoreMateException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FRIEND_POKE_FRIEND_LIMIT_EXCEEDED);
+    }
+
+    @Test
+    void pokeIsBlockedAfterDailyTotalLimitAcrossFriends() {
+        User sender = createUser("alice6@example.com", "alice6");
+
+        // 전체 한도 30 = 친구 10명 × 3회. 친구당 한도(3)에 먼저 걸리지 않도록 나눠 보낸다.
+        for (int i = 0; i < 10; i++) {
+            User friend = createUser("bob6" + i + "@example.com", "bob6" + i);
+            becomeFriends(sender, friend);
+            for (int j = 0; j < 3; j++) {
+                friendService.poke(sender.getUserId(), pokeRequest(friend.getUserId()));
+            }
+        }
+
+        // 한 번도 찌르지 않은 친구여도 그날 총량을 다 썼으면 막힌다.
+        User freshFriend = createUser("bob6x@example.com", "bob6x");
+        becomeFriends(sender, freshFriend);
+
+        assertThatThrownBy(() -> friendService.poke(sender.getUserId(), pokeRequest(freshFriend.getUserId())))
+                .isInstanceOf(CoreMateException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FRIEND_POKE_DAILY_LIMIT_EXCEEDED);
+    }
+
+    private void becomeFriends(User requester, User receiver) {
+        FriendRequestResponse request = friendService.sendRequest(
+                requester.getUserId(),
+                SendFriendRequest.builder().receiverId(receiver.getUserId()).build()
+        );
+        friendService.respond(
+                receiver.getUserId(),
+                RespondFriendRequest.builder()
+                        .friendId(request.friendId())
+                        .status(FriendStatus.ACCEPTED)
+                        .build()
+        );
+    }
+
+    private PokeFriendRequest pokeRequest(Long toUserId) {
+        return PokeFriendRequest.builder().toUserId(toUserId).messageType("POKE").build();
     }
 
     private User createUser(String email, String nickname) {

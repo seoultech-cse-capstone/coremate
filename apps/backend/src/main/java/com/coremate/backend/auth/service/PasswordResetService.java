@@ -5,6 +5,7 @@ import com.coremate.backend.auth.dto.request.SendResetCodeRequest;
 import com.coremate.backend.auth.dto.request.VerifyResetCodeRequest;
 import com.coremate.backend.auth.dto.response.ResetCodeResponse;
 import com.coremate.backend.auth.dto.response.ResetTokenResponse;
+import com.coremate.backend.auth.entity.SessionRevokeReason;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.global.mail.MailService;
@@ -29,13 +30,12 @@ public class PasswordResetService {
     private static final String COOLDOWN_PREFIX = "pw-reset:cooldown:";
     private static final String ATTEMPTS_PREFIX = "pw-reset:attempts:";
     private static final String TOKEN_PREFIX = "pw-reset:token:";
-    // AuthService.REFRESH_KEY_PREFIX 와 동일해야 재설정 시 강제 로그아웃이 실제 동작한다.
-    private static final String REFRESH_KEY_PREFIX = "refresh:";
 
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final MailService mailService;
     private final PasswordEncoder passwordEncoder;
+    private final UserSessionService userSessionService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -131,7 +131,9 @@ public class PasswordResetService {
         user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
 
         redisTemplate.delete(tokenKey);
-        redisTemplate.delete(REFRESH_KEY_PREFIX + user.getUserId());
+        // 재설정한 기기까지 포함해 전 기기를 끊는다. 계정 탈취 대응이 목적이라 공격자 세션을
+        // 확실히 끊는 쪽을 택한다. 사유가 PASSWORD_RESET 이므로 안내 모달은 뜨지 않는다.
+        userSessionService.revokeAll(user.getUserId(), SessionRevokeReason.PASSWORD_RESET);
     }
 
     private String generateCode() {

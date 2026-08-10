@@ -70,6 +70,12 @@ export type SolveReviewItem = {
   explanationText: string;
 };
 
+export type QuestionHint = {
+  questionId: number;
+  hintCommonMistakeId: number;
+  hintText: string;
+};
+
 export type ApiEnvelope<T> = {
   success: boolean;
   message: string;

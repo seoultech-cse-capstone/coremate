@@ -32,6 +32,8 @@ import com.coremate.backend.solve.entity.SolveLog;
 import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.math.BigDecimal;
@@ -55,6 +57,16 @@ public class SolveSessionService {
     private static final int CHAPTER_MOCK_TOTAL = 20;
     private static final int SUBJECT_MOCK_TOTAL = 30;
 
+    // 모의고사 회차 제한 시간 (2026-08-03 팀 확정)
+    // 회차에 저장하지 않고 유형별 고정값으로 관리한다. 개념 문제집과 오늘의 CS 퀴즈는 제한이 없다.
+    private static final Duration CHAPTER_MOCK_TIME_LIMIT = Duration.ofMinutes(40);
+    private static final Duration SUBJECT_MOCK_TIME_LIMIT = Duration.ofMinutes(60);
+
+    private static final Set<SolveSessionType> MOCK_TYPES = Set.of(
+            SolveSessionType.CATEGORY_LV1_MOCK,
+            SolveSessionType.CATEGORY_LV2_MOCK,
+            SolveSessionType.SUBJECT_MOCK);
+
     private final SubjectRepository subjectRepository;
     private final CategoryLv1Repository categoryLv1Repository;
     private final CategoryLv2Repository categoryLv2Repository;
@@ -65,6 +77,7 @@ public class SolveSessionService {
     private final UserConceptProgressRepository userConceptProgressRepository;
     private final LearningHistoryService learningHistoryService;
     private final SolveRewardService solveRewardService;
+    private final SolveSessionExpiryService solveSessionExpiryService;
     private final ObjectMapper objectMapper;
 
     public StartSolveSessionResponse startSolveSession(Long userId, CreateSolveSessionRequest request) {
@@ -186,9 +199,8 @@ public class SolveSessionService {
         SolveSession session = solveSessionRepository.findBySolveSessionIdAndUserId(solveSessionId, userId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
-        if (session.getStatus() == SolveSessionStatus.COMPLETED) {
-            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_COMPLETED);
-        }
+        requireInProgress(session);
+        rejectIfExpired(session);
 
         if (solveLogRepository.existsBySolveSessionAndQuestion_QuestionId(session, request.questionId())) {
             throw new CoreMateException(ErrorCode.ANSWER_ALREADY_SUBMITTED);
@@ -250,9 +262,8 @@ public class SolveSessionService {
         SolveSession session = solveSessionRepository.findBySolveSessionIdAndUserId(solveSessionId, userId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
 
-        if (session.getStatus() == SolveSessionStatus.COMPLETED) {
-            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_COMPLETED);
-        }
+        requireInProgress(session);
+        rejectIfExpired(session);
 
         List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
 
@@ -371,6 +382,8 @@ public class SolveSessionService {
 
         String title = categoryLv1.getCategoryLv1Name() + " 챕터 모의고사";
 
+        abandonInProgressMockSessions(userId);
+
         SolveSession session = SolveSession.builder()
                 .userId(userId)
                 .sessionType(SolveSessionType.CATEGORY_LV1_MOCK)
@@ -396,6 +409,8 @@ public class SolveSessionService {
         List<Question> questions = selectMockQuestions(conceptIds, CHAPTER_MOCK_TOTAL);
 
         String title = categoryLv2.getCategoryLv2Name() + " 챕터 모의고사";
+
+        abandonInProgressMockSessions(userId);
 
         SolveSession session = SolveSession.builder()
                 .userId(userId)
@@ -424,6 +439,8 @@ public class SolveSessionService {
 
         String title = subject.getSubjectName() + " 과목 모의고사";
 
+        abandonInProgressMockSessions(userId);
+
         SolveSession session = SolveSession.builder()
                 .userId(userId)
                 .sessionType(SolveSessionType.SUBJECT_MOCK)
@@ -435,6 +452,49 @@ public class SolveSessionService {
         solveSessionRepository.save(session);
 
         return buildStartResponse(session, title, SolveSessionType.SUBJECT_MOCK, questions);
+    }
+
+    /**
+     * 진행 중인 회차에만 답안 제출과 완료 처리를 허용한다.
+     * 중단된 회차는 클라이언트가 옛 회차 ID를 들고 있어도 더 이상 받지 않는다.
+     */
+    private void requireInProgress(SolveSession session) {
+        if (session.getStatus() == SolveSessionStatus.COMPLETED) {
+            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_COMPLETED);
+        }
+        if (session.getStatus() == SolveSessionStatus.ABANDONED) {
+            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ABANDONED);
+        }
+    }
+
+    /**
+     * 새 모의고사를 시작하기 전에 사용자의 진행 중 모의고사 회차를 중단 처리한다.
+     * 회차와 풀이 로그는 지우지 않고 상태만 바꾼다. 개념 문제집 회차는 대상이 아니다.
+     */
+    private void abandonInProgressMockSessions(Long userId) {
+        solveSessionRepository
+                .findByUserIdAndStatusAndSessionTypeIn(userId, SolveSessionStatus.IN_PROGRESS, MOCK_TYPES)
+                .forEach(SolveSession::abandon);
+    }
+
+    /**
+     * 제한 시간이 지난 모의고사 회차는 제출/완료를 거부하고 중단 처리한다.
+     * 별도 배치 없이 회차에 접근하는 시점에 판정한다.
+     *
+     * <p>거부는 예외로 처리되어 이 트랜잭션이 롤백되므로, 중단 처리는 별도 트랜잭션에 맡긴다.
+     */
+    private void rejectIfExpired(SolveSession session) {
+        if (!session.getSessionType().isMock()) {
+            return;
+        }
+        Duration limit = session.getSessionType() == SolveSessionType.SUBJECT_MOCK
+                ? SUBJECT_MOCK_TIME_LIMIT
+                : CHAPTER_MOCK_TIME_LIMIT;
+        if (LocalDateTime.now().isBefore(session.getStartedAt().plus(limit))) {
+            return;
+        }
+        solveSessionExpiryService.abandon(session.getSolveSessionId());
+        throw new CoreMateException(ErrorCode.SOLVE_SESSION_EXPIRED);
     }
 
     /**

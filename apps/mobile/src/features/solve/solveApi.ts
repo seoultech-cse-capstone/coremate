@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   CompleteSolveSessionResponse,
   GuestAnswerResult,
+  QuestionHint,
   StartSolveSessionResponse,
   SubmitAnswerResponse,
 } from "./types";
@@ -107,6 +108,13 @@ export const solveApi = {
         "/api/v1/solve-sessions/guest/complete",
         { conceptId, answers },
       )
+      .then((res) => res.data);
+  },
+
+  // 비회원/회원 공통으로 호출 가능(permitAll). 힌트가 없는 문제는 404.
+  getHint(questionId: number): Promise<QuestionHint> {
+    return httpClient
+      .get<ApiEnvelope<QuestionHint>>(`/api/v1/solve/questions/${questionId}/hint`)
       .then((res) => res.data);
   },
 };

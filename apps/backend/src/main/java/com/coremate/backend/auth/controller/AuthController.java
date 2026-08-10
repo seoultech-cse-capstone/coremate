@@ -76,13 +76,15 @@ public class AuthController {
         return authService.login(request);
     }
 
-    @Operation(summary = "로그아웃")
+    @Operation(summary = "로그아웃", description = "현재 기기의 세션만 해지한다. 이미 해지된 상태여도 204 다.")
     @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(@Valid @RequestBody LogoutRequest request,
                        @AuthenticationPrincipal CustomUserDetails userDetails) {
-        authService.logout(userDetails.getUserId(), request.getRefreshToken());
+        // 해지 대상은 토큰의 세션 식별자로 정한다. 바디의 refreshToken 은 구버전 앱과의 호환을 위해
+        // 받기만 하고 쓰지 않는다(와이어 포맷을 깨지 않아 백엔드/모바일 배포 순서 의존성을 줄인다).
+        authService.logout(userDetails.getUserId(), userDetails.getSessionId());
     }
 
     @Operation(summary = "토큰 재발급")

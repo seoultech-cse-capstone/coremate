@@ -10,7 +10,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
-import type { SolveSessionType } from "./SolveQuestionScreen";
+import type { SolveSessionType } from "../types";
 
 type SolveResultScreenProps = {
   correctCount: number;
@@ -23,6 +23,8 @@ type SolveResultScreenProps = {
   onRetry: () => void;
   isDailyQuiz?: boolean;
   onGoHome?: () => void;
+  /** 오늘의 퀴즈 완료 보상. isDailyQuiz일 때만 사용한다. */
+  dailyReward?: { xpAmount: number; coinAmount: number };
 };
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
@@ -44,6 +46,7 @@ export function SolveResultScreen({
   onRetry,
   isDailyQuiz = false,
   onGoHome,
+  dailyReward,
 }: SolveResultScreenProps) {
   const insets = useSafeAreaInsets();
   const wrongCount = totalCount - correctCount;
@@ -108,7 +111,13 @@ export function SolveResultScreen({
                 오늘의 퀴즈 보상이 지급되었습니다.
               </Text>
             </View>
-            <Text style={styles.rewardValue}>+20 XP</Text>
+            <Text style={styles.rewardValue}>
+              {dailyReward
+                ? `+${dailyReward.xpAmount} XP${
+                    dailyReward.coinAmount > 0 ? ` · +${dailyReward.coinAmount} 코인` : ""
+                  }`
+                : "-"}
+            </Text>
           </View>
         )}
 

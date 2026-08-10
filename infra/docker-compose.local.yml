@@ -88,11 +88,19 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-coremate}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      # Dockerfile 에도 같은 값이 들어 있다. 여기 한 번 더 적어 두는 건 mysql 과 짝을
+      # 맞춰, 스택의 타임존을 이 파일 한 곳에서 확인할 수 있게 하기 위해서다.
+      TZ: Asia/Seoul
       JWT_SECRET: ${JWT_SECRET:-coremate-local-dev-jwt-secret-change-me}
       SPRING_MAIL_HOST: smtp.gmail.com
       SPRING_MAIL_PORT: 587
       SPRING_MAIL_USERNAME: ${MAIL_USERNAME}
       SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD}
+      FIREBASE_CREDENTIALS_PATH: /app/secrets/firebase-service-account.json
+    volumes:
+      # FCM 서비스 계정 키. git 미추적이라 이미지에 굽지 않고 실행 시점에 읽기 전용으로
+      # 붙인다. 파일이 없어도 백엔드는 알림만 빠진 채 정상 기동한다.
+      - ../apps/backend/secrets:/app/secrets:ro
     depends_on:
       mysql:
         condition: service_healthy

@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useNavigation } from "expo-router";
-import { ListChecks } from "lucide-react-native";
+import { Bell, ListChecks } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
@@ -15,6 +15,8 @@ import {
 
 import { FONT } from "../../constants/fonts";
 import { useAuth } from "../../src/features/auth";
+import { dailyQuizApi } from "../../src/features/dailyQuiz";
+import { useUnreadCountQuery } from "../../src/features/notification";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -30,9 +32,10 @@ export default function HomeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
-  const { status } = useAuth();
+  const { status, accessToken } = useAuth();
   const isGuest = status === "guest";
   const panelTopOffset = Math.round(height * 0.46);
+  const [dailyQuizSolved, setDailyQuizSolved] = useState(false);
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
@@ -43,7 +46,30 @@ export default function HomeScreen() {
     return unsubscribe;
   }, [navigation]);
 
+  useEffect(() => {
+    if (isGuest || !accessToken) {
+      return;
+    }
+    let cancelled = false;
+    dailyQuizApi.getToday(accessToken).then(
+      (quizSet) => {
+        if (!cancelled) {
+          setDailyQuizSolved(quizSet.solvedToday);
+        }
+      },
+      (error) => {
+        // 홈 진입 자체를 막을 이유는 없으니 조회 실패는 조용히 미완료로 둔다.
+        console.error("[home] 오늘의 퀴즈 상태 조회 실패", error);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [isGuest, accessToken]);
+
   // FR-GUEST-02: 게스트가 회원 전용 기능을 선택하면 로그인 필요 안내로 보낸다.
+  const { data: unreadCount = 0 } = useUnreadCountQuery();
+
   const goToMemberFeature = (memberHref: Parameters<typeof router.push>[0]) => {
     if (isGuest) {
       router.push("/login-required");
@@ -82,6 +108,26 @@ export default function HomeScreen() {
     >
       <View style={[styles.bottomPanel, { minHeight: height }]}>
         <View style={styles.panelContent}>
+          <View style={styles.notificationRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadCount > 0 ? `알림 ${unreadCount}건` : "알림"
+              }
+              hitSlop={8}
+              onPress={() => goToMemberFeature("/notifications")}
+              style={styles.notificationButton}
+            >
+              <Bell color="#1F2937" size={22} strokeWidth={2} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
           <View style={styles.levelBarTrack}>
             <LinearGradient
               colors={["#6D5DFB", "#2EE6A6"]}
@@ -100,22 +146,26 @@ export default function HomeScreen() {
             style={[
               styles.primaryButton,
               styles.dailyQuizButton,
-              styles.dailyQuizCompletedButton,
+              dailyQuizSolved && styles.dailyQuizCompletedButton,
             ]}
           >
             <View style={styles.dailyQuizButtonContent}>
               <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
-              <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+              {dailyQuizSolved ? (
+                <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+              ) : null}
             </View>
           </Pressable>
-          <Pressable
-            accessibilityLabel="오늘의 퀴즈 다시보기"
-            accessibilityRole="button"
-            onPress={() => goToMemberFeature("/daily-quiz-review")}
-            style={styles.dailyQuizReviewButton}
-          >
-            <ListChecks color="#475569" size={22} strokeWidth={2.1} />
-          </Pressable>
+          {dailyQuizSolved ? (
+            <Pressable
+              accessibilityLabel="오늘의 퀴즈 다시보기"
+              accessibilityRole="button"
+              onPress={() => goToMemberFeature("/daily-quiz-review")}
+              style={styles.dailyQuizReviewButton}
+            >
+              <ListChecks color="#475569" size={22} strokeWidth={2.1} />
+            </Pressable>
+          ) : null}
           </View>
 
           <View style={styles.secondaryRow}>
@@ -151,6 +201,35 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  notificationRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingBottom: 8,
+  },
+  notificationButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontFamily: FONT.pretendard,
+    fontSize: 10,
+    fontWeight: "700",
+  },
   container: {
     flex: 1,
   },
