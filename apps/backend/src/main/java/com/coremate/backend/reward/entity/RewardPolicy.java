@@ -51,9 +51,6 @@ public class RewardPolicy {
     @Column(name = "daily_limit")
     private Integer dailyLimit;
 
-    @Column(name = "monthly_limit")
-    private Integer monthlyLimit;
-
     @Column(name = "min_correct_rate", precision = 5, scale = 2)
     private BigDecimal minCorrectRate;
 

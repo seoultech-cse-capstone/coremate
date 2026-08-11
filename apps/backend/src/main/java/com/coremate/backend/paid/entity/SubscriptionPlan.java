@@ -26,9 +26,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * <ul>
  *   <li><b>가입 보너스</b> — {@code reward_policies} 의 {@code PREMIUM_SIGNUP_BONUS} 행으로
  *       관리한다. 다른 일회성 보상과 같은 경로(지급 로그·중복 방지)를 타야 하기 때문이다.</li>
- *   <li><b>분석표 할인가와 월간 한도</b> — {@code feature_access_products} 의
- *       {@code premium_price_coin} / {@code premium_monthly_limit} 로 관리한다.
- *       가격과 한도를 기능 쪽 한 곳에 모아 두어야 유료 기능이 늘어도 같은 구조로 확장된다.</li>
+ *   <li><b>분석표 할인가</b> — {@code feature_access_products} 의 {@code premium_price_coin}
+ *       으로 관리한다. 가격을 기능 쪽 한 곳에 모아 두어야 유료 기능이 늘어도 같은 구조로
+ *       확장된다. 분석표 월간 생성 한도는 두지 않는다(2026-08-11 결정).</li>
  * </ul>
  */
 @Entity
