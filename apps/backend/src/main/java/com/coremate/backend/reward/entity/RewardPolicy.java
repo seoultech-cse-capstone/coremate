@@ -57,6 +57,11 @@ public class RewardPolicy {
     @Column(name = "first_reward_only", nullable = false)
     private boolean firstRewardOnly;
 
+    // 같은 범위로 하루 1회만 지급할지. firstRewardOnly(평생 1회)와 다른 축이다.
+    // 평생 1회를 켜면 반복 수입이 사라지고, 이쪽만 켜면 날짜가 바뀔 때 다시 받을 수 있다.
+    @Column(name = "scope_daily_once", nullable = false)
+    private boolean scopeDailyOnce;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "reward_scope", length = 30)
     private RewardScope rewardScope;
