@@ -250,10 +250,11 @@ public class RewardService {
 
     // reward_policies 기준으로 보상 지급 가능 여부를 판정한다.
     //
-    // 판정 순서(문서 확정): 활성 정책 -> 범위별 최초 보상 여부 -> 정답률 -> 일일 한도 소모.
-    // 최초 보상 여부와 정답률에서 걸러진 요청은 일일 한도를 소모하지 않는다.
-    // 이미 보상받은 범위를 다시 풀거나 정답률이 미달했을 때 하루 한도가
-    // 깎이면 사용자가 손해를 보기 때문이다.
+    // 판정 순서(문서 확정): 활성 정책 -> 범위별 평생 보상 여부 -> 범위별 당일 보상 여부
+    //                      -> 정답률 -> 일일 한도 소모.
+    // 앞의 세 단계에서 걸러진 요청은 일일 한도를 소모하지 않는다.
+    // 이미 보상받은 범위를 다시 풀거나, 같은 범위를 오늘 또 풀거나, 정답률이 미달했을 때
+    // 하루 한도가 깎이면 사용자가 손해를 보기 때문이다.
     //
     // correctRate 는 코인 보상 판정에만 쓰이며 null 이면 정답률 검사를 건너뛴다.
     @Transactional
@@ -272,6 +273,11 @@ public class RewardService {
         if (isAlreadyRewarded(userId, policy, targetType, targetId)) {
             return saveSkippedReward(userId, policy.getRewardPolicyId(), rewardType, rewardSource, sourceId, targetType, targetId,
                     solveSessionId, RewardSkipReason.ALREADY_REWARDED);
+        }
+
+        if (isRewardedTodayForScope(userId, policy, targetType, targetId)) {
+            return saveSkippedReward(userId, policy.getRewardPolicyId(), rewardType, rewardSource, sourceId, targetType, targetId,
+                    solveSessionId, RewardSkipReason.ALREADY_REWARDED_TODAY);
         }
 
         if (isCorrectRateBelowPolicy(policy, correctRate)) {
@@ -380,6 +386,31 @@ public class RewardService {
                 effectiveTargetId,
                 RewardStatus.GRANTED
         );
+    }
+
+    // 같은 범위를 오늘 이미 보상받았는지 본다. 모의고사 XP와 재응시 코인처럼
+    // "반복 지급하되 같은 챕터/과목으로 하루에 한 번만" 인 보상에 쓴다.
+    //
+    // 평생 1회 판정과 같은 조회에 날짜 조건만 더한 것이라 별도 카운트 테이블이 필요 없다.
+    // daily_reward_limits 는 reward_type 단위 총량 카운터라 범위별 기록을 담지 못한다.
+    //
+    // 호출부가 범위 타겟을 넘기지 않으면 판정할 수 없어 통과시킨다.
+    // 이 플래그를 켠 정책은 호출부가 반드시 target 을 넘겨야 한다(현재 시드의 4종은 모두 넘긴다).
+    private boolean isRewardedTodayForScope(Long userId, RewardPolicy policy, RewardTargetType targetType,
+                                            Long targetId) {
+        if (!policy.isScopeDailyOnce() || targetType == null || targetId == null) {
+            return false;
+        }
+
+        return rewardLogRepository
+                .existsByUserIdAndRewardTypeAndTargetTypeAndTargetIdAndRewardStatusAndCreatedAtGreaterThanEqual(
+                        userId,
+                        policy.getRewardType(),
+                        targetType,
+                        targetId,
+                        RewardStatus.GRANTED,
+                        LocalDate.now().atStartOfDay()
+                );
     }
 
     // 정책이 없거나 조건을 못 맞춘 경우에도 reward_logs에 미지급 사유를 남긴다.
@@ -528,6 +559,7 @@ public class RewardService {
                 policy.getDailyLimit(),
                 policy.getMinCorrectRate(),
                 policy.isFirstRewardOnly(),
+                policy.isScopeDailyOnce(),
                 policy.getRewardScope(),
                 policy.getDescription()
         );

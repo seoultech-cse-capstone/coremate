@@ -9,10 +9,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.coremate.backend.content.entity.CategoryLv2;
+import com.coremate.backend.content.entity.Subject;
 import com.coremate.backend.reward.entity.RewardLog;
 import com.coremate.backend.reward.entity.type.RewardSkipReason;
 import com.coremate.backend.reward.entity.type.RewardSource;
 import com.coremate.backend.reward.entity.type.RewardStatus;
+import com.coremate.backend.reward.entity.type.RewardTargetType;
 import com.coremate.backend.reward.entity.type.RewardType;
 import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
@@ -42,6 +45,8 @@ class SolveRewardServiceRetryCoinTest {
 
     private static final Long USER_ID = 1L;
     private static final Long SESSION_ID = 100L;
+    private static final Long CATEGORY_LV2_ID = 20L;
+    private static final Long SUBJECT_ID = 3L;
     private static final BigDecimal PASSING_RATE = new BigDecimal("85.00");
 
     @Mock private RewardService rewardService;
@@ -56,6 +61,14 @@ class SolveRewardServiceRetryCoinTest {
         when(session.getUserId()).thenReturn(USER_ID);
         when(session.getSolveSessionId()).thenReturn(SESSION_ID);
         when(session.getSessionType()).thenReturn(SolveSessionType.CATEGORY_LV2_MOCK);
+
+        CategoryLv2 categoryLv2 = mock(CategoryLv2.class);
+        when(categoryLv2.getCategoryLv2Id()).thenReturn(CATEGORY_LV2_ID);
+        when(session.getCategoryLv2()).thenReturn(categoryLv2);
+
+        Subject subject = mock(Subject.class);
+        when(subject.getSubjectId()).thenReturn(SUBJECT_ID);
+        when(session.getSubject()).thenReturn(subject);
     }
 
     @Test
@@ -71,8 +84,8 @@ class SolveRewardServiceRetryCoinTest {
     }
 
     @Test
-    @DisplayName("재응시 보상은 범위별 중복 판정을 하지 않으므로 target 을 넘기지 않는다")
-    void 재응시는_target_없이_요청된다() {
+    @DisplayName("재응시 보상은 '같은 범위 하루 1회' 판정을 위해 범위 타겟을 넘긴다")
+    void 재응시는_범위_타겟을_넘긴다() {
         stubFirstPass(RewardType.CATEGORY_MOCK_FIRST_PASS_COIN, skipped(RewardSkipReason.ALREADY_REWARDED));
         stubRetry(RewardType.CATEGORY_MOCK_RETRY_COIN, granted(5));
 
@@ -83,8 +96,65 @@ class SolveRewardServiceRetryCoinTest {
                 eq(RewardType.CATEGORY_MOCK_RETRY_COIN),
                 eq(RewardSource.SOLVE_SESSION),
                 eq(SESSION_ID),
+                eq(RewardTargetType.CATEGORY_LV2),
+                eq(CATEGORY_LV2_ID),
+                eq(SESSION_ID),
+                eq(PASSING_RATE)
+        );
+    }
+
+    @Test
+    @DisplayName("모의고사 XP 도 같은 범위 판정을 위해 범위 타겟을 넘긴다")
+    void 모의고사_XP는_범위_타겟을_넘긴다() {
+        stubFirstPass(RewardType.CATEGORY_MOCK_FIRST_PASS_COIN, granted(30));
+
+        solveRewardService.grantForCompletedSession(session, PASSING_RATE);
+
+        verify(rewardService).grantPolicyReward(
+                eq(USER_ID),
+                eq(RewardType.CATEGORY_MOCK_XP),
+                eq(RewardSource.SOLVE_SESSION),
+                eq(SESSION_ID),
+                eq(RewardTargetType.CATEGORY_LV2),
+                eq(CATEGORY_LV2_ID),
+                eq(SESSION_ID)
+        );
+    }
+
+    @Test
+    @DisplayName("개념 문제집 XP 는 적용 대상이 아니라 범위 타겟 없이 요청된다")
+    void 개념_문제집_XP는_타겟이_없다() {
+        when(session.getSessionType()).thenReturn(SolveSessionType.CONCEPT_PRACTICE);
+
+        solveRewardService.grantForCompletedSession(session, PASSING_RATE);
+
+        verify(rewardService).grantPolicyReward(
+                eq(USER_ID),
+                eq(RewardType.CONCEPT_PRACTICE_XP),
+                eq(RewardSource.SOLVE_SESSION),
+                eq(SESSION_ID),
                 isNull(),
                 isNull(),
+                eq(SESSION_ID)
+        );
+    }
+
+    @Test
+    @DisplayName("과목 모의고사는 과목을 범위 타겟으로 넘긴다")
+    void 과목은_과목_타겟을_넘긴다() {
+        when(session.getSessionType()).thenReturn(SolveSessionType.SUBJECT_MOCK);
+        stubFirstPass(RewardType.SUBJECT_MOCK_FIRST_PASS_COIN, skipped(RewardSkipReason.ALREADY_REWARDED));
+        stubRetry(RewardType.SUBJECT_MOCK_RETRY_COIN, granted(10));
+
+        solveRewardService.grantForCompletedSession(session, PASSING_RATE);
+
+        verify(rewardService).grantPolicyReward(
+                eq(USER_ID),
+                eq(RewardType.SUBJECT_MOCK_RETRY_COIN),
+                eq(RewardSource.SOLVE_SESSION),
+                eq(SESSION_ID),
+                eq(RewardTargetType.SUBJECT),
+                eq(SUBJECT_ID),
                 eq(SESSION_ID),
                 eq(PASSING_RATE)
         );
@@ -159,7 +229,7 @@ class SolveRewardServiceRetryCoinTest {
 
     private void stubRetry(RewardType rewardType, RewardLog log) {
         when(rewardService.grantPolicyReward(
-                any(), eq(rewardType), any(), any(), isNull(), isNull(), any(), any()))
+                any(), eq(rewardType), any(), any(), any(), any(), any(), any()))
                 .thenReturn(log);
     }
 
