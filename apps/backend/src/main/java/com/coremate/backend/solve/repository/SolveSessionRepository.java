@@ -81,4 +81,16 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
     // 진행 중 회차 조회. 새 모의고사 시작 시 기존 모의고사 회차를 중단 처리하는 데 사용한다.
     List<SolveSession> findByUserIdAndStatusAndSessionTypeIn(
             Long userId, SolveSessionStatus status, Collection<SolveSessionType> sessionTypes);
+
+    /**
+     * 복습탭 개념 카운팅의 "풀었어요": 사용자가 COMPLETED 상태의 개념 문제집 세션을 가진 서로 다른 개념 수.
+     * IN_PROGRESS(풀다 만 것)는 제외되어 자연히 "아직 못풀었어요"에 포함된다.
+     */
+    @Query("""
+            SELECT COUNT(DISTINCT s.concept.conceptId) FROM SolveSession s
+            WHERE s.userId = :userId
+              AND s.sessionType = com.coremate.backend.solve.dto.type.SolveSessionType.CONCEPT_PRACTICE
+              AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+            """)
+    long countDistinctSolvedConcepts(@Param("userId") Long userId);
 }
