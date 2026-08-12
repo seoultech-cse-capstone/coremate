@@ -14,4 +14,7 @@ public interface ConceptRepository extends JpaRepository<Concept, Long> {
     List<Concept> findAllByCategoryLv2_CategoryLv1_CategoryLv1IdAndActiveTrue(Long categoryLv1Id);
 
     List<Concept> findAllByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(Long subjectId);
+
+    // 복습탭 개념 카운팅의 "총 개념": 전체 활성 개념 수
+    long countByActiveTrue();
 }
