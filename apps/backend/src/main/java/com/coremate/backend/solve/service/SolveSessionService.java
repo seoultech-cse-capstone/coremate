@@ -114,10 +114,10 @@ public class SolveSessionService {
             );
         }
 
-        if (solveSessionRepository.existsByUserIdAndConcept_ConceptIdAndStatus(
-                userId, conceptId, SolveSessionStatus.IN_PROGRESS)) {
-            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_IN_PROGRESS);
-        }
+        // 같은 개념으로 재진입하면 기존 진행중 세션을 중단 처리하고 처음부터 새로 시작한다.
+        // 개념 문제집은 나가기(exit) 시 상태를 바꾸는 경로가 없어 세션이 IN_PROGRESS로 남는데,
+        // 예외를 던지면 재진입이 영구히 막히므로 이전 세션과 로그는 무시하고 새 세션을 발급한다.
+        abandonInProgressConceptSession(userId, conceptId);
 
         SolveSession session = SolveSession.builder()
                 .userId(userId)
@@ -475,6 +475,16 @@ public class SolveSessionService {
         solveSessionRepository
                 .findByUserIdAndStatusAndSessionTypeIn(userId, SolveSessionStatus.IN_PROGRESS, MOCK_TYPES)
                 .forEach(SolveSession::abandon);
+    }
+
+    /**
+     * 같은 개념으로 개념 문제집을 다시 시작하기 전에 기존 진행 중 세션을 중단 처리한다.
+     * 세션과 풀이 로그는 지우지 않고 상태만 바꾸며, 새 세션이 처음부터 풀리도록 한다.
+     */
+    private void abandonInProgressConceptSession(Long userId, Long conceptId) {
+        solveSessionRepository
+                .findByUserIdAndConcept_ConceptIdAndStatus(userId, conceptId, SolveSessionStatus.IN_PROGRESS)
+                .ifPresent(SolveSession::abandon);
     }
 
     /**
