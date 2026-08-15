@@ -121,7 +121,7 @@ export default function LoginScreen() {
                   <Text style={styles.inlineLinkText}>Register</Text>
                 </Pressable>
 
-                <Pressable onPress={() => {}}>
+                <Pressable onPress={() => router.push("/find-account")}>
                   <Text style={styles.inlineLinkText}>Forgot ID/PW</Text>
                 </Pressable>
               </View>
