@@ -4,7 +4,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
 import { FONT } from "../../../../constants/fonts";
-import { progressItems } from "../../progress/progressData";
+import { useAuth } from "../../auth";
+import { useSubjects } from "../../content";
+import { useMySubjectStats } from "../../user";
 
 const CHART_SIZE = 220;
 const CENTER = CHART_SIZE / 2;
@@ -12,6 +14,16 @@ const RADIUS = 76;
 const GRID_LEVELS = [0.25, 0.5, 0.75, 1];
 
 const radarOrder = ["DS", "Algo", "OS", "DB", "Arch", "Net"];
+
+// 백엔드 subjectCode(과목 코드) → 레이더 차트에 쓰는 짧은 라벨.
+const SHORT_TITLE_BY_SUBJECT_CODE: Record<string, string> = {
+  DS: "DS",
+  ALGO: "Algo",
+  OS: "OS",
+  DB: "DB",
+  CA: "Arch",
+  NETWORK: "Net",
+};
 
 const actionItems = [
   {
@@ -54,13 +66,10 @@ function getPolygonPoints(radius: number) {
     .join(" ");
 }
 
-function getValuePoints() {
+function getValuePoints(percentByShortTitle: Record<string, number>) {
   return radarOrder
     .map((shortTitle, index) => {
-      const progress = progressItems.find(
-        (item) => item.shortTitle === shortTitle,
-      );
-      const percent = progress?.percent ?? 0;
+      const percent = percentByShortTitle[shortTitle] ?? 0;
       const point = getPoint(index, RADIUS * (percent / 100));
 
       return `${point.x},${point.y}`;
@@ -68,11 +77,27 @@ function getValuePoints() {
     .join(" ");
 }
 
-function getProgress(shortTitle: string) {
-  return progressItems.find((item) => item.shortTitle === shortTitle);
-}
-
 export function MyProgressStats() {
+  const { accessToken } = useAuth();
+  const { data: subjects = [] } = useSubjects();
+  const { data: subjectStats = [] } = useMySubjectStats(accessToken);
+
+  const shortTitleBySubjectId = new Map<number, string>();
+  for (const subject of subjects) {
+    const shortTitle = SHORT_TITLE_BY_SUBJECT_CODE[subject.subjectCode];
+    if (shortTitle) {
+      shortTitleBySubjectId.set(subject.subjectId, shortTitle);
+    }
+  }
+
+  const percentByShortTitle: Record<string, number> = {};
+  for (const stat of subjectStats) {
+    const shortTitle = shortTitleBySubjectId.get(stat.subjectId);
+    if (shortTitle) {
+      percentByShortTitle[shortTitle] = Math.round(parseFloat(stat.achievementRate) * 100);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Progress Stats</Text>
@@ -107,7 +132,7 @@ export function MyProgressStats() {
 
           <Polygon
             fill="rgba(109, 93, 251, 0.32)"
-            points={getValuePoints()}
+            points={getValuePoints(percentByShortTitle)}
             stroke="#6D5DFB"
             strokeLinejoin="round"
             strokeWidth={2}
@@ -135,16 +160,12 @@ export function MyProgressStats() {
         </Svg>
 
         <View style={styles.statGrid}>
-          {radarOrder.map((shortTitle) => {
-            const progress = getProgress(shortTitle);
-
-            return (
-              <View style={styles.statItem} key={shortTitle}>
-                <Text style={styles.statLabel}>{shortTitle}</Text>
-                <Text style={styles.statValue}>{progress?.percent ?? 0}%</Text>
-              </View>
-            );
-          })}
+          {radarOrder.map((shortTitle) => (
+            <View style={styles.statItem} key={shortTitle}>
+              <Text style={styles.statLabel}>{shortTitle}</Text>
+              <Text style={styles.statValue}>{percentByShortTitle[shortTitle] ?? 0}%</Text>
+            </View>
+          ))}
         </View>
       </View>
 
