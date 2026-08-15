@@ -1,8 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
-import { progressItems } from "../../progress/progressData";
+import { useAuth } from "../../auth";
+import { useSubjectProgress } from "../../progress";
 
 function getProgressColor(percent: number) {
   if (percent <= 10) {
@@ -25,41 +26,53 @@ function getProgressColor(percent: number) {
 }
 
 export function YourProgress() {
+  const { accessToken, user } = useAuth();
+  const subjectProgressQuery = useSubjectProgress(accessToken, user?.userId ?? null);
+  const items = (subjectProgressQuery.data ?? []).map((item) => ({
+    key: item.subjectId,
+    title: item.subjectName,
+    percent: Math.round(item.achievementRate),
+  }));
+
   return (
     <>
       <Text style={styles.title}>Your Progress</Text>
 
       <View style={styles.card}>
-        {progressItems.map((item) => (
-          <View style={styles.item} key={item.title}>
-            <Text style={styles.name}>{item.title}</Text>
+        {subjectProgressQuery.isLoading ? (
+          <ActivityIndicator color="#6D5DFB" />
+        ) : (
+          items.map((item) => (
+            <View style={styles.item} key={item.key}>
+              <Text style={styles.name}>{item.title}</Text>
 
-            <View style={styles.row}>
-              <View style={styles.track}>
-                {item.percent === 100 ? (
-                  <LinearGradient
-                    colors={["#6D5DFB", "#2EE6A6"]}
-                    start={{ x: 0, y: 0.5 }}
-                    end={{ x: 1, y: 0.5 }}
-                    style={[styles.fill, { width: `${item.percent}%` }]}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.fill,
-                      {
-                        width: `${item.percent}%`,
-                        backgroundColor: getProgressColor(item.percent),
-                      },
-                    ]}
-                  />
-                )}
+              <View style={styles.row}>
+                <View style={styles.track}>
+                  {item.percent === 100 ? (
+                    <LinearGradient
+                      colors={["#6D5DFB", "#2EE6A6"]}
+                      start={{ x: 0, y: 0.5 }}
+                      end={{ x: 1, y: 0.5 }}
+                      style={[styles.fill, { width: `${item.percent}%` }]}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.fill,
+                        {
+                          width: `${item.percent}%`,
+                          backgroundColor: getProgressColor(item.percent),
+                        },
+                      ]}
+                    />
+                  )}
+                </View>
+
+                <Text style={styles.percent}>{item.percent}%</Text>
               </View>
-
-              <Text style={styles.percent}>{item.percent}%</Text>
             </View>
-          </View>
-        ))}
+          ))
+        )}
       </View>
     </>
   );
