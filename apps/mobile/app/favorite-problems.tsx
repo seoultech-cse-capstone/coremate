@@ -1,15 +1,16 @@
 import { router } from "expo-router";
 import { BookmarkX, ChevronLeft } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type ViewToken,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -55,6 +56,47 @@ export default function FavoriteProblemsScreen() {
   // 무시해야 메모 저장/북마크 삭제 도중 목록이 통째로 다시 조회되며
   // 경합하는 것을 막을 수 있다.
   const hasLoadedRef = useRef(false);
+
+  // 목록 API에는 문제 본문이 없어(상세 API에만 있음) 화면에 보이는 카드부터
+  // 순서대로 상세를 조회해 미리보기를 채운다. 한 번 시도한 questionId는
+  // 성공/실패와 무관하게 다시 요청하지 않는다.
+  const [previewByQuestionId, setPreviewByQuestionId] = useState<Record<number, string>>({});
+  const attemptedQuestionIdsRef = useRef<Set<number>>(new Set());
+
+  const fetchPreview = useCallback(
+    (questionId: number) => {
+      if (!accessToken || attemptedQuestionIdsRef.current.has(questionId)) {
+        return;
+      }
+      attemptedQuestionIdsRef.current.add(questionId);
+      bookmarkApi
+        .getBookmarkedQuestionDetail(questionId, accessToken)
+        .then((detail) => {
+          setPreviewByQuestionId((current) => ({ ...current, [questionId]: detail.questionText }));
+        })
+        .catch((error) => {
+          console.error("[favorite-problems] 문제 미리보기 조회 실패", error);
+        });
+    },
+    [accessToken],
+  );
+
+  const fetchPreviewRef = useRef(fetchPreview);
+  useEffect(() => {
+    fetchPreviewRef.current = fetchPreview;
+  }, [fetchPreview]);
+
+  const viewabilityConfigRef = useRef({ itemVisiblePercentThreshold: 40 });
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      for (const viewToken of viewableItems) {
+        const item = viewToken.item as FavoriteItem | undefined;
+        if (item) {
+          fetchPreviewRef.current(item.questionId);
+        }
+      }
+    },
+  ).current;
 
   useEffect(() => {
     if (hasLoadedRef.current) {
@@ -219,93 +261,101 @@ export default function FavoriteProblemsScreen() {
           )}
 
           {state.status === "ready" && state.items.length > 0 && (
-            <ScrollView
+            <FlatList
               contentContainerStyle={styles.content}
+              data={state.items}
+              ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+              keyExtractor={(item) => String(item.bookmarkId)}
+              ListHeaderComponent={
+                <Text style={styles.summary}>
+                  저장한 문제를 다시 확인하고 개념을 복습할 수 있어요.
+                </Text>
+              }
+              onViewableItemsChanged={onViewableItemsChanged}
               showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.summary}>
-                저장한 문제를 다시 확인하고 개념을 복습할 수 있어요.
-              </Text>
+              viewabilityConfig={viewabilityConfigRef.current}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={styles.card}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/concept-detail",
+                      params: { conceptId: String(item.conceptId) },
+                    })
+                  }
+                >
+                  <View style={styles.cardHeader}>
+                    <View>
+                      <Text style={styles.subject}>{item.subjectName}</Text>
+                      <Text style={styles.concept}>{item.conceptName}</Text>
+                    </View>
 
-              <View style={styles.list}>
-                {state.items.map((item) => (
-                  <Pressable
-                    key={item.bookmarkId}
-                    style={styles.card}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/concept-detail",
-                        params: { conceptId: String(item.conceptId) },
-                      })
-                    }
-                  >
-                    <View style={styles.cardHeader}>
-                      <View>
-                        <Text style={styles.subject}>{item.subjectName}</Text>
-                        <Text style={styles.concept}>{item.conceptName}</Text>
-                      </View>
+                    <Pressable
+                      accessibilityLabel="즐겨찾기 해제"
+                      accessibilityRole="button"
+                      hitSlop={8}
+                      style={styles.removeButton}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        removeBookmark(item.bookmarkId);
+                      }}
+                    >
+                      <BookmarkX color="#EF4444" size={20} strokeWidth={2.2} />
+                    </Pressable>
+                  </View>
 
+                  <Text style={styles.preview}>
+                    난이도 {item.difficultyLevel} ·{" "}
+                    {QUESTION_FORMAT_LABEL[item.questionFormat] ?? item.questionFormat}
+                  </Text>
+
+                  {previewByQuestionId[item.questionId] ? (
+                    <Text numberOfLines={2} style={styles.questionPreview}>
+                      {previewByQuestionId[item.questionId]}
+                    </Text>
+                  ) : null}
+
+                  {item.memo && (
+                    <Text numberOfLines={1} style={styles.memoPreview}>
+                      메모: {item.memo}
+                    </Text>
+                  )}
+
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.date}>{formatDate(item.bookmarkedAt)}</Text>
+
+                    <View style={styles.footerActions}>
+                      <Text style={styles.linkText}>개념 보기</Text>
+                      <Text style={styles.footerDivider}>|</Text>
                       <Pressable
-                        accessibilityLabel="즐겨찾기 해제"
-                        accessibilityRole="button"
-                        hitSlop={8}
-                        style={styles.removeButton}
+                        hitSlop={6}
                         onPress={(event) => {
                           event.stopPropagation();
-                          removeBookmark(item.bookmarkId);
+                          router.push({
+                            pathname: "/favorite-problem-detail",
+                            params: { questionId: String(item.questionId) },
+                          });
                         }}
                       >
-                        <BookmarkX color="#EF4444" size={20} strokeWidth={2.2} />
+                        <Text style={styles.linkText}>문제 해설 보기</Text>
+                      </Pressable>
+                      <Text style={styles.footerDivider}>|</Text>
+                      <Pressable
+                        hitSlop={6}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          openMemoModal(item);
+                        }}
+                      >
+                        <Text style={styles.linkText}>
+                          {item.memo ? "메모 수정" : "메모 작성"}
+                        </Text>
                       </Pressable>
                     </View>
-
-                    <Text style={styles.preview}>
-                      난이도 {item.difficultyLevel} ·{" "}
-                      {QUESTION_FORMAT_LABEL[item.questionFormat] ?? item.questionFormat}
-                    </Text>
-
-                    {item.memo && (
-                      <Text numberOfLines={1} style={styles.memoPreview}>
-                        메모: {item.memo}
-                      </Text>
-                    )}
-
-                    <View style={styles.cardFooter}>
-                      <Text style={styles.date}>{formatDate(item.bookmarkedAt)}</Text>
-
-                      <View style={styles.footerActions}>
-                        <Text style={styles.linkText}>개념 보기</Text>
-                        <Text style={styles.footerDivider}>|</Text>
-                        <Pressable
-                          hitSlop={6}
-                          onPress={(event) => {
-                            event.stopPropagation();
-                            router.push({
-                              pathname: "/favorite-problem-detail",
-                              params: { questionId: String(item.questionId) },
-                            });
-                          }}
-                        >
-                          <Text style={styles.linkText}>문제 해설 보기</Text>
-                        </Pressable>
-                        <Text style={styles.footerDivider}>|</Text>
-                        <Pressable
-                          hitSlop={6}
-                          onPress={(event) => {
-                            event.stopPropagation();
-                            openMemoModal(item);
-                          }}
-                        >
-                          <Text style={styles.linkText}>
-                            {item.memo ? "메모 수정" : "메모 작성"}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
+                  </View>
+                </Pressable>
+              )}
+            />
           )}
         </View>
       </SafeAreaView>
@@ -417,8 +467,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
   },
-  list: {
-    gap: 14,
+  itemSeparator: {
+    height: 14,
   },
   card: {
     borderRadius: 18,
@@ -461,6 +511,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 21,
+  },
+  questionPreview: {
+    marginTop: 8,
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 19,
   },
   memoPreview: {
     marginTop: 8,
