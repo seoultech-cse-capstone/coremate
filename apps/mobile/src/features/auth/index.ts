@@ -1,5 +1,6 @@
 export { AuthProvider, useAuth } from "./AuthContext";
 export { useRequireMember } from "./useRequireMember";
+export { useRedirectIfAuthenticated } from "./useRedirectIfAuthenticated";
 export { LoginRequiredGuide } from "./components/LoginRequiredGuide";
 export { SessionRevokedModal } from "./components/SessionRevokedModal";
 export {

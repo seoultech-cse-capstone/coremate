@@ -14,10 +14,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { useAuth, useLoginMutation } from "../src/features/auth";
+import { useAuth, useLoginMutation, useRedirectIfAuthenticated } from "../src/features/auth";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 export default function LoginScreen() {
+  useRedirectIfAuthenticated();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
