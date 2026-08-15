@@ -64,7 +64,14 @@ export default function SolveScreen() {
       isGuest={isGuest}
       accessToken={accessToken}
       onBack={() => router.back()}
-      onComplete={({ correctCount, totalCount, reviewItems, elapsedSeconds }) =>
+      onComplete={({
+        correctCount,
+        totalCount,
+        reviewItems,
+        elapsedSeconds,
+        earnedXp,
+        earnedCoin,
+      }) =>
         router.replace({
           pathname: "/solve-result",
           params: {
@@ -85,6 +92,8 @@ export default function SolveScreen() {
             totalCount: totalCount.toString(),
             reviewItemsJson: JSON.stringify(reviewItems),
             elapsedSeconds: elapsedSeconds.toString(),
+            earnedXp: earnedXp !== undefined ? String(earnedXp) : undefined,
+            earnedCoin: earnedCoin !== undefined ? String(earnedCoin) : undefined,
           },
         })
       }

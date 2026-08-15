@@ -116,6 +116,9 @@ type ConceptSolveScreenProps = {
     totalCount: number;
     reviewItems: SolveReviewItem[];
     elapsedSeconds: number;
+    /** 회원 완료 시에만 채워진다. 게스트 풀이는 보상이 없다. */
+    earnedXp?: number;
+    earnedCoin?: number;
   }) => void;
 };
 
@@ -471,6 +474,8 @@ export function ConceptSolveScreen({
           totalCount: completeResult.totalQuestionCount,
           reviewItems: reviewItemsRef.current,
           elapsedSeconds: totalTimeSpentSec,
+          earnedXp: completeResult.earnedXp,
+          earnedCoin: completeResult.earnedCoin,
         });
       } else {
         // 모의고사 3종은 전부 회원 전용이라 이 분기(게스트 완료)는 개념

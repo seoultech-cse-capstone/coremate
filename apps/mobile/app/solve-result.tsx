@@ -16,6 +16,8 @@ export default function SolveResultRoute() {
   const {
     conceptId,
     correctCount,
+    earnedCoin,
+    earnedXp,
     elapsedSeconds,
     reviewItemsJson,
     sessionType,
@@ -25,6 +27,8 @@ export default function SolveResultRoute() {
   } = useLocalSearchParams<{
     conceptId?: string;
     correctCount?: string;
+    earnedCoin?: string;
+    earnedXp?: string;
     elapsedSeconds?: string;
     reviewItemsJson?: string;
     sessionType?: string;
@@ -41,11 +45,17 @@ export default function SolveResultRoute() {
     Number(correctCount) || 0,
     resolvedTotalCount,
   );
+  // earnedXp/earnedCoin은 회원 완료 시에만 전달된다(게스트 풀이는 보상이 없다).
+  const reward =
+    earnedXp !== undefined && earnedCoin !== undefined
+      ? { xpAmount: Number(earnedXp) || 0, coinAmount: Number(earnedCoin) || 0 }
+      : undefined;
 
   return (
     <SolveResultScreen
       correctCount={resolvedCorrectCount}
       elapsedSeconds={Number(elapsedSeconds) || 0}
+      reward={reward}
       sessionType={resolvedSessionType}
       title={resolvedTitle}
       totalCount={resolvedTotalCount}
