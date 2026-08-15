@@ -42,7 +42,7 @@ export default function LoginScreen() {
 
   const handleGuest = async () => {
     await continueAsGuest();
-    router.replace("/(tabs)/home");
+    router.replace("/(tabs)/content");
   };
 
   return (
