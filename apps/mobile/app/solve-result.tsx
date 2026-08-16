@@ -46,9 +46,15 @@ export default function SolveResultRoute() {
     resolvedTotalCount,
   );
   // earnedXp/earnedCoin은 회원 완료 시에만 전달된다(게스트 풀이는 보상이 없다).
+  // 둘 다 항상 숫자로 내려오므로(백엔드 SolveRewardResult가 int 타입, 미지급이면 0)
+  // 존재 여부가 아니라 실제로 지급된 값이 있는지로 카드 표시 여부를 판단해야 한다.
+  const resolvedXpAmount = Number(earnedXp) || 0;
+  const resolvedCoinAmount = Number(earnedCoin) || 0;
   const reward =
-    earnedXp !== undefined && earnedCoin !== undefined
-      ? { xpAmount: Number(earnedXp) || 0, coinAmount: Number(earnedCoin) || 0 }
+    earnedXp !== undefined &&
+    earnedCoin !== undefined &&
+    (resolvedXpAmount > 0 || resolvedCoinAmount > 0)
+      ? { xpAmount: resolvedXpAmount, coinAmount: resolvedCoinAmount }
       : undefined;
 
   return (
