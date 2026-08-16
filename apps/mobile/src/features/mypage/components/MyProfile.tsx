@@ -13,9 +13,6 @@ export function MyProfile() {
   const level = profile?.level ?? 1;
   const totalXp = profile?.totalXp ?? 0;
   const levelProgress = getLevelProgress(level, totalXp);
-  const requiredXpDisplay = levelProgress.isMaxLevel
-    ? levelProgress.currentLevelXp
-    : levelProgress.requiredLevelXp;
 
   const stats = [
     { label: "Level", value: `Lv.${level}` },
@@ -44,7 +41,9 @@ export function MyProfile() {
           <View style={styles.xpArea}>
             <View style={styles.xpTextRow}>
               <Text style={styles.xpText}>
-                {levelProgress.currentLevelXp.toLocaleString()} / {requiredXpDisplay.toLocaleString()}
+                {levelProgress.isMaxLevel
+                  ? "MAX"
+                  : `${levelProgress.currentLevelXp.toLocaleString()} / ${levelProgress.requiredLevelXp.toLocaleString()}`}
               </Text>
               <Text style={styles.xpText}>{levelProgress.percent}%</Text>
             </View>
