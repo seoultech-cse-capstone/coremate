@@ -14,10 +14,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { useAuth, useLoginMutation } from "../src/features/auth";
+import { useAuth, useLoginMutation, useRedirectIfAuthenticated } from "../src/features/auth";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 export default function LoginScreen() {
+  useRedirectIfAuthenticated();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -42,7 +43,7 @@ export default function LoginScreen() {
 
   const handleGuest = async () => {
     await continueAsGuest();
-    router.replace("/(tabs)/home");
+    router.replace("/(tabs)/content");
   };
 
   return (
@@ -120,7 +121,7 @@ export default function LoginScreen() {
                   <Text style={styles.inlineLinkText}>Register</Text>
                 </Pressable>
 
-                <Pressable onPress={() => {}}>
+                <Pressable onPress={() => router.push("/find-account")}>
                   <Text style={styles.inlineLinkText}>Forgot ID/PW</Text>
                 </Pressable>
               </View>

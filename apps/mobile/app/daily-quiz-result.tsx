@@ -21,7 +21,7 @@ export default function DailyQuizResultScreen() {
     <SolveResultScreen
       correctCount={result.correctCount}
       totalCount={result.totalQuestionCount}
-      dailyReward={{
+      reward={{
         xpAmount: result.reward.xpAmount,
         coinAmount: result.reward.coinAmount,
       }}

@@ -27,6 +27,8 @@ import { sessionTypeLabel } from "../../src/features/logWeak/types";
 import type { CompletedProblemSetSummary } from "../../src/features/logWeak/types";
 import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
+import { useConceptCountSummary } from "../../src/features/progress";
+import type { ConceptCountSummary } from "../../src/features/progress";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
 import {
   useEligibleSolveSessions,
@@ -161,12 +163,6 @@ const OVERSCROLL_BUFFER = 96;
 const BRAND_PURPLE = "#6D5DFB";
 const WEAKNESS_PURPLE = "#4E44A4";
 const PANEL_GRAY = "#F3F3F3";
-
-// 총 개념 수는 DB 전체 하위 개념 수, 완료 수는 문제를 푼 하위 개념 수를 의미한다.
-const conceptStats = {
-  totalCount: 500,
-  solvedConceptCount: 100,
-};
 
 export default function LogWeakScreen() {
   useRequireMember();
@@ -369,6 +365,8 @@ export default function LogWeakScreen() {
     categoryLv1NameById,
     categoryLv2NameById,
   ]);
+
+  const conceptCountSummaryQuery = useConceptCountSummary(accessToken);
 
   const weaknessReportsQuery = useWeaknessReports(accessToken);
   const weaknessReports = useMemo(
@@ -679,6 +677,7 @@ export default function LogWeakScreen() {
 
           <StatsSummary
             accentColor={activePurple}
+            conceptCountSummary={conceptCountSummaryQuery.data}
             isWrongNote={isWrongNote}
             weaknessReports={weaknessReports}
           />
@@ -777,10 +776,12 @@ export default function LogWeakScreen() {
 
 function StatsSummary({
   accentColor,
+  conceptCountSummary,
   isWrongNote,
   weaknessReports,
 }: {
   accentColor: string;
+  conceptCountSummary: ConceptCountSummary | undefined;
   isWrongNote: boolean;
   weaknessReports: WeaknessAnalysisReportSummary[];
 }) {
@@ -795,15 +796,16 @@ function StatsSummary({
 
   const stats = isWrongNote
     ? [
-        { value: conceptStats.totalCount.toString(), label: "총 개념" },
         {
-          value: conceptStats.solvedConceptCount.toString(),
+          value: (conceptCountSummary?.totalConceptCount ?? 0).toString(),
+          label: "총 개념",
+        },
+        {
+          value: (conceptCountSummary?.solvedConceptCount ?? 0).toString(),
           label: "풀었어요",
         },
         {
-          value: (
-            conceptStats.totalCount - conceptStats.solvedConceptCount
-          ).toString(),
+          value: (conceptCountSummary?.unsolvedConceptCount ?? 0).toString(),
           label: "아직 못풀었어요",
         },
       ]

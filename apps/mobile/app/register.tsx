@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import {
+  useRedirectIfAuthenticated,
   useSendSignupCodeMutation,
   useSignupMutation,
   useVerifySignupCodeMutation,
@@ -246,6 +247,7 @@ function Reveal({ children }: { children: React.ReactNode }) {
 
 
 export default function RegisterScreen() {
+  useRedirectIfAuthenticated();
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);

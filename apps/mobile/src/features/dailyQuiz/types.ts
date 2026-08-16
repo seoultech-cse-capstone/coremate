@@ -58,19 +58,23 @@ export type DailyQuizSubmitResult = {
   reward: DailyQuizReward;
 };
 
-/**
- * 오늘의 퀴즈 문항별 정답·해설 조회 응답. 백엔드 PR #86(미머지)의
- * GET /api/v1/daily-quizzes/result 계약을 기준으로 미리 맞춰둔 타입이다.
- * 머지 후 실제 응답과 다르면 이 타입과 dailyQuizApi.getResult만 손보면 된다.
- */
 export type DailyQuizResultItem = {
   questionId: number;
+  sortOrder: number;
+  subjectName: string;
+  conceptName: string;
   questionText: string;
   choices: DailyQuizChoice[];
   selectedAnswer: string;
   correctAnswer: string;
   isCorrect: boolean;
   explanationText: string;
+};
+
+/** GET /api/v1/daily-quizzes/result 응답. DailyQuizResultResponse와 1:1 대응 */
+export type DailyQuizResult = {
+  quizDate: string;
+  questions: DailyQuizResultItem[];
 };
 
 export type ApiEnvelope<T> = {

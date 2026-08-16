@@ -36,6 +36,8 @@ import {
   useSubjects,
 } from "../../src/features/content";
 import type { ChildCountKind, Subject } from "../../src/features/content";
+import { useProblemSetProgress } from "../../src/features/progress";
+import { useDailyRewardLimits } from "../../src/features/reward";
 import {
   useLanguage,
   type ContentLanguage,
@@ -43,11 +45,9 @@ import {
 
 type ContentDepth = "subject" | "category1" | "category2" | "concept";
 
-// 문제집 요약/진행률(chapterCount, progress, hasSolved)은 ProblemSetController/
-// ProgressController가 아직 더미 데이터인 데다 인증이 필요해 이번엔 연결하지 않는다.
-// 실제 서비스가 준비되면 이 자리를 채워 넣는다.
+// 하위 단계 개수(chapterCount)는 ProblemSetController가 필요해 이번 범위에서는
+// 제외한다. 실제 서비스가 준비되면 이 자리를 채워 넣는다.
 const PLACEHOLDER_CHAPTER_COUNT = 0;
-const PLACEHOLDER_PROGRESS = 0;
 
 type ProblemSetItem = {
   id: number;
@@ -93,27 +93,33 @@ function mapSubject(
   subject: Subject,
   chapterCount: number,
   language: ContentLanguage,
+  isCompleted: boolean,
 ): ProblemSetItem {
   const visuals = SUBJECT_VISUALS[subject.subjectCode];
   return {
     id: subject.subjectId,
     title: pickLocalizedName(subject.subjectName, subject.subjectNameEn, language),
     chapterCount,
-    progress: PLACEHOLDER_PROGRESS,
-    hasSolved: false,
+    progress: isCompleted ? 100 : 0,
+    hasSolved: isCompleted,
     Icon: visuals?.Icon,
     iconColor: visuals?.iconColor,
     thumbnailColor: visuals?.thumbnailColor,
   };
 }
 
-function mapNode(id: number, title: string, chapterCount: number): ProblemSetItem {
+function mapNode(
+  id: number,
+  title: string,
+  chapterCount: number,
+  isCompleted: boolean,
+): ProblemSetItem {
   return {
     id,
     title,
     chapterCount,
-    progress: PLACEHOLDER_PROGRESS,
-    hasSolved: false,
+    progress: isCompleted ? 100 : 0,
+    hasSolved: isCompleted,
   };
 }
 
@@ -190,6 +196,21 @@ const sessionTypeByDepth: Record<
   concept: "CONCEPT_PRACTICE",
 };
 
+// SCR-CONTENT-01/02 완료 기준에 명시된 일일 XP 지급 한도(정책값). 오늘 아직
+// 한 번도 지급받지 않아 daily_reward_limits 행이 없는 경우의 기본값으로 쓰고,
+// 실제 행이 있으면 그 행의 dailyLimit을 우선한다.
+const DAILY_XP_LIMIT_FALLBACK: Partial<Record<ContentDepth, number>> = {
+  subject: 5,
+  category1: 7,
+  category2: 7,
+};
+
+const REWARD_TYPE_BY_DEPTH: Partial<Record<ContentDepth, string>> = {
+  subject: "SUBJECT_MOCK_XP",
+  category1: "CATEGORY_MOCK_XP",
+  category2: "CATEGORY_MOCK_XP",
+};
+
 const getNextDepth = (depth: ContentDepth) => {
   const currentIndex = depthOrder.indexOf(depth);
   return depthOrder[currentIndex + 1] ?? null;
@@ -200,7 +221,7 @@ export default function ContentScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { status } = useAuth();
+  const { status, accessToken, user } = useAuth();
   const isGuest = status === "guest";
   const { language } = useLanguage();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
@@ -259,6 +280,50 @@ export default function ContentScreen() {
 
   const childCounts = useChildCounts(childCountKind, childCountIds);
 
+  // 현재 깊이의 각 항목이 "그 항목 자신의" 모의고사/문제집을 완료했는지는
+  // 깊이별 problemSetType + 부모 필터로 한 번에 조회해 targetId로 찾아본다.
+  const progressFilters = useMemo(() => {
+    switch (currentDepth) {
+      case "subject":
+        return {};
+      case "category1":
+        return { subjectId: parentId ?? undefined };
+      case "category2":
+        return { categoryLv1Id: parentId ?? undefined };
+      case "concept":
+        return { categoryLv2Id: parentId ?? undefined };
+    }
+  }, [currentDepth, parentId]);
+
+  const problemSetProgressQuery = useProblemSetProgress(accessToken, user?.userId ?? null, {
+    problemSetType: sessionTypeByDepth[currentDepth],
+    ...progressFilters,
+  });
+
+  const completedByTargetId = useMemo(() => {
+    const map = new Map<number, boolean>();
+    for (const item of problemSetProgressQuery.data ?? []) {
+      map.set(item.targetId, item.isCompleted);
+    }
+    return map;
+  }, [problemSetProgressQuery.data]);
+
+  const dailyRewardLimitsQuery = useDailyRewardLimits(accessToken);
+  const rewardTypeForDepth = REWARD_TYPE_BY_DEPTH[currentDepth];
+  const remainingMockXpCount = useMemo(() => {
+    if (!rewardTypeForDepth) {
+      return null;
+    }
+    const row = (dailyRewardLimitsQuery.data ?? []).find(
+      (item) => item.rewardType === rewardTypeForDepth,
+    );
+    const limit = row?.dailyLimit ?? DAILY_XP_LIMIT_FALLBACK[currentDepth] ?? null;
+    if (limit === null) {
+      return null;
+    }
+    return Math.max(0, limit - (row?.rewardCount ?? 0));
+  }, [dailyRewardLimitsQuery.data, rewardTypeForDepth, currentDepth]);
+
   const currentItems = useMemo<ProblemSetItem[]>(() => {
     switch (currentDepth) {
       case "subject":
@@ -269,6 +334,7 @@ export default function ContentScreen() {
               subject,
               childCounts.get(subject.subjectId) ?? PLACEHOLDER_CHAPTER_COUNT,
               language,
+              completedByTargetId.get(subject.subjectId) ?? false,
             ),
           );
       case "category1":
@@ -283,6 +349,7 @@ export default function ContentScreen() {
                 language,
               ),
               childCounts.get(category.categoryLv1Id) ?? PLACEHOLDER_CHAPTER_COUNT,
+              completedByTargetId.get(category.categoryLv1Id) ?? false,
             ),
           );
       case "category2":
@@ -297,6 +364,7 @@ export default function ContentScreen() {
                 language,
               ),
               childCounts.get(category.categoryLv2Id) ?? PLACEHOLDER_CHAPTER_COUNT,
+              completedByTargetId.get(category.categoryLv2Id) ?? false,
             ),
           );
       case "concept":
@@ -307,6 +375,7 @@ export default function ContentScreen() {
               concept.conceptId,
               pickLocalizedName(concept.conceptName, concept.conceptNameEn, language),
               PLACEHOLDER_CHAPTER_COUNT,
+              completedByTargetId.get(concept.conceptId) ?? false,
             ),
           );
     }
@@ -318,6 +387,7 @@ export default function ContentScreen() {
     conceptsQuery.data,
     childCounts,
     language,
+    completedByTargetId,
   ]);
 
   const { refetch: refetchSubjects } = subjectsQuery;
@@ -458,6 +528,13 @@ export default function ContentScreen() {
           style={[styles.grayBackground, { minHeight: height - headerHeight }]}
         >
           <View style={styles.listContent}>
+              {!isGuest && remainingMockXpCount !== null && (
+                <Text style={styles.dailyLimitText}>
+                  오늘 남은 {currentDepth === "subject" ? "과목" : "챕터"} 모의고사 XP 지급
+                  가능 횟수: {remainingMockXpCount}회
+                </Text>
+              )}
+
               {activeQuery.isLoading && (
                 <View style={styles.stateContainer}>
                   <ActivityIndicator color={BRAND_PURPLE} size="large" />
@@ -620,6 +697,12 @@ const styles = StyleSheet.create({
     paddingTop: 45,
     paddingBottom: 32 + OVERSCROLL_BUFFER,
     gap: 21,
+  },
+  dailyLimitText: {
+    color: "#6b7280",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
   },
   stateContainer: {
     alignItems: "center",
