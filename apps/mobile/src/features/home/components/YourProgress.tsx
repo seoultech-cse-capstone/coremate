@@ -41,6 +41,8 @@ export function YourProgress() {
       <View style={styles.card}>
         {subjectProgressQuery.isLoading ? (
           <ActivityIndicator color="#6D5DFB" />
+        ) : subjectProgressQuery.isError ? (
+          <Text style={styles.errorText}>진행률을 불러오지 못했습니다.</Text>
         ) : (
           items.map((item) => (
             <View style={styles.item} key={item.key}>
@@ -95,6 +97,13 @@ const styles = StyleSheet.create({
   },
   item: {
     marginBottom: 16,
+  },
+  errorText: {
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
   },
   name: {
     color: "#1f2937",
