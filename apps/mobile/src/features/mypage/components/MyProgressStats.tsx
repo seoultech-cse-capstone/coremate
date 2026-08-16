@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Bookmark, PackageOpen, ShoppingBag } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
 import { FONT } from "../../../../constants/fonts";
@@ -80,7 +80,8 @@ function getValuePoints(percentByShortTitle: Record<string, number>) {
 export function MyProgressStats() {
   const { accessToken } = useAuth();
   const { data: subjects = [] } = useSubjects();
-  const { data: subjectStats = [] } = useMySubjectStats(accessToken);
+  const subjectStatsQuery = useMySubjectStats(accessToken);
+  const subjectStats = subjectStatsQuery.data ?? [];
 
   const shortTitleBySubjectId = new Map<number, string>();
   for (const subject of subjects) {
@@ -103,70 +104,80 @@ export function MyProgressStats() {
       <Text style={styles.sectionTitle}>Progress Stats</Text>
 
       <View style={styles.card}>
-        <Svg width={CHART_SIZE} height={CHART_SIZE}>
-          {GRID_LEVELS.map((level) => (
-            <Polygon
-              fill="none"
-              key={level}
-              points={getPolygonPoints(RADIUS * level)}
-              stroke="#E5E7EB"
-              strokeWidth={1}
-            />
-          ))}
+        {subjectStatsQuery.isLoading ? (
+          <ActivityIndicator color="#6D5DFB" style={styles.stateSpacing} />
+        ) : subjectStatsQuery.isError ? (
+          <Text style={[styles.statLabel, styles.stateSpacing]}>
+            스탯을 불러오지 못했습니다.
+          </Text>
+        ) : (
+          <>
+            <Svg width={CHART_SIZE} height={CHART_SIZE}>
+              {GRID_LEVELS.map((level) => (
+                <Polygon
+                  fill="none"
+                  key={level}
+                  points={getPolygonPoints(RADIUS * level)}
+                  stroke="#E5E7EB"
+                  strokeWidth={1}
+                />
+              ))}
 
-          {radarOrder.map((label, index) => {
-            const endPoint = getPoint(index, RADIUS);
+              {radarOrder.map((label, index) => {
+                const endPoint = getPoint(index, RADIUS);
 
-            return (
-              <Line
-                key={label}
-                stroke="#E5E7EB"
-                strokeWidth={1}
-                x1={CENTER}
-                x2={endPoint.x}
-                y1={CENTER}
-                y2={endPoint.y}
+                return (
+                  <Line
+                    key={label}
+                    stroke="#E5E7EB"
+                    strokeWidth={1}
+                    x1={CENTER}
+                    x2={endPoint.x}
+                    y1={CENTER}
+                    y2={endPoint.y}
+                  />
+                );
+              })}
+
+              <Polygon
+                fill="rgba(109, 93, 251, 0.32)"
+                points={getValuePoints(percentByShortTitle)}
+                stroke="#6D5DFB"
+                strokeLinejoin="round"
+                strokeWidth={2}
               />
-            );
-          })}
 
-          <Polygon
-            fill="rgba(109, 93, 251, 0.32)"
-            points={getValuePoints(percentByShortTitle)}
-            stroke="#6D5DFB"
-            strokeLinejoin="round"
-            strokeWidth={2}
-          />
+              <Circle cx={CENTER} cy={CENTER} fill="#6D5DFB" r={2.5} />
 
-          <Circle cx={CENTER} cy={CENTER} fill="#6D5DFB" r={2.5} />
+              {radarOrder.map((label, index) => {
+                const point = getPoint(index, RADIUS + 20);
 
-          {radarOrder.map((label, index) => {
-            const point = getPoint(index, RADIUS + 20);
+                return (
+                  <SvgText
+                    fill="#64748b"
+                    fontSize={12}
+                    fontWeight="600"
+                    key={label}
+                    textAnchor="middle"
+                    x={point.x}
+                    y={point.y + 4}
+                  >
+                    {label}
+                  </SvgText>
+                );
+              })}
+            </Svg>
 
-            return (
-              <SvgText
-                fill="#64748b"
-                fontSize={12}
-                fontWeight="600"
-                key={label}
-                textAnchor="middle"
-                x={point.x}
-                y={point.y + 4}
-              >
-                {label}
-              </SvgText>
-            );
-          })}
-        </Svg>
-
-        <View style={styles.statGrid}>
-          {radarOrder.map((shortTitle) => (
-            <View style={styles.statItem} key={shortTitle}>
-              <Text style={styles.statLabel}>{shortTitle}</Text>
-              <Text style={styles.statValue}>{percentByShortTitle[shortTitle] ?? 0}%</Text>
+            <View style={styles.statGrid}>
+              {radarOrder.map((shortTitle) => (
+                <View style={styles.statItem} key={shortTitle}>
+                  <Text style={styles.statLabel}>{shortTitle}</Text>
+                  <Text style={styles.statValue}>{percentByShortTitle[shortTitle] ?? 0}%</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
+          </>
+        )}
       </View>
 
       <View style={styles.actionList}>
@@ -204,6 +215,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 20,
+  },
+  stateSpacing: {
+    paddingVertical: 60,
   },
   statGrid: {
     width: "100%",
