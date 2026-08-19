@@ -414,6 +414,9 @@ export default function ContentScreen() {
   ]);
 
   const { refetch: refetchSubjects } = subjectsQuery;
+  const { refetch: refetchCategoryLv1 } = categoryLv1Query;
+  const { refetch: refetchCategoryLv2 } = categoryLv2Query;
+  const { refetch: refetchConcepts } = conceptsQuery;
 
   const resetContent = useCallback(() => {
     setTrail([{ depth: "subject" }]);
@@ -424,25 +427,48 @@ export default function ContentScreen() {
     refetchSubjects();
   }, [refetchSubjects]);
 
+  // 드릴다운 위치(trail)는 그대로 두고 현재 깊이의 목록만 새로 불러온다.
+  // 문제를 풀고 돌아왔을 때 방금 푼 개념의 완료 상태·문제 수·정답 수를
+  // 반영하려면 필요하다 - 같은 컴포넌트 인스턴스가 계속 마운트돼 있어서
+  // (trail을 안 바꾸니 쿼리 파라미터도 안 바뀜) 가만히 두면 30초 캐시가
+  // 만료되기 전까진 풀기 전 데이터를 계속 보여준다.
+  const refreshCurrentDepth = useCallback(() => {
+    switch (currentDepth) {
+      case "subject":
+        refetchSubjects();
+        return;
+      case "category1":
+        refetchCategoryLv1();
+        return;
+      case "category2":
+        refetchCategoryLv2();
+        return;
+      case "concept":
+        refetchConcepts();
+        return;
+    }
+  }, [currentDepth, refetchSubjects, refetchCategoryLv1, refetchCategoryLv2, refetchConcepts]);
+
   const scrollToTop = useCallback(() => {
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
     });
   }, []);
 
-  // 개념 상세/최근 기록처럼 이 화면이 직접 push한 자식 화면에서 뒤로가기로
-  // 돌아온 경우엔 드릴다운 위치(trail)를 유지해야 한다. 그 경우가 아니라
-  // 다른 탭이나 화면에서 새로 들어온 경우에만 과목 선택으로 초기화한다.
+  // 개념 상세/최근 기록/문제 풀이처럼 이 화면이 직접 push한 자식 화면에서
+  // 뒤로가기로 돌아온 경우엔 드릴다운 위치(trail)를 유지해야 한다. 그 경우가
+  // 아니라 다른 탭이나 화면에서 새로 들어온 경우에만 과목 선택으로 초기화한다.
   const suppressNextResetRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
       if (suppressNextResetRef.current) {
         suppressNextResetRef.current = false;
+        refreshCurrentDepth();
         return;
       }
       resetContent();
-    }, [resetContent]),
+    }, [resetContent, refreshCurrentDepth]),
   );
 
   useEffect(() => {
