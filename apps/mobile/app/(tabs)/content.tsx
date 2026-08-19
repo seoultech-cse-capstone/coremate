@@ -449,6 +449,16 @@ export default function ContentScreen() {
     }
   }, [currentDepth, refetchSubjects, refetchCategoryLv1, refetchCategoryLv2, refetchConcepts]);
 
+  // refreshCurrentDepth는 currentDepth가 바뀔 때마다(=드릴다운/뒤로가기 등
+  // 내부 상태 변경만으로도) 새로 만들어진다. 이걸 그대로 useFocusEffect의
+  // 의존성으로 두면 화면 포커스와 무관하게 trail이 바뀔 때마다 콜백이
+  // 재생성되어 useFocusEffect가 다시 실행돼버린다(=드릴다운할 때마다 매번
+  // 과목 선택으로 리셋되는 버그). ref에 최신 함수만 담아두고 꺼내 쓴다.
+  const refreshCurrentDepthRef = useRef(refreshCurrentDepth);
+  useEffect(() => {
+    refreshCurrentDepthRef.current = refreshCurrentDepth;
+  }, [refreshCurrentDepth]);
+
   const scrollToTop = useCallback(() => {
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -464,11 +474,11 @@ export default function ContentScreen() {
     useCallback(() => {
       if (suppressNextResetRef.current) {
         suppressNextResetRef.current = false;
-        refreshCurrentDepth();
+        refreshCurrentDepthRef.current();
         return;
       }
       resetContent();
-    }, [resetContent, refreshCurrentDepth]),
+    }, [resetContent]),
   );
 
   useEffect(() => {
