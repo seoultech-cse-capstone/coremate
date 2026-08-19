@@ -134,14 +134,20 @@ function mapNode(
 function mapConcept(concept: Concept, title: string): ProblemSetItem {
   const isCompleted = concept.status === "COMPLETED";
   const hasResult = concept.totalQuestionCount !== null && concept.correctCount !== null;
+  // 진행률은 완료했다고 무조건 100%가 아니라 실제 정답 비율로 채운다. 전 문제
+  // 정답(PASS)일 때만 자연스럽게 100%가 되어 완료 체크(progress>=100)가 뜨고,
+  // 일부만 맞았으면(FAIL) 그 비율만큼만 채워진 채로 계속 미완료로 남는다.
+  const progress = hasResult && concept.totalQuestionCount! > 0
+    ? Math.round((concept.correctCount! / concept.totalQuestionCount!) * 100)
+    : 0;
   return {
     id: concept.conceptId,
     title,
     chapterCount: concept.totalQuestionCount ?? 0,
     hasChapterCount: concept.totalQuestionCount !== null,
-    progress: isCompleted ? 100 : 0,
+    progress,
     hasSolved: isCompleted,
-    resultLabel: isCompleted && hasResult
+    resultLabel: hasResult
       ? `${concept.correctCount} / ${concept.totalQuestionCount} 정답`
       : undefined,
   };
