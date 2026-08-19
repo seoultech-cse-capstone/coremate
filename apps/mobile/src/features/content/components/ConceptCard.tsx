@@ -6,11 +6,15 @@ import { ProgressLine } from "./ProgressLine";
 
 type ConceptCardProps = {
   chapterCount: number;
+  /** false면 chapterCount를 아직 모른다는 뜻이라 개수 줄 자체를 숨긴다. */
+  hasChapterCount?: boolean;
   countUnit: "chapter" | "concept" | "question";
   hideProgress?: boolean;
   iconColor: string;
   Icon: LucideIcon;
   progress: number;
+  /** 완료된 경우 "3 / 5 정답" 같은 결과 요약. 없으면 표시하지 않는다. */
+  resultLabel?: string;
   startButtonLabel: string;
   thumbnailColor: string;
   title: string;
@@ -20,11 +24,13 @@ type ConceptCardProps = {
 
 export function ConceptCard({
   chapterCount,
+  hasChapterCount = true,
   countUnit,
   hideProgress = false,
   iconColor,
   Icon,
   progress,
+  resultLabel,
   startButtonLabel,
   thumbnailColor,
   title,
@@ -50,9 +56,14 @@ export function ConceptCard({
 
         <View style={styles.content}>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.chapter}>
-            {chapterCount} {countUnit}
-          </Text>
+          {hasChapterCount ? (
+            <Text style={styles.chapter}>
+              {chapterCount} {countUnit}
+            </Text>
+          ) : null}
+          {resultLabel ? (
+            <Text style={styles.result}>{resultLabel}</Text>
+          ) : null}
         </View>
       </View>
 
@@ -116,6 +127,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "400",
     lineHeight: 20,
+    marginTop: 2,
+  },
+  result: {
+    color: "#16C45B",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
     marginTop: 2,
   },
   actions: {

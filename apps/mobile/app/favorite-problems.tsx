@@ -279,8 +279,8 @@ export default function FavoriteProblemsScreen() {
                   style={styles.card}
                   onPress={() =>
                     router.push({
-                      pathname: "/concept-detail",
-                      params: { conceptId: String(item.conceptId) },
+                      pathname: "/favorite-problem-detail",
+                      params: { questionId: String(item.questionId) },
                     })
                   }
                 >
@@ -325,19 +325,17 @@ export default function FavoriteProblemsScreen() {
                     <Text style={styles.date}>{formatDate(item.bookmarkedAt)}</Text>
 
                     <View style={styles.footerActions}>
-                      <Text style={styles.linkText}>개념 보기</Text>
-                      <Text style={styles.footerDivider}>|</Text>
                       <Pressable
                         hitSlop={6}
                         onPress={(event) => {
                           event.stopPropagation();
                           router.push({
-                            pathname: "/favorite-problem-detail",
-                            params: { questionId: String(item.questionId) },
+                            pathname: "/concept-detail",
+                            params: { conceptId: String(item.conceptId) },
                           });
                         }}
                       >
-                        <Text style={styles.linkText}>문제 해설 보기</Text>
+                        <Text style={styles.linkText}>개념 보기</Text>
                       </Pressable>
                       <Text style={styles.footerDivider}>|</Text>
                       <Pressable

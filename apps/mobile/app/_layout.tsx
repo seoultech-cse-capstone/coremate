@@ -62,6 +62,10 @@ export default function RootLayout() {
         <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
         <Stack.Screen name="edit-nickname" options={{ headerShown: false }} />
         <Stack.Screen
+          name="change-password"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="notification-settings"
           options={{ headerShown: false }}
         />
@@ -78,6 +82,10 @@ export default function RootLayout() {
         <Stack.Screen name="delete-account" options={{ headerShown: false }} />
         <Stack.Screen
           name="favorite-problems"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="favorite-problem-detail"
           options={{ headerShown: false }}
         />
         <Stack.Screen name="avatar-shop" options={{ headerShown: false }} />
@@ -99,6 +107,11 @@ export default function RootLayout() {
         <Stack.Screen name="daily-quiz-result" options={{ headerShown: false }} />
         <Stack.Screen name="daily-quiz-review" options={{ headerShown: false }} />
         <Stack.Screen name="friend-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="weakness-confirm" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="weakness-generating"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
         <Stack.Screen name="device-management" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
