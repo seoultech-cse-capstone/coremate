@@ -1283,7 +1283,7 @@ const styles = StyleSheet.create({
   },
   wrongValue: {
     marginTop: 5,
-    color: "#FF0000",
+    color: "#16C45B",
     fontFamily: FONT.kufam,
     fontSize: 15,
     fontWeight: "600",
