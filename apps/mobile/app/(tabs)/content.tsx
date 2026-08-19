@@ -407,8 +407,17 @@ export default function ContentScreen() {
     });
   }, []);
 
+  // 개념 상세/최근 기록처럼 이 화면이 직접 push한 자식 화면에서 뒤로가기로
+  // 돌아온 경우엔 드릴다운 위치(trail)를 유지해야 한다. 그 경우가 아니라
+  // 다른 탭이나 화면에서 새로 들어온 경우에만 과목 선택으로 초기화한다.
+  const suppressNextResetRef = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
+      if (suppressNextResetRef.current) {
+        suppressNextResetRef.current = false;
+        return;
+      }
       resetContent();
     }, [resetContent]),
   );
@@ -461,6 +470,7 @@ export default function ContentScreen() {
   };
 
   const viewConceptDetail = (item: ProblemSetItem) => {
+    suppressNextResetRef.current = true;
     router.push({
       pathname: "/concept-detail",
       params: { conceptId: String(item.id) },
@@ -474,6 +484,7 @@ export default function ContentScreen() {
       return;
     }
 
+    suppressNextResetRef.current = true;
     router.push({
       pathname: "/mistake-exam-review",
       params: {
