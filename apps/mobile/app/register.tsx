@@ -670,6 +670,8 @@ export default function RegisterScreen() {
                             editable={isReady}
                             autoCapitalize="none"
                             autoComplete="username"
+                            autoCorrect={false}
+                            spellCheck={false}
                             textContentType="username"
                             keyboardType="email-address"
                             placeholder="Email"
