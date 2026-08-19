@@ -59,6 +59,8 @@ type ProblemSetItem = {
   hasSolved: boolean;
   /** 개념 카드 전용: 완료 시 "3 / 5 정답" 같은 결과 요약 */
   resultLabel?: string;
+  /** 개념 카드 전용: false면 chapterCount(문제 수)를 아직 모른다는 뜻 */
+  hasChapterCount?: boolean;
 };
 
 type TrailItem = {
@@ -126,6 +128,9 @@ function mapNode(
 
 // 개념 카드의 총 문제 수/정답 수는 진행률 API(ProgressController, 아직 더미 - #166)가
 // 아니라 개념 목록 API(ContentController)가 최고 점수 완료 회차 기준으로 이미 내려준다.
+// 단, 백엔드가 이 값을 "완료한 적 있는 개념"에만 채워 보내고(NOT_STARTED/IN_PROGRESS면
+// null) 있어서, 아직 안 푼 개념은 문제 수 자체를 모른다 - 0으로 잘못 보여주는 대신
+// 그 줄을 아예 숨긴다.
 function mapConcept(concept: Concept, title: string): ProblemSetItem {
   const isCompleted = concept.status === "COMPLETED";
   const hasResult = concept.totalQuestionCount !== null && concept.correctCount !== null;
@@ -133,6 +138,7 @@ function mapConcept(concept: Concept, title: string): ProblemSetItem {
     id: concept.conceptId,
     title,
     chapterCount: concept.totalQuestionCount ?? 0,
+    hasChapterCount: concept.totalQuestionCount !== null,
     progress: isCompleted ? 100 : 0,
     hasSolved: isCompleted,
     resultLabel: isCompleted && hasResult
@@ -593,6 +599,7 @@ export default function ContentScreen() {
                   <ConceptCard
                     key={item.id}
                     chapterCount={item.chapterCount}
+                    hasChapterCount={item.hasChapterCount}
                     countUnit={currentCountUnit}
                     hideProgress={isGuest}
                     Icon={item.Icon ?? currentThumbnail.Icon}

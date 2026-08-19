@@ -6,6 +6,8 @@ import { ProgressLine } from "./ProgressLine";
 
 type ConceptCardProps = {
   chapterCount: number;
+  /** false면 chapterCount를 아직 모른다는 뜻이라 개수 줄 자체를 숨긴다. */
+  hasChapterCount?: boolean;
   countUnit: "chapter" | "concept" | "question";
   hideProgress?: boolean;
   iconColor: string;
@@ -22,6 +24,7 @@ type ConceptCardProps = {
 
 export function ConceptCard({
   chapterCount,
+  hasChapterCount = true,
   countUnit,
   hideProgress = false,
   iconColor,
@@ -53,9 +56,11 @@ export function ConceptCard({
 
         <View style={styles.content}>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.chapter}>
-            {chapterCount} {countUnit}
-          </Text>
+          {hasChapterCount ? (
+            <Text style={styles.chapter}>
+              {chapterCount} {countUnit}
+            </Text>
+          ) : null}
           {resultLabel ? (
             <Text style={styles.result}>{resultLabel}</Text>
           ) : null}
