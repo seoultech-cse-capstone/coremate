@@ -474,6 +474,7 @@ export default function ContentScreen() {
       return;
     }
 
+    suppressNextResetRef.current = true;
     router.push({
       pathname: "/solve",
       params: {
