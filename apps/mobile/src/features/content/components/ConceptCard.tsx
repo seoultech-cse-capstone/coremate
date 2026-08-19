@@ -64,11 +64,6 @@ export function ConceptCard({
           {resultLabel ? (
             <Text style={styles.result}>{resultLabel}</Text>
           ) : null}
-          {/* TODO(임시 디버그): 원인 파악되면 제거. 실제로 넘어오는 원본 값을 그대로 보여준다. */}
-          <Text style={styles.debug}>
-            DEBUG hasChapterCount={String(hasChapterCount)} chapterCount={String(chapterCount)}{" "}
-            resultLabel={String(resultLabel)} progress={String(progress)}
-          </Text>
         </View>
       </View>
 
@@ -140,11 +135,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginTop: 2,
-  },
-  debug: {
-    color: "#DC2626",
-    fontSize: 10,
-    marginTop: 4,
   },
   actions: {
     flexDirection: "row",

@@ -267,7 +267,10 @@ export default function ContentScreen() {
   const categoryLv2Query = useCategoryLv2List(
     currentDepth === "category2" ? parentId : null,
   );
-  const conceptsQuery = useConcepts(currentDepth === "concept" ? parentId : null);
+  const conceptsQuery = useConcepts(
+    currentDepth === "concept" ? parentId : null,
+    accessToken,
+  );
 
   const activeQuery =
     currentDepth === "subject"
