@@ -56,7 +56,9 @@ type ExamHistoryDisplayItem = {
   examType: string;
   scopePath: string[];
   date: string;
-  wrong: string;
+  /** "맞은 문제 수/전체 문제 수". 틀린 개수 기준이면 숫자가 정답 수인지 오답
+   * 수인지 헷갈린다는 피드백이 있어 정답 수 기준으로 통일한다. */
+  correct: string;
 };
 
 function formatCompletedDate(isoString: string): string {
@@ -101,7 +103,7 @@ function toExamHistoryDisplayItem(
     examType: sessionTypeLabel[summary.sessionType],
     scopePath,
     date: formatCompletedDate(summary.completedAt),
-    wrong: `${summary.wrongCount}/${summary.totalQuestionCount}`,
+    correct: `${summary.correctCount}/${summary.totalQuestionCount}`,
   };
 }
 
@@ -878,8 +880,8 @@ function ExamHistoryCard({
 
       <View style={styles.resultRow}>
         <View>
-          <Text style={styles.wrongLabel}>Wrong</Text>
-          <Text style={styles.wrongValue}>{item.wrong}</Text>
+          <Text style={styles.wrongLabel}>Correct</Text>
+          <Text style={styles.wrongValue}>{item.correct}</Text>
           <Text style={styles.scopePathText}>{item.scopePath.join("  >  ")}</Text>
         </View>
       </View>
