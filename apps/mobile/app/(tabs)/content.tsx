@@ -35,7 +35,7 @@ import {
   useConcepts,
   useSubjects,
 } from "../../src/features/content";
-import type { ChildCountKind, Subject } from "../../src/features/content";
+import type { ChildCountKind, Concept, Subject } from "../../src/features/content";
 import { useProblemSetProgress } from "../../src/features/progress";
 import { useDailyRewardLimits } from "../../src/features/reward";
 import {
@@ -45,8 +45,7 @@ import {
 
 type ContentDepth = "subject" | "category1" | "category2" | "concept";
 
-// 하위 단계 개수(chapterCount)는 ProblemSetController가 필요해 이번 범위에서는
-// 제외한다. 실제 서비스가 준비되면 이 자리를 채워 넣는다.
+// 하위 단계 개수(chapterCount) 조회가 아직 안 끝났을 때의 기본값.
 const PLACEHOLDER_CHAPTER_COUNT = 0;
 
 type ProblemSetItem = {
@@ -58,6 +57,8 @@ type ProblemSetItem = {
   thumbnailColor?: string;
   progress: number;
   hasSolved: boolean;
+  /** 개념 카드 전용: 완료 시 "3 / 5 정답" 같은 결과 요약 */
+  resultLabel?: string;
 };
 
 type TrailItem = {
@@ -120,6 +121,23 @@ function mapNode(
     chapterCount,
     progress: isCompleted ? 100 : 0,
     hasSolved: isCompleted,
+  };
+}
+
+// 개념 카드의 총 문제 수/정답 수는 진행률 API(ProgressController, 아직 더미 - #166)가
+// 아니라 개념 목록 API(ContentController)가 최고 점수 완료 회차 기준으로 이미 내려준다.
+function mapConcept(concept: Concept, title: string): ProblemSetItem {
+  const isCompleted = concept.status === "COMPLETED";
+  const hasResult = concept.totalQuestionCount !== null && concept.correctCount !== null;
+  return {
+    id: concept.conceptId,
+    title,
+    chapterCount: concept.totalQuestionCount ?? 0,
+    progress: isCompleted ? 100 : 0,
+    hasSolved: isCompleted,
+    resultLabel: isCompleted && hasResult
+      ? `${concept.correctCount} / ${concept.totalQuestionCount} 정답`
+      : undefined,
   };
 }
 
@@ -255,7 +273,8 @@ export default function ContentScreen() {
           : conceptsQuery;
 
   // 카드에 보여줄 "바로 하위 단계 개수"(예: 과목 카드엔 대분류 개수)를 병렬 조회한다.
-  // 개념 카드의 "문제 개수"는 ProblemSetController가 필요해 이번 범위에서는 제외한다.
+  // 개념 카드의 "문제 개수"는 여기 대상이 아니다 - concepts 목록 API가 이미
+  // totalQuestionCount/correctCount를 함께 내려줘서 mapConcept에서 바로 쓴다.
   const childCountKind: ChildCountKind =
     currentDepth === "subject"
       ? "category-lv1"
@@ -371,11 +390,9 @@ export default function ContentScreen() {
         return [...(conceptsQuery.data ?? [])]
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map((concept) =>
-            mapNode(
-              concept.conceptId,
+            mapConcept(
+              concept,
               pickLocalizedName(concept.conceptName, concept.conceptNameEn, language),
-              PLACEHOLDER_CHAPTER_COUNT,
-              completedByTargetId.get(concept.conceptId) ?? false,
             ),
           );
     }
@@ -580,6 +597,7 @@ export default function ContentScreen() {
                     Icon={item.Icon ?? currentThumbnail.Icon}
                     iconColor={item.iconColor ?? currentThumbnail.iconColor}
                     progress={item.progress}
+                    resultLabel={item.resultLabel}
                     startButtonLabel={currentStartButtonLabel}
                     thumbnailColor={
                       item.thumbnailColor ?? currentThumbnail.thumbnailColor

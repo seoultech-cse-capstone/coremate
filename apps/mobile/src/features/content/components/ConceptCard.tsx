@@ -11,6 +11,8 @@ type ConceptCardProps = {
   iconColor: string;
   Icon: LucideIcon;
   progress: number;
+  /** 완료된 경우 "3 / 5 정답" 같은 결과 요약. 없으면 표시하지 않는다. */
+  resultLabel?: string;
   startButtonLabel: string;
   thumbnailColor: string;
   title: string;
@@ -25,6 +27,7 @@ export function ConceptCard({
   iconColor,
   Icon,
   progress,
+  resultLabel,
   startButtonLabel,
   thumbnailColor,
   title,
@@ -53,6 +56,9 @@ export function ConceptCard({
           <Text style={styles.chapter}>
             {chapterCount} {countUnit}
           </Text>
+          {resultLabel ? (
+            <Text style={styles.result}>{resultLabel}</Text>
+          ) : null}
         </View>
       </View>
 
@@ -116,6 +122,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "400",
     lineHeight: 20,
+    marginTop: 2,
+  },
+  result: {
+    color: "#16C45B",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
     marginTop: 2,
   },
   actions: {
