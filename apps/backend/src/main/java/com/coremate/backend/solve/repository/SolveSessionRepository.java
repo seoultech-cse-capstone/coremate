@@ -93,4 +93,58 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
               AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
             """)
     long countDistinctSolvedConcepts(@Param("userId") Long userId);
+
+    /**
+     * 과목별 진행률의 "완료한 개념": 해당 과목 하위에서 COMPLETED 개념 문제집 세션을 가진 서로 다른 개념 수.
+     * 복습탭 카운팅(countDistinctSolvedConcepts)과 동일하게 COMPLETED 기준을 쓴다.
+     */
+    @Query("""
+            SELECT COUNT(DISTINCT s.concept.conceptId) FROM SolveSession s
+            WHERE s.userId = :userId
+              AND s.sessionType = com.coremate.backend.solve.dto.type.SolveSessionType.CONCEPT_PRACTICE
+              AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+              AND s.concept.categoryLv2.categoryLv1.subject.subjectId = :subjectId
+            """)
+    long countDistinctSolvedConceptsBySubject(@Param("userId") Long userId, @Param("subjectId") Long subjectId);
+
+    /**
+     * 문제집 완료 상태(모의고사)용: 지정 유형·부모 필터에 맞는 COMPLETED 모의고사 회차.
+     * 대상 레벨 id(subject/lv1/lv2)는 유형에 따라 세션에 채워진 값을 서비스에서 읽어 targetId로 쓴다.
+     * 개념 문제집(CONCEPT_PRACTICE)은 subject/lv1/lv2 가 null 이라 이 쿼리 대상이 아니다.
+     */
+    @Query("""
+            SELECT s FROM SolveSession s
+            LEFT JOIN s.subject subj
+            LEFT JOIN s.categoryLv1 lv1
+            LEFT JOIN s.categoryLv2 lv2
+            WHERE s.userId = :userId
+              AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+              AND s.sessionType = :sessionType
+              AND (:subjectId IS NULL OR subj.subjectId = :subjectId)
+              AND (:categoryLv1Id IS NULL OR lv1.categoryLv1Id = :categoryLv1Id)
+              AND (:categoryLv2Id IS NULL OR lv2.categoryLv2Id = :categoryLv2Id)
+            ORDER BY s.completedAt DESC
+            """)
+    List<SolveSession> findCompletedMockSessions(
+            @Param("userId") Long userId,
+            @Param("sessionType") SolveSessionType sessionType,
+            @Param("subjectId") Long subjectId,
+            @Param("categoryLv1Id") Long categoryLv1Id,
+            @Param("categoryLv2Id") Long categoryLv2Id);
+
+    /**
+     * 문제집 완료 상태(개념 문제집)용: 지정 중분류 하위 개념들의 COMPLETED 개념 문제집 회차.
+     * 개념 문제집 세션은 concept 만 채워지므로 중분류 필터는 concept.categoryLv2 경로로 건다.
+     */
+    @Query("""
+            SELECT s FROM SolveSession s
+            WHERE s.userId = :userId
+              AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+              AND s.sessionType = com.coremate.backend.solve.dto.type.SolveSessionType.CONCEPT_PRACTICE
+              AND (:categoryLv2Id IS NULL OR s.concept.categoryLv2.categoryLv2Id = :categoryLv2Id)
+            ORDER BY s.completedAt DESC
+            """)
+    List<SolveSession> findCompletedConceptPracticeSessions(
+            @Param("userId") Long userId,
+            @Param("categoryLv2Id") Long categoryLv2Id);
 }

@@ -17,4 +17,7 @@ public interface ConceptRepository extends JpaRepository<Concept, Long> {
 
     // 복습탭 개념 카운팅의 "총 개념": 전체 활성 개념 수
     long countByActiveTrue();
+
+    // 과목별 진행률의 "전체 개념 수": 해당 과목 하위의 전체 활성 개념 수
+    long countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(Long subjectId);
 }
