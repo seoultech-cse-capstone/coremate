@@ -36,6 +36,16 @@ jwt:
   access-token-expiry-sec: 3600
   refresh-token-expiry-sec: 604800
 
+# SignupEmailVerificationService 가 @Value 로 직접 읽는 값들. 없으면 플레이스홀더 해석 실패로
+# authService -> authController 순으로 빈 생성이 무너져 @SpringBootTest 컨텍스트가 전혀 뜨지 않는다.
+# main 과 같은 값을 쓴다.
+signup-email:
+  code-ttl-sec: 300
+  verified-ttl-sec: 1800
+  resend-cooldown-sec: 60
+  code-length: 6
+  max-verify-attempts: 5
+
 # PasswordResetService 가 @Value 로 직접 읽는 값들. 없으면 플레이스홀더 해석 실패로
 # @SpringBootTest 컨텍스트가 뜨지 않는다. main 과 같은 값을 쓴다.
 password-reset:
