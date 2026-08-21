@@ -58,8 +58,8 @@ export type FriendSubjectStat = {
   solvedQuestionCount: number;
   correctQuestionCount: number;
   wrongQuestionCount: number;
-  /** 0~1 사이 비율을 문자열로 준다(예: "0.75") */
-  achievementRate: string | null;
+  /** 과목별 학습 달성률(%). 0~100 실수다. */
+  achievementRate: number | null;
 };
 
 export type FriendProfile = {

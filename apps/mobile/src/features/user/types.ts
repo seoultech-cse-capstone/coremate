@@ -41,6 +41,6 @@ export type UserSubjectStat = {
   solvedQuestionCount: number;
   correctQuestionCount: number;
   wrongQuestionCount: number;
-  /** "0.75"처럼 0~1 사이 소수를 문자열로 내려준다. */
-  achievementRate: string;
+  /** 과목별 학습 달성률(%). 0~100 실수다. */
+  achievementRate: number;
 };

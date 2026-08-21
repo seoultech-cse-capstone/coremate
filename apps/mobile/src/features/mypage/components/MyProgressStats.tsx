@@ -95,7 +95,7 @@ export function MyProgressStats() {
   for (const stat of subjectStats) {
     const shortTitle = shortTitleBySubjectId.get(stat.subjectId);
     if (shortTitle) {
-      percentByShortTitle[shortTitle] = Math.round(parseFloat(stat.achievementRate) * 100);
+      percentByShortTitle[shortTitle] = Math.round(stat.achievementRate);
     }
   }
 

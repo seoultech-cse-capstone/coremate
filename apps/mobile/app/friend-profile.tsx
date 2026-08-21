@@ -59,8 +59,8 @@ export default function FriendProfileScreen() {
     const nameById = new Map(subjects.map((subject) => [subject.subjectId, subject.subjectName]));
     return (profile?.subjectStats ?? []).map((stat) => ({
       label: nameById.get(stat.subjectId) ?? `과목 ${stat.subjectId}`,
-      // achievementRate는 0~1 비율 문자열이다.
-      value: Number(stat.achievementRate ?? 0) * 100,
+      // achievementRate는 0~100 실수다.
+      value: stat.achievementRate ?? 0,
     }));
   }, [profile?.subjectStats, subjects]);
 

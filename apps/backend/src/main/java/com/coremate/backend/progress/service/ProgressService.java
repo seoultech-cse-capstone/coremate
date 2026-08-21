@@ -6,8 +6,10 @@ import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.progress.dto.response.ConceptCountSummaryResponse;
 import com.coremate.backend.progress.dto.response.ProblemSetProgressResponse;
 import com.coremate.backend.progress.dto.response.SubjectProgressResponse;
+import com.coremate.backend.solve.dto.response.SubjectQuestionCount;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
 import com.coremate.backend.solve.entity.SolveSession;
+import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -15,6 +17,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProgressService {
 
     private final ConceptRepository conceptRepository;
+    private final SolveLogRepository solveLogRepository;
     private final SolveSessionRepository solveSessionRepository;
     private final SubjectRepository subjectRepository;
 
@@ -46,11 +51,18 @@ public class ProgressService {
      * 홈 "Your Progress"가 쓰는 achievementRate 는 "완료한 개념 / 전체 개념" 비율(%)로 계산한다.
      * 완료 개념 기준은 복습탭 카운팅과 동일하게 COMPLETED 개념 문제집 세션이다.
      *
-     * 문제 수·모의고사 완료 수·육각형 스탯 점수 필드는 아직 어떤 화면도 사용하지 않아 0으로 둔다.
-     * (마이페이지 스탯 화면이 실제로 붙을 때 함께 집계한다.)
+     * 푼/맞힌/틀린 문제 수는 COMPLETED 회차의 solve_logs 를 과목별로 집계해 채운다.
+     * 마이페이지·친구 프로필의 과목별 스탯(FR-STAT-01)도 이 메서드를 재사용하므로,
+     * 과목별 지표의 산출 위치를 여기 한 곳으로 둔다.
+     *
+     * 모의고사 완료 수·육각형 스탯 점수는 산식이 확정되지 않아 0으로 둔다.
      */
     @Transactional(readOnly = true)
     public List<SubjectProgressResponse> getSubjectProgress(Long userId) {
+        Map<Long, SubjectQuestionCount> questionCountBySubject = solveLogRepository
+                .aggregateQuestionCountsBySubject(userId).stream()
+                .collect(Collectors.toMap(SubjectQuestionCount::subjectId, Function.identity()));
+
         return subjectRepository.findAllByActiveTrueOrderBySortOrderAsc().stream()
                 .map(subject -> {
                     long totalConceptCount = conceptRepository
@@ -61,9 +73,16 @@ public class ProgressService {
                             ? BigDecimal.valueOf(completedConceptCount * 100.0 / totalConceptCount)
                                     .setScale(1, RoundingMode.HALF_UP).doubleValue()
                             : 0.0;
+
+                    // 풀이 기록이 없는 과목은 집계 행 자체가 없다.
+                    SubjectQuestionCount counts = questionCountBySubject.get(subject.getSubjectId());
+                    int solvedQuestionCount = counts != null ? (int) counts.solvedCount() : 0;
+                    int correctQuestionCount = counts != null ? (int) counts.correctCount() : 0;
+
                     return new SubjectProgressResponse(
                             userId, subject.getSubjectId(), subject.getSubjectName(),
-                            0, 0, 0,
+                            solvedQuestionCount, correctQuestionCount,
+                            solvedQuestionCount - correctQuestionCount,
                             (int) completedConceptCount, (int) totalConceptCount,
                             0, 0, 0, achievementRate);
                 })
