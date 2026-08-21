@@ -8,7 +8,6 @@ import com.coremate.backend.friend.dto.response.FriendProfileResponse;
 import com.coremate.backend.friend.dto.response.FriendRequestResponse;
 import com.coremate.backend.friend.dto.response.FriendResponse;
 import com.coremate.backend.friend.dto.response.FriendSearchUserResponse;
-import com.coremate.backend.friend.dto.response.FriendSubjectStatResponse;
 import com.coremate.backend.friend.service.FriendService;
 import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.learninghistory.dto.response.LearningHistoryResponse;
@@ -99,15 +98,6 @@ public class FriendController {
             @PathVariable Long friendUserId
     ) {
         return friendService.getProfile(userDetails.getUserId(), friendUserId);
-    }
-
-    @Operation(summary = "친구 과목 통계 조회")
-    @GetMapping("/{friendUserId}/subject-stats")
-    public List<FriendSubjectStatResponse> getSubjectStats(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @PathVariable Long friendUserId
-    ) {
-        return friendService.getSubjectStats(userDetails.getUserId(), friendUserId);
     }
 
     @Operation(summary = "친구 Learning History 조회",
