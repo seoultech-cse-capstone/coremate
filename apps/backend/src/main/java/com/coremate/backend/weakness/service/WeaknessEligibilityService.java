@@ -55,6 +55,8 @@ public class WeaknessEligibilityService {
         int wrongCount = (int) logs.stream().filter(l -> !l.isCorrect()).count();
         int longTimeCount = (int) logs.stream().filter(this::isLongTime).count();
         int hintUsedCount = (int) logs.stream().filter(SolveLog::isHintUsed).count();
+        // 답 변경은 eligible 판정에 넣지 않는다. FR-WEAK-03 기준 핵심 신호가 아니라 보조 참고값이다.
+        int answerChangedCount = (int) logs.stream().filter(SolveLog::isAnswerChanged).count();
 
         boolean eligible = questionCount >= props.getMinQuestionCount() && (wrongCount + longTimeCount + hintUsedCount) > 0;
         String warning = eligible ? null
@@ -82,6 +84,7 @@ public class WeaknessEligibilityService {
                 wrongCount,
                 longTimeCount,
                 hintUsedCount,
+                answerChangedCount,
                 session.getCompletedAt(),
                 eligible,
                 warning);

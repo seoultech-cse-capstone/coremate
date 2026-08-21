@@ -112,11 +112,7 @@ public class WeaknessAnalysisService {
         Long subjectId = subject != null ? subject.getSubjectId() : null;
         String scopeName = subject != null ? subject.getSubjectName() : null;
 
-        // 생성 비용은 feature_access_products 정책에서 읽는다. 정책 행이 없으면
-        // weakness.analysis.coin-cost 설정값으로 떨어진다(시드 미적용 환경 대비).
-        // 프리미엄 구독 판정은 구독 도메인이 생기면 붙인다. 지금은 무과금 가격을 쓴다.
-        int coinCost = featureAccessPricingService.priceCoinOf(
-                FeatureAccessPricingService.WEAKNESS_ANALYSIS_CREATE, false, props.getCoinCost());
+        int coinCost = getCreateCoinCost();
 
         // 리포트 저장(REQUESTED) 후 코인 차감(참조 연결). AI 실패 시 트랜잭션 롤백으로 코인 원복.
         WeaknessAnalysisReport report = reportRepository.save(WeaknessAnalysisReport.builder()
@@ -464,7 +460,7 @@ public class WeaknessAnalysisService {
         return new EligibleSolveSessionResponse(
                 session.getSolveSessionId(), session.getSolveSessionTitleSnapshot(), null,
                 null, null, null, null, null, null, null, null,
-                null, session.getWrongCountSnapshot(), null, null, null, true, null);
+                null, session.getWrongCountSnapshot(), null, null, null, null, true, null);
     }
 
     private WeaknessAnalysisReportDetailResponse buildDetail(WeaknessAnalysisReport report,
@@ -509,7 +505,7 @@ public class WeaknessAnalysisService {
                 lv1 != null ? lv1.getCategoryLv1Id() : null, lv1 != null ? lv1.getCategoryLv1Name() : null,
                 lv2 != null ? lv2.getCategoryLv2Id() : null, lv2 != null ? lv2.getCategoryLv2Name() : null,
                 null, null,
-                session.getTotalQuestionCount(), session.getWrongCount(), null, null,
+                session.getTotalQuestionCount(), session.getWrongCount(), null, null, null,
                 session.getCompletedAt(), true, null);
     }
 
@@ -555,6 +551,22 @@ public class WeaknessAnalysisService {
             return List.of();
         }
         return objectMapper.readValue(json, new tools.jackson.core.type.TypeReference<List<String>>() {});
+    }
+
+    /**
+     * 분석표 1건 생성에 필요한 코인. 생성 비용은 feature_access_products 정책에서 읽고,
+     * 정책 행이 없으면 weakness.analysis.coin-cost 설정값으로 떨어진다(시드 미적용 환경 대비).
+     *
+     * <p>생성 요청과 사전 조회(SCR-WEAK-03 "필요한 코인")가 이 메서드를 함께 쓰므로 화면에
+     * 안내한 값과 실제 차감액이 어긋나지 않는다.
+     *
+     * <p>프리미엄 구독 판정은 구독 도메인(user_subscriptions)이 없어 아직 붙이지 못한다.
+     * 그래서 FR-PAY-01의 "프리미엄 50코인"이 적용되지 않고 전원 무과금 가격을 낸다.
+     */
+    @Transactional(readOnly = true)
+    public int getCreateCoinCost() {
+        return featureAccessPricingService.priceCoinOf(
+                FeatureAccessPricingService.WEAKNESS_ANALYSIS_CREATE, false, props.getCoinCost());
     }
 
     private String buildFingerprint(Long userId, List<Long> sessionIds) {
