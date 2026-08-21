@@ -8,7 +8,6 @@ import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
-import com.coremate.backend.user.dto.response.UserLearningProgressResponse;
 import com.coremate.backend.progress.service.ProgressService;
 import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
 import com.coremate.backend.user.dto.response.UserSummaryResponse;
@@ -78,17 +77,6 @@ public class UserService {
         }
 
         user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
-    }
-
-    public UserLearningProgressResponse getLearningProgress(Long userId) {
-        User user = findUser(userId);
-        return UserLearningProgressResponse.builder()
-                .userId(user.getUserId())
-                .completedConceptCount(0)
-                .completedCategoryMockCount(0)
-                .completedSubjectMockCount(0)
-                .overallAchievementRate("0.00")
-                .build();
     }
 
     /**
