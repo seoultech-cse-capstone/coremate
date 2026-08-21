@@ -2,18 +2,16 @@ import { httpClient } from "../../shared/api/httpClient";
 import type {
   ApiEnvelope,
   ConceptCountSummary,
-  ConceptProgress,
   ProblemSetProgress,
   ProblemSetProgressFilters,
   SubjectProgress,
 } from "./types";
 
 /**
- * 학습 진행률 REST 호출.
+ * 학습 진행률 REST 호출. 세 엔드포인트 모두 백엔드가 실제 DB 조회로 응답한다.
  *
- * subjects/problem-sets/concepts 3개는 백엔드가 아직 DB 연동 전 더미 데이터를
- * 반환한다(ProgressController 주석 확인, 2026-08). 실제 값으로 바뀌면 이 파일
- * 수정 없이 그대로 동작한다.
+ * userId 쿼리 파라미터는 백엔드가 @AuthenticationPrincipal 로 바뀌면서 무시된다.
+ * 호출 자체는 정상 동작하므로 남겨 두었다.
  */
 export const progressApi = {
   getConceptCountSummary(accessToken: string): Promise<ConceptCountSummary> {
@@ -55,19 +53,6 @@ export const progressApi = {
       .get<ApiEnvelope<ProblemSetProgress[]>>(`/api/v1/progress/problem-sets?${params}`, {
         accessToken,
       })
-      .then((res) => res.data);
-  },
-
-  getConceptProgress(
-    accessToken: string,
-    userId: number,
-    categoryLv2Id: number,
-  ): Promise<ConceptProgress[]> {
-    return httpClient
-      .get<ApiEnvelope<ConceptProgress[]>>(
-        `/api/v1/progress/concepts?userId=${userId}&categoryLv2Id=${categoryLv2Id}`,
-        { accessToken },
-      )
       .then((res) => res.data);
   },
 };

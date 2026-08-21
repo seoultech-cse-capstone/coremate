@@ -56,15 +56,3 @@ export type ProblemSetProgress = {
   completedCount: number;
   lastCompletedAt: string | null;
 };
-
-/** GET /api/v1/progress/concepts 응답. ConceptProgressResponse와 1:1 대응 */
-export type ConceptProgress = {
-  userConceptProgressId: number;
-  userId: number;
-  conceptId: number;
-  conceptName: string;
-  categoryLv2Id: number;
-  isCompleted: boolean;
-  completedSolveSessionId: number | null;
-  completedAt: string | null;
-};

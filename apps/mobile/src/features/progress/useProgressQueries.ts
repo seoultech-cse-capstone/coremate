@@ -39,20 +39,3 @@ export function useProblemSetProgress(
     enabled: accessToken !== null && userId !== null,
   });
 }
-
-export function useConceptProgress(
-  accessToken: string | null,
-  userId: number | null,
-  categoryLv2Id: number | null,
-) {
-  return useQuery({
-    queryKey: ["progress", "concepts", userId, categoryLv2Id],
-    queryFn: () =>
-      progressApi.getConceptProgress(
-        accessToken as string,
-        userId as number,
-        categoryLv2Id as number,
-      ),
-    enabled: accessToken !== null && userId !== null && categoryLv2Id !== null,
-  });
-}
