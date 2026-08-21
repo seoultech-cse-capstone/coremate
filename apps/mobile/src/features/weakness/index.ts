@@ -2,6 +2,7 @@ export { weaknessApi } from "./weaknessApi";
 export type { EligibleSolveSessionFilters } from "./weaknessApi";
 export {
   useEligibleSolveSessions,
+  useWeaknessAnalysisCost,
   useWeaknessReportDetail,
   useWeaknessReports,
 } from "./useWeaknessQueries";

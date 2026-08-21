@@ -466,8 +466,15 @@ export default function LogWeakScreen() {
         totalWrongCount: sum.totalWrongCount + session.wrongCount,
         totalLongTimeCount: sum.totalLongTimeCount + session.longTimeCount,
         totalHintUsedCount: sum.totalHintUsedCount + session.hintUsedCount,
+        totalAnswerChangedCount: sum.totalAnswerChangedCount + session.answerChangedCount,
       }),
-      { totalQuestionCount: 0, totalWrongCount: 0, totalLongTimeCount: 0, totalHintUsedCount: 0 },
+      {
+        totalQuestionCount: 0,
+        totalWrongCount: 0,
+        totalLongTimeCount: 0,
+        totalHintUsedCount: 0,
+        totalAnswerChangedCount: 0,
+      },
     );
 
     router.push({
@@ -484,6 +491,7 @@ export default function LogWeakScreen() {
         totalWrongCount: String(totals.totalWrongCount),
         totalLongTimeCount: String(totals.totalLongTimeCount),
         totalHintUsedCount: String(totals.totalHintUsedCount),
+        totalAnswerChangedCount: String(totals.totalAnswerChangedCount),
       },
     });
   };
