@@ -161,15 +161,6 @@ public class FriendService {
         return toFriendProfileResponse(friendUser);
     }
 
-    /**
-     * 친구 프로필의 과목별 스탯(FR-STAT-01 관련 화면 = 친구 프로필). 본인 마이페이지와 같은
-     * progress 도메인 집계를 쓰되, 대상만 친구로 바꾼다. 친구 관계(ACCEPTED) 검증이 선행된다.
-     */
-    public List<FriendSubjectStatResponse> getSubjectStats(Long userId, Long friendUserId) {
-        validateAcceptedFriend(userId, friendUserId);
-        return toSubjectStats(friendUserId);
-    }
-
     // 친구 상세 프로필 Learning History 섹션. 친구 관계(ACCEPTED)인 경우에만 조회 가능하다. (FR-FRIEND-05)
     public LearningHistoryResponse getLearningHistory(Long userId, Long friendUserId) {
         validateAcceptedFriend(userId, friendUserId);
@@ -291,6 +282,11 @@ public class FriendService {
         );
     }
 
+    /**
+     * 친구 프로필의 과목별 스탯(FR-FRIEND-02 시스템처리 = 프로필 조회가 과목별 스탯을 함께 준다).
+     * 본인 마이페이지와 같은 progress 도메인 집계를 쓰되 대상만 친구로 바꾼다.
+     * 친구 관계(ACCEPTED) 검증은 호출부인 getProfile 이 먼저 수행한다.
+     */
     private List<FriendSubjectStatResponse> toSubjectStats(Long targetUserId) {
         return progressService.getSubjectProgress(targetUserId).stream()
                 .map(progress -> new FriendSubjectStatResponse(
