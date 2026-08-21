@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Bookmark, PackageOpen, ShoppingBag } from "lucide-react-native";
+import { Bookmark, CalendarCheck, Gift, PackageOpen, ShoppingBag } from "lucide-react-native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
@@ -26,6 +26,16 @@ const SHORT_TITLE_BY_SUBJECT_CODE: Record<string, string> = {
 };
 
 const actionItems = [
+  {
+    label: "출석 현황",
+    Icon: CalendarCheck,
+    route: "/attendance",
+  },
+  {
+    label: "보상 내역",
+    Icon: Gift,
+    route: "/reward-history",
+  },
   {
     label: "즐겨찾기 문제 목록",
     Icon: Bookmark,
