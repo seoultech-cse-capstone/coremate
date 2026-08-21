@@ -6,7 +6,6 @@ import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
-import com.coremate.backend.user.dto.response.UserLearningProgressResponse;
 import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
 import com.coremate.backend.user.dto.response.UserSummaryResponse;
 import com.coremate.backend.user.service.UserService;
@@ -61,13 +60,6 @@ public class UserController {
     public void changePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @Valid @RequestBody ChangePasswordRequest request) {
         userService.changePassword(userDetails.getUserId(), request);
-    }
-
-    @Operation(summary = "내 학습 진행도 조회")
-    @GetMapping("/me/progress")
-    public UserLearningProgressResponse getMyLearningProgress(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return userService.getLearningProgress(userDetails.getUserId());
     }
 
     @Operation(summary = "내 과목 통계 조회")
