@@ -23,7 +23,6 @@ import com.coremate.backend.solve.dto.request.SubmitAnswerRequest;
 import com.coremate.backend.solve.dto.response.CompleteSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.GuestAnswerResultResponse;
 import com.coremate.backend.solve.dto.response.QuestionSolveResponse;
-import com.coremate.backend.solve.dto.response.ResumeSessionResponse;
 import com.coremate.backend.solve.dto.response.StartSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.SubmitAnswerResponse;
 import com.coremate.backend.solve.dto.type.SolveSessionStatus;
@@ -339,35 +338,6 @@ public class SolveSessionService {
         return BigDecimal.valueOf(correctCount)
                 .multiply(BigDecimal.valueOf(100))
                 .divide(BigDecimal.valueOf(totalCount), 2, RoundingMode.HALF_UP);
-    }
-
-    @Transactional(readOnly = true)
-    public ResumeSessionResponse resumeSession(Long userId, Long conceptId) {
-        SolveSession session = solveSessionRepository
-                .findByUserIdAndConcept_ConceptIdAndStatus(userId, conceptId, SolveSessionStatus.IN_PROGRESS)
-                .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
-
-        List<Long> sessionQuestionIds = parseQuestionIds(session.getQuestionIdsJson());
-
-        List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
-
-        List<ResumeSessionResponse.AnsweredLog> answeredLogs = logs.stream()
-                .map(log -> new ResumeSessionResponse.AnsweredLog(
-                        log.getQuestion().getQuestionId(),
-                        log.getQuestionOrder(),
-                        log.getSelectedAnswer()
-                ))
-                .toList();
-
-        return new ResumeSessionResponse(
-                session.getSolveSessionId(),
-                session.getTitle(),
-                session.getSessionType(),
-                session.getTotalQuestionCount(),
-                session.getStartedAt(),
-                sessionQuestionIds,
-                answeredLogs
-        );
     }
 
     public StartSolveSessionResponse startCategoryLv1MockSession(Long userId, Long categoryLv1Id) {
