@@ -7,8 +7,8 @@ import com.coremate.backend.solve.dto.type.SolveSessionType;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 
 /**
  * 진행률 도메인에서 새로 추가한 조회 쿼리들이 H2(MySQL 모드)에서 실제로 파싱·실행되는지 검증한다.
