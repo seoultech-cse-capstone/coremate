@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
+import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ class ProgressQueryExecutionTest {
     private ConceptRepository conceptRepository;
 
     @Autowired
+    private SolveLogRepository solveLogRepository;
+
+    @Autowired
     private SolveSessionRepository solveSessionRepository;
 
     @Test
@@ -54,6 +58,15 @@ class ProgressQueryExecutionTest {
                 ABSENT_USER_ID, SolveSessionType.CATEGORY_LV1_MOCK, ABSENT_ID, null, null)).isEmpty();
         assertThat(solveSessionRepository.findCompletedMockSessions(
                 ABSENT_USER_ID, SolveSessionType.CATEGORY_LV2_MOCK, null, ABSENT_ID, null)).isEmpty();
+    }
+
+    /**
+     * 과목별 문항 카운트는 생성자 표현식 + 5단계 경로식(question -> concept -> categoryLv2 ->
+     * categoryLv1 -> subject) + CASE WHEN 집계라, 목킹 유닛 테스트로는 JPQL 유효성을 못 잡는다.
+     */
+    @Test
+    void 과목별_문항카운트_집계_쿼리가_실행된다() {
+        assertThat(solveLogRepository.aggregateQuestionCountsBySubject(ABSENT_USER_ID)).isEmpty();
     }
 
     @Test

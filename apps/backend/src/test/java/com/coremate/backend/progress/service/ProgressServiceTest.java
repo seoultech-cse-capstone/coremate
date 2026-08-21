@@ -11,8 +11,10 @@ import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.progress.dto.response.ConceptCountSummaryResponse;
 import com.coremate.backend.progress.dto.response.ProblemSetProgressResponse;
 import com.coremate.backend.progress.dto.response.SubjectProgressResponse;
+import com.coremate.backend.solve.dto.response.SubjectQuestionCount;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
 import com.coremate.backend.solve.entity.SolveSession;
+import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.solve.repository.SolveSessionRepository;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,9 @@ class ProgressServiceTest {
 
     @Mock
     private ConceptRepository conceptRepository;
+
+    @Mock
+    private SolveLogRepository solveLogRepository;
 
     @Mock
     private SolveSessionRepository solveSessionRepository;
@@ -72,6 +77,7 @@ class ProgressServiceTest {
         when(conceptRepository.countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(10L))
                 .thenReturn(40L);
         when(solveSessionRepository.countDistinctSolvedConceptsBySubject(userId, 10L)).thenReturn(12L);
+        when(solveLogRepository.aggregateQuestionCountsBySubject(userId)).thenReturn(List.of());
 
         List<SubjectProgressResponse> result = progressService.getSubjectProgress(userId);
 
@@ -82,6 +88,30 @@ class ProgressServiceTest {
         assertThat(subjectProgress.completedConceptCount()).isEqualTo(12);
         assertThat(subjectProgress.totalConceptCount()).isEqualTo(40);
         assertThat(subjectProgress.achievementRate()).isEqualTo(30.0);
+        // 집계 행이 없는 과목(풀이 기록 없음)은 문항 카운트가 0이어야 한다.
+        assertThat(subjectProgress.solvedQuestionCount()).isZero();
+        assertThat(subjectProgress.correctQuestionCount()).isZero();
+        assertThat(subjectProgress.wrongQuestionCount()).isZero();
+    }
+
+    @Test
+    void 과목별_문항_카운트는_solve_logs_집계에서_채우고_오답은_차이로_계산한다() {
+        long userId = 1L;
+        Subject subject = org.mockito.Mockito.mock(Subject.class);
+        when(subject.getSubjectId()).thenReturn(10L);
+        when(subject.getSubjectName()).thenReturn("자료구조");
+        when(subjectRepository.findAllByActiveTrueOrderBySortOrderAsc()).thenReturn(List.of(subject));
+        when(conceptRepository.countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(10L))
+                .thenReturn(40L);
+        when(solveSessionRepository.countDistinctSolvedConceptsBySubject(userId, 10L)).thenReturn(12L);
+        when(solveLogRepository.aggregateQuestionCountsBySubject(userId))
+                .thenReturn(List.of(new SubjectQuestionCount(10L, 50L, 38L)));
+
+        SubjectProgressResponse subjectProgress = progressService.getSubjectProgress(userId).get(0);
+
+        assertThat(subjectProgress.solvedQuestionCount()).isEqualTo(50);
+        assertThat(subjectProgress.correctQuestionCount()).isEqualTo(38);
+        assertThat(subjectProgress.wrongQuestionCount()).isEqualTo(12);
     }
 
     @Test
@@ -94,6 +124,7 @@ class ProgressServiceTest {
         when(conceptRepository.countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(10L))
                 .thenReturn(0L);
         when(solveSessionRepository.countDistinctSolvedConceptsBySubject(userId, 10L)).thenReturn(0L);
+        when(solveLogRepository.aggregateQuestionCountsBySubject(userId)).thenReturn(List.of());
 
         List<SubjectProgressResponse> result = progressService.getSubjectProgress(userId);
 
