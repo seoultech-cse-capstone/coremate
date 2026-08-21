@@ -1,3 +1,15 @@
 export { rewardApi } from "./rewardApi";
-export { useDailyRewardLimits } from "./useRewardQueries";
-export type { DailyRewardLimit } from "./types";
+export {
+  useCurrencyLogs,
+  useDailyRewardLimits,
+  useRewardLogs,
+  useRewardSummary,
+  useXpLogs,
+} from "./useRewardQueries";
+export type {
+  CurrencyLog,
+  DailyRewardLimit,
+  RewardLog,
+  RewardSummary,
+  XpLog,
+} from "./types";
