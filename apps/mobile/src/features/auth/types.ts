@@ -35,6 +35,45 @@ export type ReissueRequest = {
   refreshToken: string;
 };
 
+export type WithdrawRequest = {
+  password: string;
+};
+
+export type FindEmailRequest = {
+  name: string;
+  phoneNumber: string;
+};
+
+/** POST /api/auth/find-email 응답 */
+export type FindEmailResponse = {
+  emails: string[];
+};
+
+export type SendPasswordResetCodeRequest = {
+  email: string;
+};
+
+/** POST /api/auth/password/reset-code 응답 */
+export type PasswordResetCodeResponse = {
+  expiresInSec: number;
+};
+
+export type VerifyPasswordResetCodeRequest = {
+  email: string;
+  code: string;
+};
+
+/** POST /api/auth/password/verify-code 응답 */
+export type PasswordResetTokenResponse = {
+  resetToken: string;
+  expiresInSec: number;
+};
+
+export type ResetPasswordRequest = {
+  resetToken: string;
+  newPassword: string;
+};
+
 export type SendSignupCodeRequest = {
   email: string;
 };

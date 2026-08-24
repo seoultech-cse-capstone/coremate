@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   CreateWeaknessAnalysisReportRequest,
   EligibleSolveSession,
+  WeaknessAnalysisCost,
   WeaknessAnalysisReportDetail,
   WeaknessAnalysisReportSummary,
 } from "./types";
@@ -42,6 +43,15 @@ export const weaknessApi = {
         `/api/v1/weakness/eligible-solve-sessions${query ? `?${query}` : ""}`,
         { accessToken },
       )
+      .then((res) => res.data);
+  },
+
+  // 생성 확인 화면(SCR-WEAK-03)의 "필요한 코인". 생성 요청과 같은 정책을 읽으므로 실제 차감액과 같다.
+  getAnalysisCost(accessToken: string): Promise<WeaknessAnalysisCost> {
+    return httpClient
+      .get<ApiEnvelope<WeaknessAnalysisCost>>("/api/v1/weakness/analysis-cost", {
+        accessToken,
+      })
       .then((res) => res.data);
   },
 

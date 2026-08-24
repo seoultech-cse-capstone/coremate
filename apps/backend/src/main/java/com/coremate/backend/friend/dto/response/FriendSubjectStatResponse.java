@@ -8,6 +8,6 @@ public record FriendSubjectStatResponse(
         @Schema(example = "120") Integer solvedQuestionCount,
         @Schema(example = "90") Integer correctQuestionCount,
         @Schema(example = "30") Integer wrongQuestionCount,
-        @Schema(example = "0.75") String achievementRate
+        @Schema(description = "과목별 학습 달성률(%). 0.0 ~ 100.0", example = "30.0") Double achievementRate
 ) {
 }

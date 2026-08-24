@@ -38,12 +38,4 @@ public class FeatureAccessPricingService {
                     return fallbackPrice;
                 });
     }
-
-    /** 월간 생성 한도. 정책 행이 없거나 한도가 없으면 null(무제한). */
-    @Transactional(readOnly = true)
-    public Integer monthlyLimitOf(String featureType, boolean premium) {
-        return featureAccessProductRepository.findByFeatureTypeAndActiveTrue(featureType)
-                .map(product -> product.monthlyLimitFor(premium))
-                .orElse(null);
-    }
 }

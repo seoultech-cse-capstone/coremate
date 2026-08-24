@@ -8,11 +8,14 @@ import { FONT } from "../../../../constants/fonts";
 
 type SettingsDetailLayoutProps = PropsWithChildren<{
   title: string;
+  /** 기본은 이전 화면으로 나가기. 화면 안에 단계가 있으면 이전 단계로 되돌리는 용도로 덮어쓸 수 있다. */
+  onBack?: () => void;
 }>;
 
 export function SettingsDetailLayout({
   children,
   title,
+  onBack,
 }: SettingsDetailLayoutProps) {
   return (
     <View style={styles.screen}>
@@ -24,7 +27,7 @@ export function SettingsDetailLayout({
               accessibilityRole="button"
               hitSlop={10}
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={onBack ?? (() => router.back())}
             >
               <ChevronLeft color="#111827" size={28} strokeWidth={2.3} />
             </Pressable>

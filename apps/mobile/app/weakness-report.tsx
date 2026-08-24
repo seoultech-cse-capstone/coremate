@@ -123,6 +123,57 @@ function StatItem({ label, value }: { label: string; value: number }) {
   );
 }
 
+// 서버 enum → 화면 문구. 빠진 값이 있으면 원시 코드가 그대로 노출되므로 서버 정의 전체를 담는다.
+const WEAKNESS_TYPE_LABEL: Record<string, string> = {
+  CONCEPT_CONFUSION: "개념 혼동",
+  APPLICATION_GAP: "적용 부족",
+  SPEED_FLUENCY: "속도·숙련 부족",
+  EXECUTION_ERROR: "풀이 실행 오류",
+};
+
+const TYPE_SOURCE_LABEL: Record<string, string> = {
+  AI: "AI 해석",
+  BOTH: "AI·풀이 기록 일치",
+  NONE: "판정 보류",
+};
+
+const CAUSE_CODE_LABEL: Record<string, string> = {
+  TERM_CONFUSION: "용어 혼동",
+  RELATIONSHIP_MAPPING_GAP: "개념 관계 연결 부족",
+  APPLICATION_GAP: "적용 부족",
+  PROCEDURE_FLUENCY_GAP: "절차 숙련 부족",
+  REPEATED_MISCONCEPTION: "같은 오개념 반복",
+  CARELESS_EXECUTION: "실수·부주의",
+};
+
+const ANALYSIS_STATUS_LABEL: Record<string, string> = {
+  SUPPORTED: "근거 충분",
+  AMBIGUOUS: "근거 모호",
+  INSUFFICIENT: "근거 부족",
+};
+
+const SECONDARY_SIGNAL_LABEL: Record<string, string> = {
+  REPEATED_MISCONCEPTION: "같은 오개념 반복",
+  CONCEPT_RELATION_CONFUSION: "개념 관계 혼동",
+  HINT_DEPENDENCY: "힌트 의존",
+  SLOW_FLUENCY: "풀이 속도 느림",
+  INCONSISTENT_EXECUTION: "풀이 일관성 부족",
+};
+
+const EVIDENCE_TYPE_LABEL: Record<string, string> = {
+  WRONG: "오답",
+  LONG_TIME: "오래 걸림",
+  HINT_USED: "힌트 사용",
+  ANSWER_CHANGED: "답 변경",
+};
+
+function label(map: Record<string, string>, key: string | null): string {
+  if (key === null) {
+    return "-";
+  }
+  return map[key] ?? key;
+}
+
 function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
   const learning = concept.conceptLearning;
   return (
@@ -133,14 +184,19 @@ function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
       </View>
 
       <Text style={styles.metaText}>
-        유형 {concept.finalType} ({concept.finalTypeSource}) · 원인 {concept.causeCode} · 근거 강도{" "}
-        {concept.evidenceStrength} · 상태 {concept.analysisStatus}
+        유형 {label(WEAKNESS_TYPE_LABEL, concept.finalType)} (
+        {label(TYPE_SOURCE_LABEL, concept.finalTypeSource)}) · 원인{" "}
+        {label(CAUSE_CODE_LABEL, concept.causeCode)} · 근거 강도 {concept.evidenceStrength} · 상태{" "}
+        {label(ANALYSIS_STATUS_LABEL, concept.analysisStatus)}
       </Text>
       {concept.confusedRelation ? (
         <Text style={styles.metaText}>혼동 개념: {concept.confusedRelation}</Text>
       ) : null}
       {concept.secondarySignals.length > 0 ? (
-        <Text style={styles.metaText}>부가 신호: {concept.secondarySignals.join(", ")}</Text>
+        <Text style={styles.metaText}>
+          부가 신호:{" "}
+          {concept.secondarySignals.map((s) => label(SECONDARY_SIGNAL_LABEL, s)).join(", ")}
+        </Text>
       ) : null}
 
       <Text style={styles.diagnosisText}>{concept.diagnosis}</Text>
@@ -216,7 +272,9 @@ function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
 function EvidenceLogRow({ evidence }: { evidence: WeaknessEvidenceLog }) {
   return (
     <View style={styles.evidenceRow}>
-      <Text style={styles.evidenceType}>{evidence.evidenceType}</Text>
+      <Text style={styles.evidenceType}>
+        {label(EVIDENCE_TYPE_LABEL, evidence.evidenceType)}
+      </Text>
       <Text style={styles.subBoxText}>{evidence.questionText}</Text>
       <Text style={styles.evidenceDetailText}>
         정답 여부: {evidence.isCorrect === null ? "-" : evidence.isCorrect ? "정답" : "오답"} ·

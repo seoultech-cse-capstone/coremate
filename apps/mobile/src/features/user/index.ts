@@ -1,3 +1,10 @@
 export { userApi } from "./userApi";
-export { useMyProfile } from "./useUserQueries";
-export type { MyProfile } from "./types";
+export { useMyProfile, useMySubjectStats } from "./useUserQueries";
+export { getLevelProgress } from "./levelProgress";
+export type { LevelProgress } from "./levelProgress";
+export type {
+  MyProfile,
+  UpdateMyProfileRequest,
+  UpdateNicknameResult,
+  UserSubjectStat,
+} from "./types";

@@ -27,7 +27,10 @@ import { sessionTypeLabel } from "../../src/features/logWeak/types";
 import type { CompletedProblemSetSummary } from "../../src/features/logWeak/types";
 import { useCompletedProblemSets } from "../../src/features/logWeak/useCompletedProblemSets";
 import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelectionContext";
+import { useConceptCountSummary } from "../../src/features/progress";
+import type { ConceptCountSummary } from "../../src/features/progress";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
+import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 import {
   useEligibleSolveSessions,
   useWeaknessReports,
@@ -54,7 +57,9 @@ type ExamHistoryDisplayItem = {
   examType: string;
   scopePath: string[];
   date: string;
-  wrong: string;
+  /** "맞은 문제 수/전체 문제 수". 틀린 개수 기준이면 숫자가 정답 수인지 오답
+   * 수인지 헷갈린다는 피드백이 있어 정답 수 기준으로 통일한다. */
+  correct: string;
 };
 
 function formatCompletedDate(isoString: string): string {
@@ -99,7 +104,7 @@ function toExamHistoryDisplayItem(
     examType: sessionTypeLabel[summary.sessionType],
     scopePath,
     date: formatCompletedDate(summary.completedAt),
-    wrong: `${summary.wrongCount}/${summary.totalQuestionCount}`,
+    correct: `${summary.correctCount}/${summary.totalQuestionCount}`,
   };
 }
 
@@ -161,12 +166,6 @@ const OVERSCROLL_BUFFER = 96;
 const BRAND_PURPLE = "#6D5DFB";
 const WEAKNESS_PURPLE = "#4E44A4";
 const PANEL_GRAY = "#F3F3F3";
-
-// 총 개념 수는 DB 전체 하위 개념 수, 완료 수는 문제를 푼 하위 개념 수를 의미한다.
-const conceptStats = {
-  totalCount: 500,
-  solvedConceptCount: 100,
-};
 
 export default function LogWeakScreen() {
   useRequireMember();
@@ -370,6 +369,8 @@ export default function LogWeakScreen() {
     categoryLv2NameById,
   ]);
 
+  const conceptCountSummaryQuery = useConceptCountSummary(accessToken);
+
   const weaknessReportsQuery = useWeaknessReports(accessToken);
   const weaknessReports = useMemo(
     () => weaknessReportsQuery.data ?? [],
@@ -466,8 +467,15 @@ export default function LogWeakScreen() {
         totalWrongCount: sum.totalWrongCount + session.wrongCount,
         totalLongTimeCount: sum.totalLongTimeCount + session.longTimeCount,
         totalHintUsedCount: sum.totalHintUsedCount + session.hintUsedCount,
+        totalAnswerChangedCount: sum.totalAnswerChangedCount + session.answerChangedCount,
       }),
-      { totalQuestionCount: 0, totalWrongCount: 0, totalLongTimeCount: 0, totalHintUsedCount: 0 },
+      {
+        totalQuestionCount: 0,
+        totalWrongCount: 0,
+        totalLongTimeCount: 0,
+        totalHintUsedCount: 0,
+        totalAnswerChangedCount: 0,
+      },
     );
 
     router.push({
@@ -484,6 +492,7 @@ export default function LogWeakScreen() {
         totalWrongCount: String(totals.totalWrongCount),
         totalLongTimeCount: String(totals.totalLongTimeCount),
         totalHintUsedCount: String(totals.totalHintUsedCount),
+        totalAnswerChangedCount: String(totals.totalAnswerChangedCount),
       },
     });
   };
@@ -523,17 +532,15 @@ export default function LogWeakScreen() {
     }
   }, [modeParam]);
 
-  const { refetch: refetchCompletedProblemSets } = completedProblemSetsQuery;
-
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
-      refetchCompletedProblemSets();
+      refetchActiveQueries();
     });
 
     return unsubscribe;
-  }, [navigation, refetchCompletedProblemSets]);
+  }, [navigation]);
 
   useEffect(() => {
     setBounceBackground(activePurple);
@@ -679,6 +686,7 @@ export default function LogWeakScreen() {
 
           <StatsSummary
             accentColor={activePurple}
+            conceptCountSummary={conceptCountSummaryQuery.data}
             isWrongNote={isWrongNote}
             weaknessReports={weaknessReports}
           />
@@ -777,10 +785,12 @@ export default function LogWeakScreen() {
 
 function StatsSummary({
   accentColor,
+  conceptCountSummary,
   isWrongNote,
   weaknessReports,
 }: {
   accentColor: string;
+  conceptCountSummary: ConceptCountSummary | undefined;
   isWrongNote: boolean;
   weaknessReports: WeaknessAnalysisReportSummary[];
 }) {
@@ -795,15 +805,16 @@ function StatsSummary({
 
   const stats = isWrongNote
     ? [
-        { value: conceptStats.totalCount.toString(), label: "총 개념" },
         {
-          value: conceptStats.solvedConceptCount.toString(),
+          value: (conceptCountSummary?.totalConceptCount ?? 0).toString(),
+          label: "총 개념",
+        },
+        {
+          value: (conceptCountSummary?.solvedConceptCount ?? 0).toString(),
           label: "풀었어요",
         },
         {
-          value: (
-            conceptStats.totalCount - conceptStats.solvedConceptCount
-          ).toString(),
+          value: (conceptCountSummary?.unsolvedConceptCount ?? 0).toString(),
           label: "아직 못풀었어요",
         },
       ]
@@ -876,8 +887,8 @@ function ExamHistoryCard({
 
       <View style={styles.resultRow}>
         <View>
-          <Text style={styles.wrongLabel}>Wrong</Text>
-          <Text style={styles.wrongValue}>{item.wrong}</Text>
+          <Text style={styles.resultLabel}>Correct</Text>
+          <Text style={styles.resultValue}>{item.correct}</Text>
           <Text style={styles.scopePathText}>{item.scopePath.join("  >  ")}</Text>
         </View>
       </View>
@@ -936,8 +947,8 @@ function EligibleSessionCard({
 
       <View style={styles.resultRow}>
         <View>
-          <Text style={styles.wrongLabel}>Wrong</Text>
-          <Text style={styles.wrongValue}>
+          <Text style={styles.resultLabel}>Wrong</Text>
+          <Text style={[styles.resultValue, styles.wrongResultValue]}>
             {item.wrongCount}/{item.totalQuestionCount}
           </Text>
           <Text style={styles.scopePathText}>{scopePath.join("  >  ")}</Text>
@@ -1271,18 +1282,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  wrongLabel: {
+  resultLabel: {
     color: "#6b7280",
     fontFamily: FONT.kufam,
     fontSize: 13,
     fontWeight: "500",
   },
-  wrongValue: {
+  resultValue: {
     marginTop: 5,
-    color: "#FF0000",
+    color: "#16C45B",
     fontFamily: FONT.kufam,
     fontSize: 15,
     fontWeight: "600",
+  },
+  // 오답 수는 많을수록 나쁜 값이라 정답 수와 같은 초록을 쓰면 안 된다.
+  wrongResultValue: {
+    color: "#ef4444",
   },
   scopePathText: {
     color: "#64748b",

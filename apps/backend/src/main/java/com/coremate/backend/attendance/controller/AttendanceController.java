@@ -33,13 +33,6 @@ public class AttendanceController {
         return attendanceService.getTodayAttendance(userDetails.getUserId());
     }
 
-    @Operation(summary = "출석 체크 상태 조회")
-    @PostMapping("/checkin")
-    public AttendanceResponse checkIn(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        // 출석 생성은 오늘의 퀴즈 제출에서만 수행하고, 이 API는 현재 출석 상태 확인용으로 둔다.
-        return attendanceService.getTodayAttendance(userDetails.getUserId());
-    }
-
     @Operation(summary = "출석 캘린더 조회")
     @GetMapping("/calendar")
     public AttendanceCalendarResponse getCalendar(

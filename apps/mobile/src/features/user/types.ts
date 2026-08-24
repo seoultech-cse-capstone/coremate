@@ -19,3 +19,28 @@ export type MyProfile = {
   /** 가장 최근 출석일. 출석 기록이 없으면 null */
   lastAttendanceDate: string | null;
 };
+
+/** PUT /api/users/me 요청. UpdateUserProfileRequest와 1:1 대응 */
+export type UpdateMyProfileRequest = {
+  nickname?: string;
+  schoolName?: string;
+  schoolEmail?: string;
+};
+
+/** PATCH /api/users/me/nickname 응답. UserSummaryResponse와 1:1 대응 */
+export type UpdateNicknameResult = {
+  userId: number;
+  nickname: string;
+  level: number;
+  avatarImageUrl: string | null;
+};
+
+/** GET /api/users/me/subject-stats 항목. UserSubjectStatResponse와 1:1 대응 */
+export type UserSubjectStat = {
+  subjectId: number;
+  solvedQuestionCount: number;
+  correctQuestionCount: number;
+  wrongQuestionCount: number;
+  /** 과목별 학습 달성률(%). 0~100 실수다. */
+  achievementRate: number;
+};

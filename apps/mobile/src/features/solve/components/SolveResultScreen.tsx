@@ -23,8 +23,8 @@ type SolveResultScreenProps = {
   onRetry: () => void;
   isDailyQuiz?: boolean;
   onGoHome?: () => void;
-  /** 오늘의 퀴즈 완료 보상. isDailyQuiz일 때만 사용한다. */
-  dailyReward?: { xpAmount: number; coinAmount: number };
+  /** 이번 회차로 지급된 보상. 값이 있을 때만 보상 카드를 보여준다(게스트 완료는 보상이 없다). */
+  reward?: { xpAmount: number; coinAmount: number };
 };
 
 const sessionTypeLabel: Record<SolveSessionType, string> = {
@@ -46,7 +46,7 @@ export function SolveResultScreen({
   onRetry,
   isDailyQuiz = false,
   onGoHome,
-  dailyReward,
+  reward,
 }: SolveResultScreenProps) {
   const insets = useSafeAreaInsets();
   const wrongCount = totalCount - correctCount;
@@ -102,21 +102,23 @@ export function SolveResultScreen({
           </View>
         </View>
 
-        {isDailyQuiz && (
+        {reward && (
           <View style={styles.dailyRewardCard}>
             <CheckCircle2 color="#16a34a" size={22} strokeWidth={2.3} />
             <View style={styles.dailyRewardTextArea}>
-              <Text style={styles.dailyRewardTitle}>출석 완료</Text>
+              <Text style={styles.dailyRewardTitle}>
+                {isDailyQuiz ? "출석 완료" : "보상 지급 완료"}
+              </Text>
               <Text style={styles.dailyRewardText}>
-                오늘의 퀴즈 보상이 지급되었습니다.
+                {isDailyQuiz
+                  ? "오늘의 퀴즈 보상이 지급되었습니다."
+                  : "이번 회차 보상이 지급되었습니다."}
               </Text>
             </View>
             <Text style={styles.rewardValue}>
-              {dailyReward
-                ? `+${dailyReward.xpAmount} XP${
-                    dailyReward.coinAmount > 0 ? ` · +${dailyReward.coinAmount} 코인` : ""
-                  }`
-                : "-"}
+              {`+${reward.xpAmount} XP${
+                reward.coinAmount > 0 ? ` · +${reward.coinAmount} 코인` : ""
+              }`}
             </Text>
           </View>
         )}

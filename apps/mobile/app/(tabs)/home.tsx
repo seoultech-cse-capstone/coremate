@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useNavigation } from "expo-router";
-import { Bell, ListChecks } from "lucide-react-native";
+import { Bell, Coins, ListChecks } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import {
   type NativeScrollEvent,
@@ -16,8 +16,11 @@ import {
 import { FONT } from "../../constants/fonts";
 import { useAuth } from "../../src/features/auth";
 import { dailyQuizApi } from "../../src/features/dailyQuiz";
+import { useMyCurrency } from "../../src/features/currency";
 import { useUnreadCountQuery } from "../../src/features/notification";
+import { getLevelProgress, useMyProfile } from "../../src/features/user";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
+import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -36,11 +39,16 @@ export default function HomeScreen() {
   const isGuest = status === "guest";
   const panelTopOffset = Math.round(height * 0.46);
   const [dailyQuizSolved, setDailyQuizSolved] = useState(false);
+  const { data: profile } = useMyProfile(accessToken);
+  const { data: currency } = useMyCurrency(accessToken);
+  const level = profile?.level ?? 1;
+  const levelProgress = getLevelProgress(level, profile?.totalXp ?? 0);
 
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
+      refetchActiveQueries();
     });
 
     return unsubscribe;
@@ -109,6 +117,20 @@ export default function HomeScreen() {
       <View style={[styles.bottomPanel, { minHeight: height }]}>
         <View style={styles.panelContent}>
           <View style={styles.notificationRow}>
+            <View style={styles.identityGroup}>
+              {!isGuest ? (
+                <>
+                  <Text numberOfLines={1} style={styles.nicknameText}>
+                    {profile?.nickname ?? ""}
+                  </Text>
+                  <View style={styles.coinPill}>
+                    <Coins color="#B45309" size={13} strokeWidth={2.2} />
+                    <Text style={styles.coinText}>{currency?.coin ?? 0}</Text>
+                  </View>
+                </>
+              ) : null}
+            </View>
+
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={
@@ -133,9 +155,9 @@ export default function HomeScreen() {
               colors={["#6D5DFB", "#2EE6A6"]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
-              style={styles.levelBarFill}
+              style={[styles.levelBarFill, { width: `${levelProgress.percent}%` }]}
             >
-              <Text style={styles.levelText}>Lv.1</Text>
+              <Text style={styles.levelText}>Lv.{level}</Text>
             </LinearGradient>
           </View>
 
@@ -203,8 +225,37 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   notificationRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingBottom: 8,
+  },
+  identityGroup: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  nicknameText: {
+    flexShrink: 1,
+    color: "#1F2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  coinPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  coinText: {
+    color: "#B45309",
+    fontFamily: FONT.kufam,
+    fontSize: 12,
+    fontWeight: "700",
   },
   notificationButton: {
     width: 36,
@@ -256,7 +307,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   levelBarFill: {
-    width: "38%",
     height: "100%",
     justifyContent: "center",
     borderRadius: 12,

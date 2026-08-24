@@ -8,7 +8,7 @@ import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
-import com.coremate.backend.user.dto.response.UserLearningProgressResponse;
+import com.coremate.backend.progress.service.ProgressService;
 import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
 import com.coremate.backend.user.dto.response.UserSummaryResponse;
 import java.time.LocalDate;
@@ -28,6 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ProgressService progressService;
 
     public MyProfileResponse getMyProfile(Long userId) {
         User user = findUser(userId);
@@ -78,20 +79,24 @@ public class UserService {
         user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
     }
 
-    public UserLearningProgressResponse getLearningProgress(Long userId) {
-        User user = findUser(userId);
-        return UserLearningProgressResponse.builder()
-                .userId(user.getUserId())
-                .completedConceptCount(0)
-                .completedCategoryMockCount(0)
-                .completedSubjectMockCount(0)
-                .overallAchievementRate("0.00")
-                .build();
-    }
-
+    /**
+     * 마이페이지 육각형 스탯(FR-STAT-01). 과목별 지표는 progress 도메인이 단일 출처라
+     * 그대로 재사용하고 화면에 필요한 5개 필드만 추린다.
+     *
+     * <p>`user_subject_stats` 물리 테이블은 만들지 않는다(2026-08-21 결정). 조회 시점에
+     * solve_sessions/solve_logs 를 집계하므로 별도 갱신 처리나 백필이 필요 없다.
+     */
     public List<UserSubjectStatResponse> getSubjectStats(Long userId) {
         findUser(userId);
-        return List.of();
+        return progressService.getSubjectProgress(userId).stream()
+                .map(progress -> UserSubjectStatResponse.builder()
+                        .subjectId(progress.subjectId())
+                        .solvedQuestionCount(progress.solvedQuestionCount())
+                        .correctQuestionCount(progress.correctQuestionCount())
+                        .wrongQuestionCount(progress.wrongQuestionCount())
+                        .achievementRate(progress.achievementRate())
+                        .build())
+                .toList();
     }
 
     private User findUser(Long userId) {

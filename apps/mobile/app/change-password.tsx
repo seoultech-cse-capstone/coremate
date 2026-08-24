@@ -9,15 +9,17 @@ import {
 } from "../src/features/settings/components/SettingsDetailLayout";
 import { settingsApi } from "../src/features/settings/settingsApi";
 import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
+import {
+  PASSWORD_RULE,
+  PASSWORD_RULE_MESSAGE,
+} from "../src/shared/constants/passwordRule";
 
-// 회원가입 화면과 동일한 비밀번호 규약(대문자·소문자·숫자·특수문자 !@#$%^&* 포함 8자 이상).
-const PASSWORD_RULE =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-const PASSWORD_RULE_MESSAGE =
-  "비밀번호는 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해 8자 이상이어야 합니다.";
+
+type Step = "current" | "new";
 
 export default function ChangePasswordScreen() {
   const { accessToken } = useAuth();
+  const [step, setStep] = useState<Step>("current");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -30,6 +32,7 @@ export default function ChangePasswordScreen() {
     newPassword.length > 0 && !PASSWORD_RULE.test(newPassword);
   const passwordsMismatch =
     confirmPassword.length > 0 && newPassword !== confirmPassword;
+  const canGoToNewPasswordStep = currentPassword.length > 0;
   const canSubmit =
     currentPassword.length > 0 &&
     newPassword.length > 0 &&
@@ -50,7 +53,10 @@ export default function ChangePasswordScreen() {
       setIsSuccess(true);
     } catch (error) {
       if (getApiErrorCode(error) === "INVALID_PASSWORD") {
+        // 현재 비밀번호 확인은 실제로는 최종 제출 시점에만 검증되므로, 틀렸다면
+        // 그 값을 입력받은 단계로 되돌려서 바로 고칠 수 있게 한다.
         setCurrentPasswordInvalid(true);
+        setStep("current");
       } else {
         setErrorMessage(getApiErrorMessage(error, "비밀번호 변경에 실패했습니다."));
       }
@@ -72,26 +78,48 @@ export default function ChangePasswordScreen() {
     );
   }
 
-  return (
-    <SettingsDetailLayout title="비밀번호 변경">
-      <Text style={detailStyles.sectionTitle}>비밀번호</Text>
-      <View style={detailStyles.card}>
-        <Text style={detailStyles.label}>현재 비밀번호</Text>
-        <TextInput
-          secureTextEntry
-          style={detailStyles.field}
-          value={currentPassword}
-          onChangeText={(text) => {
-            setCurrentPassword(text);
-            setCurrentPasswordInvalid(false);
-          }}
-        />
-        {currentPasswordInvalid ? (
-          <Text style={styles.errorText}>현재 비밀번호가 올바르지 않습니다.</Text>
-        ) : null}
+  if (step === "current") {
+    return (
+      <SettingsDetailLayout title="비밀번호 변경">
+        <Text style={detailStyles.sectionTitle}>현재 비밀번호</Text>
+        <View style={detailStyles.card}>
+          <Text style={detailStyles.label}>현재 비밀번호</Text>
+          <TextInput
+            autoFocus
+            secureTextEntry
+            style={detailStyles.field}
+            value={currentPassword}
+            onChangeText={(text) => {
+              setCurrentPassword(text);
+              setCurrentPasswordInvalid(false);
+            }}
+          />
+          {currentPasswordInvalid ? (
+            <Text style={styles.errorText}>현재 비밀번호가 올바르지 않습니다.</Text>
+          ) : null}
 
-        <Text style={[detailStyles.label, { marginTop: 16 }]}>새 비밀번호</Text>
+          <Pressable
+            disabled={!canGoToNewPasswordStep}
+            style={[
+              detailStyles.primaryButton,
+              !canGoToNewPasswordStep && styles.disabledButton,
+            ]}
+            onPress={() => setStep("new")}
+          >
+            <Text style={detailStyles.primaryButtonText}>다음</Text>
+          </Pressable>
+        </View>
+      </SettingsDetailLayout>
+    );
+  }
+
+  return (
+    <SettingsDetailLayout title="비밀번호 변경" onBack={() => setStep("current")}>
+      <Text style={detailStyles.sectionTitle}>새 비밀번호</Text>
+      <View style={detailStyles.card}>
+        <Text style={detailStyles.label}>새 비밀번호</Text>
         <TextInput
+          autoFocus
           secureTextEntry
           style={detailStyles.field}
           value={newPassword}

@@ -17,11 +17,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import {
+  useRedirectIfAuthenticated,
   useSendSignupCodeMutation,
   useSignupMutation,
   useVerifySignupCodeMutation,
 } from "../src/features/auth";
 import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
+import {
+  PASSWORD_RULE,
+  PASSWORD_RULE_MESSAGE,
+} from "../src/shared/constants/passwordRule";
 
 const NAME_MAX_LENGTH = 50;
 // 이름은 한글 또는 영문만 허용한다(특수문자·숫자·공백 불가).
@@ -29,13 +34,6 @@ const NAME_RULE = /^[가-힣a-zA-Z]+$/;
 const NAME_RULE_MESSAGE = "이름은 한글 또는 영문만 입력할 수 있습니다.";
 const NICKNAME_MAX_LENGTH = 6;
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 각각 1개 이상 포함한 8자 이상.
-// 허용 문자는 영문/숫자/이 8개 특수문자로 제한한다.
-// TODO: 백엔드에도 동일 규약이 추가되면 함께 유지보수할 것 (현재 백엔드는 미검증).
-const PASSWORD_RULE =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-const PASSWORD_RULE_MESSAGE =
-  "비밀번호는 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해 8자 이상이어야 합니다.";
 // phone 상태값은 항상 숫자만 저장한다("01012345678"). 화면 표시용 하이픈은 formatPhoneNumber에서만 붙인다.
 const PHONE_RULE = /^01[016789]\d{7,8}$/;
 const PHONE_RULE_MESSAGE = "올바른 휴대폰 번호 형식이 아닙니다.";
@@ -246,6 +244,7 @@ function Reveal({ children }: { children: React.ReactNode }) {
 
 
 export default function RegisterScreen() {
+  useRedirectIfAuthenticated();
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
@@ -668,6 +667,8 @@ export default function RegisterScreen() {
                             editable={isReady}
                             autoCapitalize="none"
                             autoComplete="username"
+                            autoCorrect={false}
+                            spellCheck={false}
                             textContentType="username"
                             keyboardType="email-address"
                             placeholder="Email"
@@ -740,49 +741,29 @@ export default function RegisterScreen() {
                             </>
                           ) : (
                             <>
-                              <TextInput
-                                autoFocus
-                                editable={isReady}
-                                keyboardType="number-pad"
-                                maxLength={6}
-                                placeholder="인증번호 6자리"
-                                placeholderTextColor="#94a3b8"
-                                style={styles.input}
-                                value={verificationCode}
-                                onChangeText={(text) => {
-                                  setVerificationCode(
-                                    text.replace(/\D/g, "").slice(0, 6),
-                                  );
-                                  setCodeErrorMessage(null);
-                                }}
-                              />
-                              {codeErrorMessage ? (
-                                <Text style={styles.errorText}>{codeErrorMessage}</Text>
-                              ) : null}
-                              {sendCodeErrorMessage ? (
-                                <Text style={styles.errorText}>
-                                  {sendCodeErrorMessage}
-                                </Text>
-                              ) : null}
-                              <View style={styles.verifyActionRow}>
+                              <View style={styles.codeInputBox}>
+                                <TextInput
+                                  autoFocus
+                                  editable={isReady}
+                                  keyboardType="number-pad"
+                                  maxLength={6}
+                                  placeholder="인증번호 6자리"
+                                  placeholderTextColor="#94a3b8"
+                                  style={styles.codeInputField}
+                                  value={verificationCode}
+                                  onChangeText={(text) => {
+                                    setVerificationCode(
+                                      text.replace(/\D/g, "").slice(0, 6),
+                                    );
+                                    setCodeErrorMessage(null);
+                                  }}
+                                />
                                 <Pressable
-                                  disabled={resendCooldown > 0 || sendSignupCodeMutation.isPending}
-                                  onPress={handleSendCode}
-                                >
-                                  <Text
-                                    style={[
-                                      styles.resendText,
-                                      resendCooldown > 0 &&
-                                        styles.resendTextDisabled,
-                                    ]}
-                                  >
-                                    {resendCooldown > 0
-                                      ? `인증번호 재전송 (${resendCooldown}초)`
-                                      : "인증번호 재전송"}
-                                  </Text>
-                                </Pressable>
-                                <Pressable
-                                  style={styles.verifyConfirmButton}
+                                  style={[
+                                    styles.verifyConfirmButtonInline,
+                                    verifySignupCodeMutation.isPending &&
+                                      styles.buttonDisabled,
+                                  ]}
                                   disabled={verifySignupCodeMutation.isPending}
                                   onPress={handleVerifyCode}
                                 >
@@ -791,6 +772,31 @@ export default function RegisterScreen() {
                                   </Text>
                                 </Pressable>
                               </View>
+                              {codeErrorMessage ? (
+                                <Text style={styles.errorText}>{codeErrorMessage}</Text>
+                              ) : null}
+                              {sendCodeErrorMessage ? (
+                                <Text style={styles.errorText}>
+                                  {sendCodeErrorMessage}
+                                </Text>
+                              ) : null}
+                              <Pressable
+                                disabled={resendCooldown > 0 || sendSignupCodeMutation.isPending}
+                                style={styles.resendLink}
+                                onPress={handleSendCode}
+                              >
+                                <Text
+                                  style={[
+                                    styles.resendText,
+                                    resendCooldown > 0 &&
+                                      styles.resendTextDisabled,
+                                  ]}
+                                >
+                                  {resendCooldown > 0
+                                    ? `인증번호 재전송 (${resendCooldown}초)`
+                                    : "인증번호 재전송"}
+                                </Text>
+                              </Pressable>
                             </>
                           )}
                         </Reveal>
@@ -972,10 +978,33 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
   },
-  verifyActionRow: {
+  codeInputBox: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    backgroundColor: "#ffffff",
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 6,
+  },
+  codeInputField: {
+    flex: 1,
+    color: "#111827",
+    fontFamily: FONT.kufam,
+    fontSize: 16,
+    fontWeight: "500",
+    paddingVertical: 8,
+  },
+  verifyConfirmButtonInline: {
+    borderRadius: 10,
+    backgroundColor: "#6D5DFB",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  resendLink: {
+    alignSelf: "flex-start",
     marginTop: 12,
   },
   resendText: {
@@ -986,12 +1015,6 @@ const styles = StyleSheet.create({
   },
   resendTextDisabled: {
     color: "#cbd5e1",
-  },
-  verifyConfirmButton: {
-    borderRadius: 12,
-    backgroundColor: "#6D5DFB",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
   },
   verifyConfirmButtonText: {
     color: "#ffffff",

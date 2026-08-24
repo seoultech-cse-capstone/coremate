@@ -24,6 +24,14 @@ export function useEligibleSolveSessions(
   });
 }
 
+export function useWeaknessAnalysisCost(accessToken: string | null) {
+  return useQuery({
+    queryKey: ["weakness", "analysis-cost"],
+    queryFn: () => weaknessApi.getAnalysisCost(accessToken as string),
+    enabled: accessToken !== null,
+  });
+}
+
 export function useWeaknessReports(accessToken: string | null) {
   return useQuery({
     queryKey: ["weakness", "reports"],

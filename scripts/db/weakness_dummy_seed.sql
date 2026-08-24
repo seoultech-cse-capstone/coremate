@@ -102,7 +102,10 @@ INSERT INTO subject
     (subject_id, subject_code, subject_name, subject_name_en, sort_order, is_active,
      created_at, updated_at)
 VALUES
-    (9001, 'DEV_DS_WEAKNESS', '[DEV] 자료구조(약점분석)', 'Data Structures (DEV)', 90, 1,
+    -- is_active=0: 개발 시나리오 전용 과목이라 사용자 화면(문제집 목록·진행률·친구 프로필
+    -- 레이더)에 노출되면 안 된다. 백엔드 조회는 모두 active 필터를 타므로 이 값만으로 가려진다.
+    -- 이미 쌓인 solve_sessions·solve_logs 는 그대로 남아 약점분석 개발 데이터는 유지된다.
+    (9001, 'DEV_DS_WEAKNESS', '[DEV] 자료구조(약점분석)', 'Data Structures (DEV)', 90, 0,
      NOW(), NOW());
 
 -- 3-2) category_lv1 (subject_id FK NN)

@@ -29,6 +29,9 @@ export type CategoryLv2 = {
   isActive: boolean;
 };
 
+export type ConceptSolveStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+export type PassStatus = "PASS" | "FAIL";
+
 export type Concept = {
   conceptId: number;
   conceptCode: string;
@@ -36,7 +39,15 @@ export type Concept = {
   conceptName: string;
   conceptNameEn: string;
   oneLineDefinition: string;
-  isCompleted: boolean | null;
+  status: ConceptSolveStatus;
+  /** 최고 점수 완료 회차의 총 문제 수. 미완료면 null */
+  totalQuestionCount: number | null;
+  /** 최고 점수 완료 회차의 정답 수. 미완료면 null */
+  correctCount: number | null;
+  /** 합격 여부(전 문제 정답 시 PASS). 미완료면 null */
+  passStatus: PassStatus | null;
+  completedCount: number;
+  lastCompletedAt: string | null;
   sortOrder: number;
 };
 

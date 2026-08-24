@@ -5,6 +5,7 @@ import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportRequest;
 import com.coremate.backend.weakness.dto.response.EligibleSolveSessionResponse;
+import com.coremate.backend.weakness.dto.response.WeaknessAnalysisCostResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportSummaryResponse;
 import com.coremate.backend.weakness.service.WeaknessAnalysisService;
@@ -61,6 +62,17 @@ public class WeaknessAnalysisController {
         List<EligibleSolveSessionResponse> data = eligibilityService.getEligibleSessions(
                 userDetails.getUserId(), subjectId, categoryLv1Id, categoryLv2Id, conceptId);
         return ApiResponse.success("약점 분석 대상 후보 조회 성공", data);
+    }
+
+    @Operation(summary = "약점 분석표 생성 비용 조회",
+            description = "분석표 1건 생성에 필요한 코인을 조회한다. 생성 요청과 같은 정책 조회를 쓰므로 "
+                    + "여기서 안내한 값과 실제 차감액이 어긋나지 않는다. 생성 확인 화면(SCR-WEAK-03)이 사용한다.")
+    @GetMapping("/analysis-cost")
+    public ApiResponse<WeaknessAnalysisCostResponse> getAnalysisCost(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ApiResponse.success("약점 분석표 생성 비용 조회 성공",
+                new WeaknessAnalysisCostResponse(analysisService.getCreateCoinCost()));
     }
 
     @Operation(summary = "약점 분석표 생성",

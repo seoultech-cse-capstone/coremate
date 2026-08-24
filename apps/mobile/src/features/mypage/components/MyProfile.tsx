@@ -2,22 +2,22 @@ import { Image, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
 import { useAuth } from "../../auth";
-import { useMyProfile } from "../../user";
-
-// TODO: 레벨별 필요 XP 커브가 백엔드에 없어 진행률 바는 아직 임시값이다. 코인도
-// 별도 /api/currency/me 연동이 필요해 이번엔 손대지 않았다.
-const currentXp = 11111;
-const maxXp = 50000;
-const xpPercent = Math.round((currentXp / maxXp) * 1000) / 10;
+import { useMyCurrency } from "../../currency";
+import { getLevelProgress, useMyProfile } from "../../user";
 
 export function MyProfile() {
   const { accessToken } = useAuth();
   const { data: profile } = useMyProfile(accessToken);
+  const { data: currency } = useMyCurrency(accessToken);
+
+  const level = profile?.level ?? 1;
+  const totalXp = profile?.totalXp ?? 0;
+  const levelProgress = getLevelProgress(level, totalXp);
 
   const stats = [
-    { label: "Level", value: `Lv.${profile?.level ?? 1}` },
+    { label: "Level", value: `Lv.${level}` },
     { label: "Day Streak", value: `${profile?.attendanceCount ?? 0}` },
-    { label: "Coins", value: "120" },
+    { label: "Coins", value: `${currency?.coin ?? 0}` },
   ];
 
   return (
@@ -41,13 +41,15 @@ export function MyProfile() {
           <View style={styles.xpArea}>
             <View style={styles.xpTextRow}>
               <Text style={styles.xpText}>
-                {currentXp.toLocaleString()} / {maxXp.toLocaleString()}
+                {levelProgress.isMaxLevel
+                  ? "MAX"
+                  : `${levelProgress.currentLevelXp.toLocaleString()} / ${levelProgress.requiredLevelXp.toLocaleString()}`}
               </Text>
-              <Text style={styles.xpText}>{xpPercent}%</Text>
+              <Text style={styles.xpText}>{levelProgress.percent}%</Text>
             </View>
 
             <View style={styles.xpTrack}>
-              <View style={[styles.xpFill, { width: `${xpPercent}%` }]} />
+              <View style={[styles.xpFill, { width: `${levelProgress.percent}%` }]} />
             </View>
           </View>
         </View>

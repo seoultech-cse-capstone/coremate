@@ -63,10 +63,12 @@ export function useCategoryLv2List(categoryLv1Id: number | null) {
   });
 }
 
-export function useConcepts(categoryLv2Id: number | null) {
+export function useConcepts(categoryLv2Id: number | null, accessToken?: string | null) {
   return useQuery({
-    queryKey: ["content", "concepts", categoryLv2Id],
-    queryFn: () => contentApi.getConcepts(categoryLv2Id as number),
+    // accessToken 유무를 키에 포함해야, 로그인/로그아웃으로 값이 바뀔 때
+    // 이전 로그인 상태로 캐싱된 완료 상태를 그대로 보여주지 않는다.
+    queryKey: ["content", "concepts", categoryLv2Id, accessToken ?? null],
+    queryFn: () => contentApi.getConcepts(categoryLv2Id as number, accessToken),
     enabled: categoryLv2Id !== null,
   });
 }

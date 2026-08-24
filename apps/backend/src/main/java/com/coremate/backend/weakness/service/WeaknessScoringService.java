@@ -6,6 +6,7 @@ import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.solve.repository.SolveLogRepository;
 import com.coremate.backend.weakness.config.WeaknessAnalysisProperties;
 import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
+import com.coremate.backend.weakness.dto.type.EvidenceType;
 import com.coremate.backend.weakness.dto.type.WeaknessType;
 import com.coremate.backend.weakness.service.model.ConceptCandidate;
 import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
@@ -122,22 +123,37 @@ public class WeaknessScoringService {
     }
 
     private WeaknessEvidenceLogResponse toEvidence(SolveLog log) {
-        String evidenceType = !log.isCorrect() ? "WRONG"
-                : isLongTime(log) ? "LONG_TIME"
-                : log.isHintUsed() ? "HINT_USED"
-                : "ANSWER_CHANGED";
         return new WeaknessEvidenceLogResponse(
                 null,
                 log.getSolveLogId(),
                 log.getQuestion().getQuestionId(),
                 log.getQuestion().getQuestionText(),
-                evidenceType,
+                toEvidenceType(log),
                 log.getTimeSpentSec(),
                 log.getExpectedSolveSecSnapshot(),
                 log.getHintCount(),
                 log.getSelectedAnswer(),
                 log.getCorrectAnswerSnapshot(),
                 log.isCorrect());
+    }
+
+    /**
+     * 근거 유형. {@link #pickEvidence}가 오답·오래걸림·힌트 중 하나 이상을 만족하는 로그만 고르므로
+     * 셋으로 전부 덮인다.
+     *
+     * <p>{@code EvidenceType.ANSWER_CHANGED}는 여기서 만들지 않는다. 답 변경은 FR-WEAK-03 기준
+     * 핵심 판단 기준이 아니라 보조 참고 데이터이고, 화면에는 회차별 집계
+     * ({@code EligibleSolveSessionResponse.answerChangedCount})로 노출한다.
+     * enum 값 자체는 추후 분석 고도화용으로 남겨 둔다.
+     */
+    private String toEvidenceType(SolveLog log) {
+        if (!log.isCorrect()) {
+            return EvidenceType.WRONG.name();
+        }
+        if (isLongTime(log)) {
+            return EvidenceType.LONG_TIME.name();
+        }
+        return EvidenceType.HINT_USED.name();
     }
 
     private boolean isLongTime(SolveLog log) {

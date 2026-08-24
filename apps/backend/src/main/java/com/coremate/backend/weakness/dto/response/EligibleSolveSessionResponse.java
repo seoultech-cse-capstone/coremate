@@ -52,6 +52,9 @@ public record EligibleSolveSessionResponse(
         @Schema(description = "힌트 사용 문제 수", example = "1")
         Integer hintUsedCount,
 
+        @Schema(description = "답 변경 문제 수. 분석의 핵심 기준이 아니라 화면 표시용 보조 참고값이다(FR-WEAK-03)", example = "2")
+        Integer answerChangedCount,
+
         @Schema(description = "완료 시간")
         LocalDateTime completedAt,
 
