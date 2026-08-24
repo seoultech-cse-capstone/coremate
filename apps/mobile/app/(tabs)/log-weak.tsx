@@ -30,6 +30,7 @@ import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelection
 import { useConceptCountSummary } from "../../src/features/progress";
 import type { ConceptCountSummary } from "../../src/features/progress";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
+import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 import {
   useEligibleSolveSessions,
   useWeaknessReports,
@@ -531,17 +532,15 @@ export default function LogWeakScreen() {
     }
   }, [modeParam]);
 
-  const { refetch: refetchCompletedProblemSets } = completedProblemSetsQuery;
-
   useEffect(() => {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
-      refetchCompletedProblemSets();
+      refetchActiveQueries();
     });
 
     return unsubscribe;
-  }, [navigation, refetchCompletedProblemSets]);
+  }, [navigation]);
 
   useEffect(() => {
     setBounceBackground(activePurple);
@@ -888,8 +887,8 @@ function ExamHistoryCard({
 
       <View style={styles.resultRow}>
         <View>
-          <Text style={styles.wrongLabel}>Correct</Text>
-          <Text style={styles.wrongValue}>{item.correct}</Text>
+          <Text style={styles.resultLabel}>Correct</Text>
+          <Text style={styles.resultValue}>{item.correct}</Text>
           <Text style={styles.scopePathText}>{item.scopePath.join("  >  ")}</Text>
         </View>
       </View>
@@ -948,8 +947,8 @@ function EligibleSessionCard({
 
       <View style={styles.resultRow}>
         <View>
-          <Text style={styles.wrongLabel}>Wrong</Text>
-          <Text style={styles.wrongValue}>
+          <Text style={styles.resultLabel}>Wrong</Text>
+          <Text style={[styles.resultValue, styles.wrongResultValue]}>
             {item.wrongCount}/{item.totalQuestionCount}
           </Text>
           <Text style={styles.scopePathText}>{scopePath.join("  >  ")}</Text>
@@ -1283,18 +1282,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  wrongLabel: {
+  resultLabel: {
     color: "#6b7280",
     fontFamily: FONT.kufam,
     fontSize: 13,
     fontWeight: "500",
   },
-  wrongValue: {
+  resultValue: {
     marginTop: 5,
     color: "#16C45B",
     fontFamily: FONT.kufam,
     fontSize: 15,
     fontWeight: "600",
+  },
+  // 오답 수는 많을수록 나쁜 값이라 정답 수와 같은 초록을 쓰면 안 된다.
+  wrongResultValue: {
+    color: "#ef4444",
   },
   scopePathText: {
     color: "#64748b",

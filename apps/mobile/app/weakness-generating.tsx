@@ -79,7 +79,8 @@ export default function WeaknessGeneratingScreen() {
           params: { reportId: report.analysisReportId.toString() },
         });
       } catch (err) {
-        console.error("[weakness] 분석표 생성 실패", err);
+        // 근거 부족(WEAKNESS_INSUFFICIENT_EVIDENCE) 같은 정상 분기도 400 으로 오므로
+        // console.error 를 쓰지 않는다. 개발 빌드에서 화면을 덮는 에러 오버레이가 뜬다.
         setError(getApiErrorMessage(err, "분석표 생성에 실패했어요."));
       }
     })();

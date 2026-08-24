@@ -18,27 +18,44 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 /** 서버가 주는 enum 이름을 그대로 노출하지 않고 읽을 수 있는 말로 바꾼다. */
+// 서버 reward_logs.reward_type enum 전체. 빠진 값이 있으면 화면에 원시 코드가 그대로 노출된다.
 const REWARD_TYPE_LABEL: Record<string, string> = {
+  STARTER_PACK: "가입 축하 보상",
   CONCEPT_PRACTICE_XP: "개념 문제집",
   CATEGORY_MOCK_XP: "챕터 모의고사",
   SUBJECT_MOCK_XP: "과목 모의고사",
-  CATEGORY_MOCK_COIN: "챕터 모의고사 코인",
-  SUBJECT_MOCK_COIN: "과목 모의고사 코인",
+  CATEGORY_MOCK_FIRST_PASS_COIN: "챕터 모의고사 첫 통과",
+  SUBJECT_MOCK_FIRST_PASS_COIN: "과목 모의고사 첫 통과",
   CATEGORY_MOCK_RETRY_COIN: "챕터 모의고사 재응시",
   SUBJECT_MOCK_RETRY_COIN: "과목 모의고사 재응시",
   DAILY_QUIZ_COMPLETE: "오늘의 퀴즈",
   DAILY_QUIZ_REWARD: "오늘의 퀴즈 보상",
   DAILY_QUIZ_ATTENDANCE: "오늘의 퀴즈 출석",
   ATTENDANCE_REWARD: "출석 보상",
+  LEVEL_UP_5: "레벨 5 달성",
+  LEVEL_UP_10: "레벨 10 달성",
+  LEVEL_UP_20: "레벨 20 달성",
+  LEVEL_UP_30: "레벨 30 달성",
+  LEVEL_UP_40: "레벨 40 달성",
+  LEVEL_UP_50: "레벨 50 달성",
+  RANDOM_BOX_REWARD: "랜덤박스 보상",
+  WEAKNESS_ANALYSIS_CREATE: "약점 분석표 생성",
+  FEATURE_ACCESS_GRANT: "기능 이용권",
   AD_REWARD: "광고 보상",
+  PAYMENT_COIN_PACKAGE: "코인 패키지 구매",
+  PREMIUM_SIGNUP_BONUS: "프리미엄 가입 보너스",
+  PREMIUM_DAILY_COIN: "프리미엄 일일 코인",
 };
 
+// 서버 reward_logs.skip_reason enum 전체.
 const SKIP_REASON_LABEL: Record<string, string> = {
   DAILY_LIMIT_EXCEEDED: "일일 한도 초과",
   ALREADY_REWARDED: "이미 받음",
   ALREADY_REWARDED_TODAY: "오늘 같은 범위에서 이미 받음",
   LOW_CORRECT_RATE: "정답률 미달",
-  FIRST_REWARD_ONLY: "최초 1회만 지급",
+  INSUFFICIENT_COIN: "코인 부족",
+  INVALID_REWARD_AMOUNT: "지급 금액 오류",
+  POLICY_NOT_FOUND: "보상 정책 없음",
 };
 
 function label(map: Record<string, string>, key: string | null) {

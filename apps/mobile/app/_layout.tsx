@@ -1,7 +1,9 @@
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { AppState } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -25,6 +27,17 @@ export default function RootLayout() {
     [FONT.pretendard]: require("../assets/fonts/PretendardVariable.ttf"),
     [FONT.kufam]: require("../assets/fonts/Kufam-VariableFont_wght.ttf"),
   });
+
+  // react-query 의 포커스 재조회는 웹의 window focus 이벤트를 전제한다.
+  // RN 에는 그 이벤트가 없어 직접 연결해 주지 않으면, 앱을 내렸다 올려도
+  // 그 사이 서버에서 바뀐 내용이 화면에 반영되지 않는다.
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      focusManager.setFocused(nextState === "active");
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   if (!fontsLoaded) {
     return null;
@@ -113,6 +126,8 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="weakness-report" options={{ headerShown: false }} />
+        <Stack.Screen name="attendance" options={{ headerShown: false }} />
+        <Stack.Screen name="reward-history" options={{ headerShown: false }} />
         <Stack.Screen name="device-management" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

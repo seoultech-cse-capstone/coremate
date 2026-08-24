@@ -16,12 +16,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FONT } from "../constants/fonts";
 import { authApi } from "../src/features/auth";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
+import {
+  PASSWORD_RULE,
+  PASSWORD_RULE_MESSAGE,
+} from "../src/shared/constants/passwordRule";
 
 // 회원가입 화면과 동일한 규약.
-const PASSWORD_RULE =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-const PASSWORD_RULE_MESSAGE =
-  "비밀번호는 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해 8자 이상이어야 합니다.";
 const PHONE_RULE = /^01[016789]\d{7,8}$/;
 const EMAIL_RULE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
