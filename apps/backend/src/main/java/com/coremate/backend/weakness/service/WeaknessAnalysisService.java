@@ -432,14 +432,23 @@ public class WeaknessAnalysisService {
         // 없으면 화면이 "13/ 오답"처럼 분모가 빈 채로 그려진다.
         List<WeaknessAnalysisSession> selected = sessionRepository
                 .findByReport_AnalysisReportIdOrderBySelectedOrderAsc(report.getAnalysisReportId());
-        Map<Long, SolveSession> solveSessionsById = weaknessSolveSessionRepository
-                .findAllById(selected.stream().map(WeaknessAnalysisSession::getSolveSessionId).toList())
-                .stream()
-                .collect(Collectors.toMap(SolveSession::getSolveSessionId, session -> session));
+        Map<Long, SolveSession> solveSessionsById = loadSolveSessions(selected);
         List<EligibleSolveSessionResponse> sessions = selected.stream()
                 .map(session -> toSelectedSession(session, solveSessionsById.get(session.getSolveSessionId())))
                 .toList();
         return buildDetailResponse(report, sessions, concepts);
+    }
+
+    /** 선택된 회차의 원본을 한 번에 읽어 id 로 찾을 수 있게 만든다. */
+    private Map<Long, SolveSession> loadSolveSessions(List<WeaknessAnalysisSession> selected) {
+        List<Long> solveSessionIds = selected.stream()
+                .map(WeaknessAnalysisSession::getSolveSessionId)
+                .toList();
+        if (solveSessionIds.isEmpty()) {
+            return Map.of();
+        }
+        return weaknessSolveSessionRepository.findAllById(solveSessionIds).stream()
+                .collect(Collectors.toMap(SolveSession::getSolveSessionId, session -> session));
     }
 
     /** 근거 로그가 가리키는 풀이 로그를 한 번에 읽어 id 로 찾을 수 있게 만든다. */
