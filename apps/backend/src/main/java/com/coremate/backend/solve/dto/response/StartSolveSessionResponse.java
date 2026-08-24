@@ -26,6 +26,9 @@ public record StartSolveSessionResponse(
         @Schema(description = "풀이 시작 시간. 비회원은 null")
         LocalDateTime startedAt,
 
+        @Schema(description = "회차 제한 시간(초). 제한이 없는 개념 문제집은 null", example = "2400")
+        Integer timeLimitSec,
+
         @Schema(description = "문제 목록 (본문 및 선택지 포함)")
         List<QuestionSolveResponse> questions
 ) {

@@ -109,7 +109,8 @@ public class SolveSessionService {
         if (userId == null) {
             return new StartSolveSessionResponse(
                     null, title, SolveSessionType.CONCEPT_PRACTICE,
-                    questions.size(), null, null, questionResponses
+                    questions.size(), null, null,
+                    timeLimitSecFor(SolveSessionType.CONCEPT_PRACTICE), questionResponses
             );
         }
 
@@ -131,7 +132,8 @@ public class SolveSessionService {
 
         return new StartSolveSessionResponse(
                 session.getSolveSessionId(), title, SolveSessionType.CONCEPT_PRACTICE,
-                questions.size(), session.getStatus(), session.getStartedAt(), questionResponses
+                questions.size(), session.getStatus(), session.getStartedAt(),
+                timeLimitSecFor(SolveSessionType.CONCEPT_PRACTICE), questionResponses
         );
     }
 
@@ -458,19 +460,33 @@ public class SolveSessionService {
     }
 
     /**
+     * 회차 유형별 제한 시간. 제한이 없는 개념 문제집과 오늘의 CS 퀴즈는 null 이다.
+     * 만료 판정과 시작 응답이 같은 값을 쓰도록 이 한 곳에서만 정한다.
+     */
+    private Duration timeLimitFor(SolveSessionType sessionType) {
+        if (!sessionType.isMock()) {
+            return null;
+        }
+        return sessionType == SolveSessionType.SUBJECT_MOCK
+                ? SUBJECT_MOCK_TIME_LIMIT
+                : CHAPTER_MOCK_TIME_LIMIT;
+    }
+
+    /** 앱이 남은 시간을 그리는 데 쓰는 초 단위 값. 제한이 없으면 null. */
+    private Integer timeLimitSecFor(SolveSessionType sessionType) {
+        Duration limit = timeLimitFor(sessionType);
+        return limit == null ? null : (int) limit.toSeconds();
+    }
+
+    /**
      * 제한 시간이 지난 모의고사 회차는 제출/완료를 거부하고 중단 처리한다.
      * 별도 배치 없이 회차에 접근하는 시점에 판정한다.
      *
      * <p>거부는 예외로 처리되어 이 트랜잭션이 롤백되므로, 중단 처리는 별도 트랜잭션에 맡긴다.
      */
     private void rejectIfExpired(SolveSession session) {
-        if (!session.getSessionType().isMock()) {
-            return;
-        }
-        Duration limit = session.getSessionType() == SolveSessionType.SUBJECT_MOCK
-                ? SUBJECT_MOCK_TIME_LIMIT
-                : CHAPTER_MOCK_TIME_LIMIT;
-        if (LocalDateTime.now().isBefore(session.getStartedAt().plus(limit))) {
+        Duration limit = timeLimitFor(session.getSessionType());
+        if (limit == null || LocalDateTime.now().isBefore(session.getStartedAt().plus(limit))) {
             return;
         }
         solveSessionExpiryService.abandon(session.getSolveSessionId());
@@ -511,6 +527,7 @@ public class SolveSessionService {
                 questions.size(),
                 session.getStatus(),
                 session.getStartedAt(),
+                timeLimitSecFor(sessionType),
                 questionResponses
         );
     }

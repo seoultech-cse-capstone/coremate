@@ -1,7 +1,9 @@
 package com.coremate.backend.auth.dto.request;
 
+import com.coremate.backend.global.validation.PasswordPolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,8 +21,9 @@ public class ResetPasswordRequest {
     @NotBlank
     private String resetToken;
 
-    @Schema(example = "N3wP@ssw0rd!")
+    @Schema(example = "N3wP@ssw0rd!", description = "대문자·소문자·숫자·특수문자(!@#$%^&*) 각 1개 이상 포함 8자 이상")
     @NotBlank
-    @Size(min = 8, max = 64, message = "비밀번호는 8자 이상이어야 합니다")
+    @Size(max = 64)
+    @Pattern(regexp = PasswordPolicy.REGEXP, message = PasswordPolicy.MESSAGE)
     private String newPassword;
 }
