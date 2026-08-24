@@ -71,12 +71,12 @@ export default function LoginScreen() {
               <Text style={styles.brand}>CoreMate</Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Email</Text>
+                <Text style={styles.fieldLabel}>이메일</Text>
                 <TextInput
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
-                  placeholder="Email"
+                  placeholder="이메일"
                   placeholderTextColor="#94a3b8"
                   style={styles.input}
                   value={email}
@@ -86,9 +86,9 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Password</Text>
+                <Text style={styles.fieldLabel}>비밀번호</Text>
                 <TextInput
-                  placeholder="Password"
+                  placeholder="비밀번호"
                   placeholderTextColor="#94a3b8"
                   secureTextEntry
                   style={styles.input}
@@ -112,17 +112,17 @@ export default function LoginScreen() {
                 disabled={!canSubmit}
               >
                 <Text style={styles.loginButtonText}>
-                  {loginMutation.isPending ? "로그인 중…" : "Login"}
+                  {loginMutation.isPending ? "로그인 중…" : "로그인"}
                 </Text>
               </Pressable>
 
               <View style={styles.inlineLinksRow}>
                 <Pressable onPress={() => router.push("/register")}>
-                  <Text style={styles.inlineLinkText}>Register</Text>
+                  <Text style={styles.inlineLinkText}>회원가입</Text>
                 </Pressable>
 
                 <Pressable onPress={() => router.push("/find-account")}>
-                  <Text style={styles.inlineLinkText}>Forgot ID/PW</Text>
+                  <Text style={styles.inlineLinkText}>아이디·비밀번호 찾기</Text>
                 </Pressable>
               </View>
 

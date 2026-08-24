@@ -18,6 +18,7 @@ import { FONT } from "../../constants/fonts";
 import { useRequireMember } from "../../src/features/auth";
 import { MyProfile } from "../../src/features/mypage/components/MyProfile";
 import { MyProgressStats } from "../../src/features/mypage/components/MyProgressStats";
+import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -40,6 +41,7 @@ export default function MyPageScreen() {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
+      refetchActiveQueries();
     });
 
     return unsubscribe;

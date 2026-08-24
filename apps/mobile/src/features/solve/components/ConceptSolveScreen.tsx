@@ -31,9 +31,6 @@ import type {
 
 const BRAND_PURPLE = "#6D5DFB";
 
-// 모의고사 회차 제한 시간 (2026-08-03 팀 확정, 백엔드 SolveSessionService와 동일한 값).
-const CHAPTER_MOCK_LIMIT_SEC = 40 * 60;
-const SUBJECT_MOCK_LIMIT_SEC = 60 * 60;
 const NEAR_DEADLINE_THRESHOLD_SEC = 5 * 60;
 
 type HintState =
@@ -67,19 +64,6 @@ function targetKey(target: SolveTarget): string {
       return `categoryLv1Mock:${target.categoryLv1Id}`;
     case "categoryLv2Mock":
       return `categoryLv2Mock:${target.categoryLv2Id}`;
-  }
-}
-
-/** 개념 문제집은 제한 시간이 없다(null). */
-function timeLimitSecFor(target: SolveTarget): number | null {
-  switch (target.type) {
-    case "subjectMock":
-      return SUBJECT_MOCK_LIMIT_SEC;
-    case "categoryLv1Mock":
-    case "categoryLv2Mock":
-      return CHAPTER_MOCK_LIMIT_SEC;
-    case "concept":
-      return null;
   }
 }
 
@@ -126,7 +110,13 @@ type SessionState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "expired" }
-  | { status: "ready"; sessionId: number | null; questions: SolveQuestion[] };
+  | {
+      status: "ready";
+      sessionId: number | null;
+      /** 서버가 내려준 회차 제한 시간(초). 제한이 없으면 null. */
+      timeLimitSec: number | null;
+      questions: SolveQuestion[];
+    };
 
 export function ConceptSolveScreen({
   target,
@@ -148,9 +138,10 @@ export function ConceptSolveScreen({
   // 값 자체는 쓰지 않고, 매초 리렌더를 일으켜 남은 시간을 다시 계산하게 만드는 용도.
   const [, setRenderTick] = useState(0);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
-  // 모의고사 3종만 타이머를 보여준다(개념 문제집은 원래 시간제한 개념이 없다).
-  const isTimedSession = target.type !== "concept";
-  const timeLimitSec = timeLimitSecFor(target);
+  // 제한 시간은 서버가 정한다. 앱이 같은 값을 따로 들고 있으면 한쪽만 바뀔 때
+  // 타이머는 멀쩡한데 제출이 거부되는 식으로 조용히 어긋난다.
+  const timeLimitSec = session.status === "ready" ? session.timeLimitSec : null;
+  const isTimedSession = timeLimitSec !== null;
   const reviewItemsRef = useRef<SolveReviewItem[]>([]);
   const answersRef = useRef<{ questionId: number; selectedAnswer: string }[]>([]);
   // 모의고사 마감 계산은 이 값(응답을 받은 시점의 "기기" 시각) 기준으로 한다.
@@ -244,6 +235,7 @@ export function ConceptSolveScreen({
         setSession({
           status: "ready",
           sessionId: response.sessionId,
+          timeLimitSec: response.timeLimitSec,
           questions: response.questions,
         });
       } catch (error) {

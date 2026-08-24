@@ -20,6 +20,7 @@ import { useMyCurrency } from "../../src/features/currency";
 import { useUnreadCountQuery } from "../../src/features/notification";
 import { getLevelProgress, useMyProfile } from "../../src/features/user";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
+import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -47,6 +48,7 @@ export default function HomeScreen() {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
+      refetchActiveQueries();
     });
 
     return unsubscribe;

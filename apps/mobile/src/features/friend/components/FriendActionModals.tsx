@@ -33,7 +33,11 @@ export function FriendSearchModal({ visible, query, friends, onClose, onQueryCha
             <PersonInfo nickname={friend.nickname} schoolName={friend.schoolName} />
           </Pressable>
         ))}
-        {friends.length === 0 && <Text style={styles.empty}>No results found.</Text>}
+        {friends.length === 0 && (
+          <Text style={styles.empty}>
+            {query.trim() ? "검색 결과가 없어요." : "닉네임을 입력해 친구를 찾아보세요."}
+          </Text>
+        )}
       </ModalSurface>
     </Modal>
   );
@@ -61,13 +65,17 @@ export function AddFriendModal({ visible, query, users, onClose, onQueryChange, 
               <PersonAvatar nickname={user.nickname} />
               <PersonInfo nickname={user.nickname} schoolName={user.schoolName} />
               <Pressable disabled={disabled} onPress={() => onSendRequest(user.userId)} style={[styles.requestButton, disabled && styles.requestButtonSent]}>
-                <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{isSent ? "Sent" : "Request"}</Text>
+                <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{isSent ? "요청함" : "친구 요청"}</Text>
               </Pressable>
             </View>
           );
         })}
-        {users.length === 0 && <Text style={styles.empty}>No results found.</Text>}
-        {isRequestLimitReached && <Text style={styles.limitText}>You can send up to 30 friend requests.</Text>}
+        {users.length === 0 && (
+          <Text style={styles.empty}>
+            {query.trim() ? "검색 결과가 없어요." : "닉네임을 입력해 친구를 찾아보세요."}
+          </Text>
+        )}
+        {isRequestLimitReached && <Text style={styles.limitText}>친구 요청은 최대 30명까지 보낼 수 있어요.</Text>}
       </ModalSurface>
     </Modal>
   );
@@ -100,7 +108,7 @@ export function ReceivedRequestsModal({ visible, requests, onClose, onAccept, on
                 onDecline={() => onDecline(request.friendId)}
               />
             ))}
-            {requests.length === 0 && <Text style={styles.empty}>No pending requests.</Text>}
+            {requests.length === 0 && <Text style={styles.empty}>받은 친구 요청이 없어요.</Text>}
           </ScrollView>
         </View>
       </View>
@@ -127,7 +135,7 @@ function ModalSurface({
         </View>
         <View style={styles.inputWrap}>
           <Search color="#94A3B8" size={18} />
-          <TextInput autoFocus onChangeText={onQueryChange} placeholder="Search by nickname" placeholderTextColor="#94A3B8" style={styles.input} value={query} />
+          <TextInput autoFocus onChangeText={onQueryChange} placeholder="닉네임으로 검색" placeholderTextColor="#94A3B8" style={styles.input} value={query} />
         </View>
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>{children}</ScrollView>
       </View>
