@@ -1,5 +1,6 @@
 package com.coremate.backend.auth.dto.request;
 
+import com.coremate.backend.global.validation.PasswordPolicy;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -21,8 +22,9 @@ public class SignupRequest {
     @NotBlank
     private String email;
 
-    @Schema(example = "P@ssw0rd!")
+    @Schema(example = "P@ssw0rd!", description = "대문자·소문자·숫자·특수문자(!@#$%^&*) 각 1개 이상 포함 8자 이상")
     @NotBlank
+    @Pattern(regexp = PasswordPolicy.REGEXP, message = PasswordPolicy.MESSAGE)
     private String password;
 
     @Schema(example = "코어", description = "닉네임 (최대 6글자)")
