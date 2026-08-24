@@ -73,3 +73,21 @@ signup-email:
   resend-cooldown-sec: 60     # 재발송 쿨다운 60초
   code-length: 6              # 인증번호 자릿수
   max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
+
+weakness:
+  analysis:
+    # AI 서버(Python ai-pipeline) 주소. 기본값 localhost 는 호스트에서 bootRun 할 때 기준이고,
+    # 백엔드가 컨테이너 안에서 돌 때는 그 localhost 가 컨테이너 자신이라 절대 닿지 않는다.
+    # Docker 는 compose 가 host.docker.internal 로 덮어쓴다.
+    ai-server-base-url: ${WEAKNESS_ANALYSIS_AI_SERVER_BASE_URL:http://localhost:8000}
+    # 약점 후보로 채택할 최소 약점 점수.
+    #
+    # 점수 = 100 * (0.5*오답률 + 0.3*롱타임률 + 0.2*힌트률) 인데, 롱타임은 "맞췄지만 오래 걸린"
+    # 문제만 세므로 오답률과 롱타임률이 한 문항에서 동시에 오를 수 없다. 그래서 개념의 문제를
+    # 전부 틀려도 50점, 힌트까지 다 써야 70점이 상한이다. 기본값 60 은 사실상 도달하지 못해
+    # 실제 풀이로는 후보가 한 번도 잡히지 않았다(20문항·13오답·힌트4 회차에서 최고 58점).
+    #
+    # 40 이면 "개념 문제의 대부분(80% 이상)을 틀림"이 후보로 잡히고, 절반만 틀린 개념은 걸러진다.
+    # 근거 충분도(min-evidence-strength)가 두 번째 관문으로 남아 있어 문항 수가 적은 개념은
+    # 점수가 높아도 통과하지 못한다.
+    min-weakness-score: 40

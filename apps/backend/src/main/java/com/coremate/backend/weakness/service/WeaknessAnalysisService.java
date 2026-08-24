@@ -7,10 +7,13 @@ import com.coremate.backend.content.entity.Subject;
 import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
-import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.paid.service.FeatureAccessPricingService;
+import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
+import com.coremate.backend.solve.entity.SolveLog;
 import com.coremate.backend.solve.entity.SolveSession;
+import com.coremate.backend.solve.repository.SolveLogRepository;
+import com.coremate.backend.solve.repository.SolveSessionRepository;
 import com.coremate.backend.weakness.client.WeaknessAiClient;
 import com.coremate.backend.weakness.config.WeaknessAnalysisProperties;
 import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisRequest;
@@ -26,6 +29,7 @@ import com.coremate.backend.weakness.dto.type.AnalysisReportStatus;
 import com.coremate.backend.weakness.dto.type.EvidenceType;
 import com.coremate.backend.weakness.dto.type.FinalTypeSource;
 import com.coremate.backend.weakness.dto.type.WeaknessType;
+import com.coremate.backend.weakness.entity.WeaknessAnalysisAiCallLog;
 import com.coremate.backend.weakness.entity.WeaknessAnalysisConcept;
 import com.coremate.backend.weakness.entity.WeaknessAnalysisEvidenceLog;
 import com.coremate.backend.weakness.entity.WeaknessAnalysisReport;
@@ -37,7 +41,6 @@ import com.coremate.backend.weakness.repository.WeaknessAnalysisEvidenceLogRepos
 import com.coremate.backend.weakness.repository.WeaknessAnalysisReportRepository;
 import com.coremate.backend.weakness.repository.WeaknessAnalysisReportViewLogRepository;
 import com.coremate.backend.weakness.repository.WeaknessAnalysisSessionRepository;
-import com.coremate.backend.weakness.entity.WeaknessAnalysisAiCallLog;
 import com.coremate.backend.weakness.service.model.ConceptCandidate;
 import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
 import java.math.BigDecimal;
@@ -49,6 +52,8 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -87,6 +92,8 @@ public class WeaknessAnalysisService {
     private final WeaknessAnalysisAiCallLogRepository aiCallLogRepository;
     private final WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
     private final ConceptRepository contentConceptRepository;
+    private final SolveLogRepository solveLogRepository;
+    private final SolveSessionRepository weaknessSolveSessionRepository;
 
     // ----------------------------------------------------------------------- //
     // 생성
@@ -408,27 +415,50 @@ public class WeaknessAnalysisService {
         return fallback;
     }
 
-    /** 저장된 리포트로부터 상세 응답을 재구성(재열람용). MVP: 근거 로그는 최소 정보만. */
+    /** 저장된 리포트로부터 상세 응답을 재구성(재열람용). */
     private WeaknessAnalysisReportDetailResponse toDetail(WeaknessAnalysisReport report) {
+        // 근거 로그는 solve_log_id 만 저장하므로, 문제 본문·답안·소요 시간은 풀이 로그에서 다시 읽는다.
+        // 개념마다 따로 읽으면 N+1 이 되어 리포트 단위로 한 번에 모아 둔다.
+        List<WeaknessAnalysisEvidenceLog> evidenceLogs =
+                evidenceLogRepository.findByAnalysisReportId(report.getAnalysisReportId());
+        Map<Long, SolveLog> solveLogsById = loadSolveLogs(evidenceLogs);
+
         List<WeaknessConceptResponse> concepts = conceptRepository
                 .findByReport_AnalysisReportIdOrderBySortOrderAsc(report.getAnalysisReportId())
                 .stream()
-                .map(this::toConceptResponse)
+                .map(concept -> toConceptResponse(concept, evidenceLogs, solveLogsById))
                 .toList();
-        List<EligibleSolveSessionResponse> sessions = sessionRepository
-                .findByReport_AnalysisReportIdOrderBySelectedOrderAsc(report.getAnalysisReportId())
+        // 회차 스냅샷에는 제목과 오답 수만 있어서, 전체 문항 수는 원본 회차에서 다시 읽는다.
+        // 없으면 화면이 "13/ 오답"처럼 분모가 빈 채로 그려진다.
+        List<WeaknessAnalysisSession> selected = sessionRepository
+                .findByReport_AnalysisReportIdOrderBySelectedOrderAsc(report.getAnalysisReportId());
+        Map<Long, SolveSession> solveSessionsById = weaknessSolveSessionRepository
+                .findAllById(selected.stream().map(WeaknessAnalysisSession::getSolveSessionId).toList())
                 .stream()
-                .map(this::toSelectedSession)
+                .collect(Collectors.toMap(SolveSession::getSolveSessionId, session -> session));
+        List<EligibleSolveSessionResponse> sessions = selected.stream()
+                .map(session -> toSelectedSession(session, solveSessionsById.get(session.getSolveSessionId())))
                 .toList();
         return buildDetailResponse(report, sessions, concepts);
     }
 
-    private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept) {
-        List<WeaknessEvidenceLogResponse> evidence = evidenceLogRepository.findByAnalysisReportId(concept.getReport().getAnalysisReportId())
-                .stream()
+    /** 근거 로그가 가리키는 풀이 로그를 한 번에 읽어 id 로 찾을 수 있게 만든다. */
+    private Map<Long, SolveLog> loadSolveLogs(List<WeaknessAnalysisEvidenceLog> evidenceLogs) {
+        Set<Long> solveLogIds = evidenceLogs.stream()
+                .map(WeaknessAnalysisEvidenceLog::getSolveLogId)
+                .collect(Collectors.toSet());
+        if (solveLogIds.isEmpty()) {
+            return Map.of();
+        }
+        return solveLogRepository.findAllWithQuestionBySolveLogIdIn(solveLogIds).stream()
+                .collect(Collectors.toMap(SolveLog::getSolveLogId, log -> log));
+    }
+
+    private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept,
+            List<WeaknessAnalysisEvidenceLog> evidenceLogs, Map<Long, SolveLog> solveLogsById) {
+        List<WeaknessEvidenceLogResponse> evidence = evidenceLogs.stream()
                 .filter(e -> concept.getAnalysisConceptId().equals(e.getAnalysisConceptId()))
-                .map(e -> new WeaknessEvidenceLogResponse(e.getEvidenceLogId(), e.getSolveLogId(), null, null,
-                        e.getEvidenceType().name(), null, null, null, null, null, null))
+                .map(e -> toEvidenceResponse(e, solveLogsById.get(e.getSolveLogId())))
                 .toList();
         Concept contentConcept = contentConceptRepository.findById(concept.getConceptId()).orElse(null);
         String conceptName = contentConcept != null ? contentConcept.getConceptName() : null;
@@ -456,11 +486,35 @@ public class WeaknessAnalysisService {
                 evidence);
     }
 
-    private EligibleSolveSessionResponse toSelectedSession(WeaknessAnalysisSession session) {
+    /**
+     * 저장된 근거 로그 한 건을 응답으로 바꾼다.
+     * 풀이 로그가 남아 있으면 생성 직후 응답과 같은 내용을 보여 주고, 없으면 최소 정보만 남긴다.
+     */
+    private WeaknessEvidenceLogResponse toEvidenceResponse(WeaknessAnalysisEvidenceLog evidence, SolveLog log) {
+        if (log == null) {
+            return new WeaknessEvidenceLogResponse(evidence.getEvidenceLogId(), evidence.getSolveLogId(),
+                    null, null, evidence.getEvidenceType().name(), null, null, null, null, null, null);
+        }
+        return new WeaknessEvidenceLogResponse(
+                evidence.getEvidenceLogId(),
+                evidence.getSolveLogId(),
+                log.getQuestion().getQuestionId(),
+                log.getQuestion().getQuestionText(),
+                evidence.getEvidenceType().name(),
+                log.getTimeSpentSec(),
+                log.getExpectedSolveSecSnapshot(),
+                log.getHintCount(),
+                log.getSelectedAnswer(),
+                log.getCorrectAnswerSnapshot(),
+                log.isCorrect());
+    }
+
+    private EligibleSolveSessionResponse toSelectedSession(WeaknessAnalysisSession session, SolveSession source) {
+        Integer totalQuestionCount = source != null ? source.getTotalQuestionCount() : null;
         return new EligibleSolveSessionResponse(
                 session.getSolveSessionId(), session.getSolveSessionTitleSnapshot(), null,
                 null, null, null, null, null, null, null, null,
-                null, session.getWrongCountSnapshot(), null, null, null, null, true, null);
+                totalQuestionCount, session.getWrongCountSnapshot(), null, null, null, null, true, null);
     }
 
     private WeaknessAnalysisReportDetailResponse buildDetail(WeaknessAnalysisReport report,

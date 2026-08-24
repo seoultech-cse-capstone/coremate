@@ -14,6 +14,10 @@ public interface SolveLogRepository extends JpaRepository<SolveLog, Long> {
 
     List<SolveLog> findAllBySolveSessionOrderByQuestionOrder(SolveSession solveSession);
 
+    /** 약점 분석표 재열람에서 근거 로그의 문제 본문·답안을 함께 채우기 위한 조회. */
+    @Query("SELECT l FROM SolveLog l JOIN FETCH l.question WHERE l.solveLogId IN :solveLogIds")
+    List<SolveLog> findAllWithQuestionBySolveLogIdIn(@Param("solveLogIds") Collection<Long> solveLogIds);
+
     boolean existsBySolveSessionAndQuestion_QuestionId(SolveSession solveSession, Long questionId);
 
     long countBySolveSessionAndCorrectTrue(SolveSession solveSession);
