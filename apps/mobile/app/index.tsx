@@ -2,12 +2,12 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Mail, MessageCircle } from "lucide-react-native";
 import { useEffect } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { FONT } from "../constants/fonts";
-import { useAuth } from "../src/features/auth";
+import { useAuth, useKakaoLoginMutation } from "../src/features/auth";
 import { LoadingScreen } from "../src/shared/components/LoadingScreen";
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
@@ -40,13 +40,27 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 
 export default function StartScreen() {
   const { continueAsGuest, status } = useAuth();
+  const kakaoLogin = useKakaoLoginMutation();
 
   // 세션이 복원되어 이미 로그인된 상태라면 시작화면을 보여주지 않고 바로 홈으로 보낸다.
+  // 카카오 로그인 성공도 status 를 authenticated 로 바꾸므로 이 효과가 홈으로 보낸다.
   useEffect(() => {
     if (status === "authenticated") {
       router.replace("/(tabs)/home");
     }
   }, [status]);
+
+  const handleKakaoLogin = () => {
+    kakaoLogin.mutate(undefined, {
+      onError: (error) => {
+        // 사용자가 로그인 창을 닫은 경우는 조용히 무시한다.
+        if (String(error).toLowerCase().includes("cancel")) {
+          return;
+        }
+
+      },
+    });
+  };
 
   const handleGuest = async () => {
     await continueAsGuest();
@@ -72,9 +86,15 @@ export default function StartScreen() {
         />
 
         <View style={styles.buttons}>
-          <Pressable style={styles.kakaoButton} onPress={() => {}}>
+          <Pressable
+            style={styles.kakaoButton}
+            onPress={handleKakaoLogin}
+            disabled={kakaoLogin.isPending}
+          >
             <MessageCircle color="#191919" size={20} strokeWidth={2.3} />
-            <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
+            <Text style={styles.kakaoButtonText}>
+              {kakaoLogin.isPending ? "로그인 중..." : "카카오 로그인"}
+            </Text>
           </Pressable>
 
           <Pressable style={styles.googleButton} onPress={() => {}}>

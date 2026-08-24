@@ -3,6 +3,8 @@ import type {
   AuthTokenResponse,
   LoginRequest,
   LoginResponse,
+  OAuthLoginRequest,
+  OAuthProvider,
   ReissueRequest,
   SendSignupCodeRequest,
   SignupCodeResponse,
@@ -18,6 +20,11 @@ import type {
 export const authApi = {
   login(body: LoginRequest): Promise<LoginResponse> {
     return httpClient.post<LoginResponse>("/api/auth/login", body);
+  },
+
+  // 소셜 로그인. 응답은 일반 로그인과 동일한 LoginResponse 다.
+  oauthLogin(provider: OAuthProvider, body: OAuthLoginRequest): Promise<LoginResponse> {
+    return httpClient.post<LoginResponse>(`/api/auth/oauth/${provider}`, body);
   },
 
   signup(body: SignupRequest): Promise<SignupResponse> {

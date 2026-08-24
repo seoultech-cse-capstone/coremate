@@ -19,6 +19,18 @@ export type SignupRequest = {
   phoneNumber: string;
 };
 
+export type OAuthProvider = "kakao" | "google" | "naver";
+
+export type OAuthLoginRequest = {
+  // provider SDK 가 앱에 준 토큰. 기기 정보는 mutation 이 채워 넣는다.
+  accessToken: string;
+  idToken?: string;
+  deviceId?: string;
+  deviceName?: string;
+  platform?: string;
+  osVersion?: string | null;
+};
+
 export type ReissueRequest = {
   refreshToken: string;
 };
