@@ -48,7 +48,7 @@ export function ProgressLine({ progress }: ProgressLineProps) {
           ]}
         />
       )}
-      <View style={styles.endDot} />
+      <View style={[styles.progressDot, { left: `${safeProgress}%` }]} />
     </View>
   );
 }
@@ -65,12 +65,12 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 999,
   },
-  endDot: {
+  progressDot: {
     position: "absolute",
-    right: 0,
     top: 0,
     width: 4,
     height: 4,
+    marginLeft: -2,
     borderRadius: 2,
     backgroundColor: "#3B82F6",
   },

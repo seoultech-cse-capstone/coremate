@@ -74,6 +74,15 @@ class WeaknessAnalysisServiceTest {
     @InjectMocks
     private WeaknessAnalysisService service;
 
+    @Test
+    void 생성비용_사전조회는_실제_차감과_같은_정책조회를_쓴다() {
+        when(props.getCoinCost()).thenReturn(100);
+        when(featureAccessPricingService.priceCoinOf(
+                FeatureAccessPricingService.WEAKNESS_ANALYSIS_CREATE, false, 100)).thenReturn(80);
+
+        assertThat(service.getCreateCoinCost()).isEqualTo(80);
+    }
+
     private CreateWeaknessAnalysisReportRequest request() {
         return new CreateWeaknessAnalysisReportRequest(
                 List.of(1L, 2L), AnalysisScopeType.SUBJECT, null, null, null, null, null, true);

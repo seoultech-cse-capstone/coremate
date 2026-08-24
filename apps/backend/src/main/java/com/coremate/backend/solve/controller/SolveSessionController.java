@@ -10,7 +10,6 @@ import com.coremate.backend.solve.dto.request.GuestAnswerRequest;
 import com.coremate.backend.solve.dto.request.SubmitAnswerRequest;
 import com.coremate.backend.solve.dto.response.CompleteSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.GuestAnswerResultResponse;
-import com.coremate.backend.solve.dto.response.ResumeSessionResponse;
 import com.coremate.backend.solve.dto.response.StartSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.SubmitAnswerResponse;
 import com.coremate.backend.solve.service.SolveSessionService;
@@ -22,12 +21,10 @@ import java.util.List;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Solve", description = "문제 풀이 세션 생성, 답안 제출, 완료 처리 API")
@@ -95,18 +92,6 @@ public class SolveSessionController {
     ) {
         return ApiResponse.success("과목 모의고사 시작 성공",
                 solveSessionService.startSubjectMockSession(userDetails.getUserId(), request.targetId()));
-    }
-
-    @Operation(summary = "진행 중인 세션 재진입 (회원 전용)", description = "중단한 풀이 세션으로 재진입한다. 전체 문제 목록과 이미 제출한 답안을 반환한다.")
-    @SecurityRequirement(name = OpenApiConfig.SECURITY_SCHEME_NAME)
-    @GetMapping("/in-progress")
-    public ApiResponse<ResumeSessionResponse> resumeSession(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Parameter(description = "개념 ID", example = "1001")
-            @RequestParam Long conceptId
-    ) {
-        return ApiResponse.success("풀이 세션 재진입 성공",
-                solveSessionService.resumeSession(userDetails.getUserId(), conceptId));
     }
 
     @Operation(summary = "문제별 답안 제출 (회원 전용)", description = "회원의 선택 답안을 제출하고 DB에 저장한다.")

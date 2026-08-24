@@ -13,6 +13,7 @@ import com.coremate.backend.friend.dto.response.FriendRequestResponse;
 import com.coremate.backend.friend.dto.response.FriendResponse;
 import com.coremate.backend.friend.dto.response.FriendSearchUserResponse;
 import com.coremate.backend.friend.dto.response.FriendSubjectStatResponse;
+import com.coremate.backend.progress.service.ProgressService;
 import com.coremate.backend.friend.dto.type.FriendStatus;
 import com.coremate.backend.friend.entity.Friend;
 import com.coremate.backend.friend.entity.FriendPoke;
@@ -55,6 +56,7 @@ public class FriendService {
     private final AttendanceRepository attendanceRepository;
     private final AvatarService avatarService;
     private final LearningHistoryService learningHistoryService;
+    private final ProgressService progressService;
     private final ApplicationEventPublisher eventPublisher;
 
     public List<FriendSearchUserResponse> searchUsers(Long userId, String keyword) {
@@ -157,12 +159,6 @@ public class FriendService {
         validateAcceptedFriend(userId, friendUserId);
         User friendUser = findActiveUser(friendUserId);
         return toFriendProfileResponse(friendUser);
-    }
-
-    public List<FriendSubjectStatResponse> getSubjectStats(Long userId, Long friendUserId) {
-        validateAcceptedFriend(userId, friendUserId);
-        // 과목별 통계 테이블이 연결되면 이 지점에서 공개 요약만 매핑한다.
-        return List.of();
     }
 
     // 친구 상세 프로필 Learning History 섹션. 친구 관계(ACCEPTED)인 경우에만 조회 가능하다. (FR-FRIEND-05)
@@ -282,8 +278,24 @@ public class FriendService {
                 attendanceRepository.countByUser_UserId(friendUser.getUserId()),
                 lastAttendanceDate(friendUser.getUserId()),
                 avatarProfile,
-                List.of()
+                toSubjectStats(friendUser.getUserId())
         );
+    }
+
+    /**
+     * 친구 프로필의 과목별 스탯(FR-FRIEND-02 시스템처리 = 프로필 조회가 과목별 스탯을 함께 준다).
+     * 본인 마이페이지와 같은 progress 도메인 집계를 쓰되 대상만 친구로 바꾼다.
+     * 친구 관계(ACCEPTED) 검증은 호출부인 getProfile 이 먼저 수행한다.
+     */
+    private List<FriendSubjectStatResponse> toSubjectStats(Long targetUserId) {
+        return progressService.getSubjectProgress(targetUserId).stream()
+                .map(progress -> new FriendSubjectStatResponse(
+                        progress.subjectId(),
+                        progress.solvedQuestionCount(),
+                        progress.correctQuestionCount(),
+                        progress.wrongQuestionCount(),
+                        progress.achievementRate()))
+                .toList();
     }
 
     private FriendPokeResponse toFriendPokeResponse(FriendPoke poke) {

@@ -23,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>XP는 정답률과 무관하게 "완료 + 일일 한도"로만 판정한다.</li>
  *   <li>코인은 챕터/과목 모의고사에서만 나오고, 정답률 기준과 범위별 최초 1회를 함께 본다.</li>
  *   <li>최초 1회를 이미 받은 범위는 정답률만 다시 보고 소액의 재응시 코인을 준다(2026-08-07).</li>
+ *   <li>모의고사 XP와 재응시 코인은 같은 범위(대분류/중분류/과목)로는 하루 1회만 준다(2026-08-11).
+ *       같은 챕터를 하루에 반복해 푸는 것으로 보상을 캐지 못하게 하기 위해서다.
+ *       개념 문제집은 적용 대상이 아니다.</li>
  *   <li>일일 한도를 넘겨도 풀이와 기록은 이미 정상 저장돼 있고 보상만 지급되지 않는다.</li>
  * </ul>
  *
@@ -51,17 +54,19 @@ public class SolveRewardService {
             return SolveRewardResult.none();
         }
 
-        // XP 는 범위별 중복 판정을 하지 않으므로 target 을 넘기지 않는다.
-        // target 을 넘겨두면 XP 정책의 first_reward_only 가 TRUE 로 바뀌는 순간
-        // "개념당 XP 1회" 로 동작이 조용히 바뀐다. 어떤 회차에서 발생했는지는
-        // source_id(= solve_session_id) 로 이미 추적된다.
+        // 모의고사 XP 는 "같은 범위 하루 1회"(scope_daily_once) 판정 대상이라 target 을 넘긴다.
+        // 개념 문제집은 적용 대상이 아니라 target 이 null 로 나가고, 정책도 플래그가 꺼져 있다.
+        //
+        // ⚠️ XP 정책의 first_reward_only 는 반드시 FALSE 로 유지해야 한다. target 이 붙은 지금
+        // 그 값을 켜면 "범위당 평생 XP 1회" 로 동작이 조용히 바뀐다. 하루 1회 제한은
+        // first_reward_only 가 아니라 scope_daily_once 로만 표현한다.
         RewardLog xpLog = rewardService.grantPolicyReward(
                 session.getUserId(),
                 xpType,
                 RewardSource.SOLVE_SESSION,
                 session.getSolveSessionId(),
-                null,
-                null,
+                resolveScopeTargetType(session.getSessionType()),
+                resolveScopeTargetId(session, session.getSessionType()),
                 session.getSolveSessionId()
         );
 
@@ -90,8 +95,8 @@ public class SolveRewardService {
                 firstPassCoinType(type),
                 RewardSource.SOLVE_SESSION,
                 session.getSolveSessionId(),
-                resolveCoinTargetType(type),
-                resolveCoinTargetId(session, type),
+                resolveScopeTargetType(type),
+                resolveScopeTargetId(session, type),
                 session.getSolveSessionId(),
                 correctRate
         );
@@ -103,15 +108,15 @@ public class SolveRewardService {
             return firstPassLog;
         }
 
-        // 재응시는 범위별 중복 판정을 하지 않으므로(first_reward_only = FALSE)
-        // target 을 넘기지 않는다. 어느 범위였는지는 source_id(= solve_session_id)로 남는다.
+        // 재응시는 평생 중복 판정은 하지 않지만(first_reward_only = FALSE)
+        // "같은 범위 하루 1회"(scope_daily_once = TRUE) 판정 대상이라 target 을 넘긴다.
         return rewardService.grantPolicyReward(
                 session.getUserId(),
                 retryCoinType(type),
                 RewardSource.SOLVE_SESSION,
                 session.getSolveSessionId(),
-                null,
-                null,
+                resolveScopeTargetType(type),
+                resolveScopeTargetId(session, type),
                 session.getSolveSessionId(),
                 correctRate
         );
@@ -139,8 +144,10 @@ public class SolveRewardService {
     }
 
 
-    // 코인의 "범위별 평생 1회"를 판정하는 단위. 챕터는 대분류/중분류, 과목은 과목이다.
-    private RewardTargetType resolveCoinTargetType(SolveSessionType type) {
+    // 범위 중복을 판정하는 단위. 챕터는 대분류/중분류, 과목은 과목이다.
+    // 코인의 "범위별 평생 1회"와 XP·재응시 코인의 "같은 범위 하루 1회"가 같은 단위를 쓴다.
+    // 대분류와 중분류를 따로 세므로 같은 대분류에서 대분류 회차 1회 + 중분류 회차 1회를 받을 수 있다.
+    private RewardTargetType resolveScopeTargetType(SolveSessionType type) {
         return switch (type) {
             case CATEGORY_LV1_MOCK -> RewardTargetType.CATEGORY_LV1;
             case CATEGORY_LV2_MOCK -> RewardTargetType.CATEGORY_LV2;
@@ -149,7 +156,7 @@ public class SolveRewardService {
         };
     }
 
-    private Long resolveCoinTargetId(SolveSession session, SolveSessionType type) {
+    private Long resolveScopeTargetId(SolveSession session, SolveSessionType type) {
         return switch (type) {
             case CATEGORY_LV1_MOCK -> session.getCategoryLv1() == null ? null : session.getCategoryLv1().getCategoryLv1Id();
             case CATEGORY_LV2_MOCK -> session.getCategoryLv2() == null ? null : session.getCategoryLv2().getCategoryLv2Id();

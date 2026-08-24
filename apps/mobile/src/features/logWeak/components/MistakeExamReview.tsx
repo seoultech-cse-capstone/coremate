@@ -112,7 +112,8 @@ export function MistakeExamReview({
       id: mockQuestion.id,
       question: mockQuestion.question,
       choices: mockQuestion.choices.map((text, index) => ({
-        key: String(index),
+        // 서버 결과와 같은 A·B·C·D 라벨을 쓴다(목업 데이터에는 key 가 없어 인덱스로 만든다).
+        key: String.fromCharCode(65 + index),
         text,
         isAnswer: index === mockQuestion.answerIndex,
         isSelected: index === mockQuestion.selectedIndex,
@@ -193,7 +194,7 @@ export function MistakeExamReview({
           <Text style={styles.question}>{currentQuestion.question}</Text>
 
           <View style={styles.choiceList}>
-            {currentQuestion.choices.map((choice, index) => {
+            {currentQuestion.choices.map((choice) => {
               const isAnswer = choice.isAnswer;
               const isSelected = choice.isSelected;
 
@@ -208,12 +209,12 @@ export function MistakeExamReview({
                 >
                   <Text
                     style={[
-                      styles.choiceNumber,
+                      styles.choiceKey,
                       isAnswer && styles.answerChoiceText,
                       isSelected && !isAnswer && styles.wrongChoiceText,
                     ]}
                   >
-                    {index + 1}
+                    {choice.key}
                   </Text>
                   <Text
                     style={[
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
     borderColor: "#fca5a5",
     backgroundColor: "#fef2f2",
   },
-  choiceNumber: {
+  choiceKey: {
     width: 26,
     color: "#64748b",
     fontFamily: FONT.kufam,

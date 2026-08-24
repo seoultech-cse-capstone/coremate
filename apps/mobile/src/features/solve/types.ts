@@ -23,6 +23,8 @@ export type StartSolveSessionResponse = {
   totalQuestionCount: number;
   status: "IN_PROGRESS" | "COMPLETED" | "ABANDONED" | null;
   startedAt: string | null;
+  /** 회차 제한 시간(초). 제한이 없는 개념 문제집은 null. */
+  timeLimitSec: number | null;
   questions: SolveQuestion[];
 };
 

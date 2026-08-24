@@ -31,9 +31,15 @@ export const contentApi = {
       .then((res) => res.data);
   },
 
-  getConcepts(categoryLv2Id: number): Promise<Concept[]> {
+  // 회원이면 토큰을 실어서 본인 풀이 상태(완료 여부/문제 수/정답 수)가 반영된 응답을
+  // 받는다. 이 엔드포인트 자체는 permitAll이라 토큰 없이도 200은 오지만, 그 경우
+  // 서버가 전부 미풀이로 반환한다(로그인 사용자에게도 잘못 그렇게 보이던 버그였음).
+  getConcepts(categoryLv2Id: number, accessToken?: string | null): Promise<Concept[]> {
     return httpClient
-      .get<ApiEnvelope<Concept[]>>(`/api/v1/content/category-lv2/${categoryLv2Id}/concepts`)
+      .get<ApiEnvelope<Concept[]>>(
+        `/api/v1/content/category-lv2/${categoryLv2Id}/concepts`,
+        accessToken ? { accessToken } : undefined,
+      )
       .then((res) => res.data);
   },
 

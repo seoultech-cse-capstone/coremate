@@ -24,6 +24,6 @@ public class UserSubjectStatResponse {
     @Schema(example = "30")
     private Integer wrongQuestionCount;
 
-    @Schema(example = "0.75")
-    private String achievementRate;
+    @Schema(description = "과목별 학습 달성률(%). 0.0 ~ 100.0", example = "30.0")
+    private Double achievementRate;
 }

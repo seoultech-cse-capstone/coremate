@@ -23,9 +23,16 @@ export type EligibleSolveSession = {
   wrongCount: number;
   longTimeCount: number;
   hintUsedCount: number;
+  /** 답 변경 문제 수. 분석 핵심 기준이 아니라 화면 표시용 보조 참고값이다(FR-WEAK-03). */
+  answerChangedCount: number;
   completedAt: string;
   eligible: boolean;
   warningMessage: string | null;
+};
+
+export type WeaknessAnalysisCost = {
+  /** 분석표 1건 생성에 필요한 코인 */
+  coinCost: number;
 };
 
 export type WeaknessEvidenceLog = {

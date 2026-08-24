@@ -23,7 +23,6 @@ import com.coremate.backend.solve.dto.request.SubmitAnswerRequest;
 import com.coremate.backend.solve.dto.response.CompleteSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.GuestAnswerResultResponse;
 import com.coremate.backend.solve.dto.response.QuestionSolveResponse;
-import com.coremate.backend.solve.dto.response.ResumeSessionResponse;
 import com.coremate.backend.solve.dto.response.StartSolveSessionResponse;
 import com.coremate.backend.solve.dto.response.SubmitAnswerResponse;
 import com.coremate.backend.solve.dto.type.SolveSessionStatus;
@@ -110,14 +109,15 @@ public class SolveSessionService {
         if (userId == null) {
             return new StartSolveSessionResponse(
                     null, title, SolveSessionType.CONCEPT_PRACTICE,
-                    questions.size(), null, null, questionResponses
+                    questions.size(), null, null,
+                    timeLimitSecFor(SolveSessionType.CONCEPT_PRACTICE), questionResponses
             );
         }
 
-        if (solveSessionRepository.existsByUserIdAndConcept_ConceptIdAndStatus(
-                userId, conceptId, SolveSessionStatus.IN_PROGRESS)) {
-            throw new CoreMateException(ErrorCode.SOLVE_SESSION_ALREADY_IN_PROGRESS);
-        }
+        // 같은 개념으로 재진입하면 기존 진행중 세션을 중단 처리하고 처음부터 새로 시작한다.
+        // 개념 문제집은 나가기(exit) 시 상태를 바꾸는 경로가 없어 세션이 IN_PROGRESS로 남는데,
+        // 예외를 던지면 재진입이 영구히 막히므로 이전 세션과 로그는 무시하고 새 세션을 발급한다.
+        abandonInProgressConceptSession(userId, conceptId);
 
         SolveSession session = SolveSession.builder()
                 .userId(userId)
@@ -132,7 +132,8 @@ public class SolveSessionService {
 
         return new StartSolveSessionResponse(
                 session.getSolveSessionId(), title, SolveSessionType.CONCEPT_PRACTICE,
-                questions.size(), session.getStatus(), session.getStartedAt(), questionResponses
+                questions.size(), session.getStatus(), session.getStartedAt(),
+                timeLimitSecFor(SolveSessionType.CONCEPT_PRACTICE), questionResponses
         );
     }
 
@@ -341,35 +342,6 @@ public class SolveSessionService {
                 .divide(BigDecimal.valueOf(totalCount), 2, RoundingMode.HALF_UP);
     }
 
-    @Transactional(readOnly = true)
-    public ResumeSessionResponse resumeSession(Long userId, Long conceptId) {
-        SolveSession session = solveSessionRepository
-                .findByUserIdAndConcept_ConceptIdAndStatus(userId, conceptId, SolveSessionStatus.IN_PROGRESS)
-                .orElseThrow(() -> new CoreMateException(ErrorCode.SOLVE_SESSION_NOT_FOUND));
-
-        List<Long> sessionQuestionIds = parseQuestionIds(session.getQuestionIdsJson());
-
-        List<SolveLog> logs = solveLogRepository.findAllBySolveSessionOrderByQuestionOrder(session);
-
-        List<ResumeSessionResponse.AnsweredLog> answeredLogs = logs.stream()
-                .map(log -> new ResumeSessionResponse.AnsweredLog(
-                        log.getQuestion().getQuestionId(),
-                        log.getQuestionOrder(),
-                        log.getSelectedAnswer()
-                ))
-                .toList();
-
-        return new ResumeSessionResponse(
-                session.getSolveSessionId(),
-                session.getTitle(),
-                session.getSessionType(),
-                session.getTotalQuestionCount(),
-                session.getStartedAt(),
-                sessionQuestionIds,
-                answeredLogs
-        );
-    }
-
     public StartSolveSessionResponse startCategoryLv1MockSession(Long userId, Long categoryLv1Id) {
         CategoryLv1 categoryLv1 = categoryLv1Repository.findByCategoryLv1IdAndActiveTrue(categoryLv1Id)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.CATEGORY_LV1_NOT_FOUND));
@@ -478,19 +450,43 @@ public class SolveSessionService {
     }
 
     /**
+     * 같은 개념으로 개념 문제집을 다시 시작하기 전에 기존 진행 중 세션을 중단 처리한다.
+     * 세션과 풀이 로그는 지우지 않고 상태만 바꾸며, 새 세션이 처음부터 풀리도록 한다.
+     */
+    private void abandonInProgressConceptSession(Long userId, Long conceptId) {
+        solveSessionRepository
+                .findByUserIdAndConcept_ConceptIdAndStatus(userId, conceptId, SolveSessionStatus.IN_PROGRESS)
+                .ifPresent(SolveSession::abandon);
+    }
+
+    /**
+     * 회차 유형별 제한 시간. 제한이 없는 개념 문제집과 오늘의 CS 퀴즈는 null 이다.
+     * 만료 판정과 시작 응답이 같은 값을 쓰도록 이 한 곳에서만 정한다.
+     */
+    private Duration timeLimitFor(SolveSessionType sessionType) {
+        if (!sessionType.isMock()) {
+            return null;
+        }
+        return sessionType == SolveSessionType.SUBJECT_MOCK
+                ? SUBJECT_MOCK_TIME_LIMIT
+                : CHAPTER_MOCK_TIME_LIMIT;
+    }
+
+    /** 앱이 남은 시간을 그리는 데 쓰는 초 단위 값. 제한이 없으면 null. */
+    private Integer timeLimitSecFor(SolveSessionType sessionType) {
+        Duration limit = timeLimitFor(sessionType);
+        return limit == null ? null : (int) limit.toSeconds();
+    }
+
+    /**
      * 제한 시간이 지난 모의고사 회차는 제출/완료를 거부하고 중단 처리한다.
      * 별도 배치 없이 회차에 접근하는 시점에 판정한다.
      *
      * <p>거부는 예외로 처리되어 이 트랜잭션이 롤백되므로, 중단 처리는 별도 트랜잭션에 맡긴다.
      */
     private void rejectIfExpired(SolveSession session) {
-        if (!session.getSessionType().isMock()) {
-            return;
-        }
-        Duration limit = session.getSessionType() == SolveSessionType.SUBJECT_MOCK
-                ? SUBJECT_MOCK_TIME_LIMIT
-                : CHAPTER_MOCK_TIME_LIMIT;
-        if (LocalDateTime.now().isBefore(session.getStartedAt().plus(limit))) {
+        Duration limit = timeLimitFor(session.getSessionType());
+        if (limit == null || LocalDateTime.now().isBefore(session.getStartedAt().plus(limit))) {
             return;
         }
         solveSessionExpiryService.abandon(session.getSolveSessionId());
@@ -531,6 +527,7 @@ public class SolveSessionService {
                 questions.size(),
                 session.getStatus(),
                 session.getStartedAt(),
+                timeLimitSecFor(sessionType),
                 questionResponses
         );
     }

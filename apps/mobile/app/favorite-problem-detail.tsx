@@ -121,7 +121,7 @@ export default function FavoriteProblemDetailScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F3F3F3",
+    backgroundColor: "#ffffff",
   },
   safeArea: {
     flex: 1,

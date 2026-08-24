@@ -33,6 +33,7 @@ import {
 } from "../../src/features/friend";
 import type { Friend } from "../../src/features/friend/types";
 import { getApiErrorMessage } from "../../src/shared/utils/apiError";
+import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
@@ -85,6 +86,7 @@ export default function FriendScreen() {
     const tabNavigation = navigation as unknown as TabPressNavigation;
     const unsubscribe = tabNavigation.addListener("tabPress", () => {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
+      refetchActiveQueries();
     });
 
     return unsubscribe;
@@ -194,6 +196,11 @@ export default function FriendScreen() {
               </View>
             </Pressable>
             {pokeMessage ? <Text style={styles.pokeMessage}>{pokeMessage}</Text> : null}
+            {friends.length === 0 ? (
+              <Text style={styles.emptyText}>
+                아직 친구가 없어요. 오른쪽 위에서 닉네임으로 친구를 찾아보세요.
+              </Text>
+            ) : null}
             <FriendSection
               friends={attendedFriends}
               isPoked={(id) => pokedFriendIds.includes(id)}
@@ -310,6 +317,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 12,
     paddingBottom: 8,
+  },
+  emptyText: {
+    marginTop: 24,
+    color: "#94A3B8",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
   },
   container: { flex: 1 },
   titleArea: {

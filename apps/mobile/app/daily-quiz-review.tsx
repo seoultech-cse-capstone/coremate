@@ -13,8 +13,6 @@ type ResultState =
   | { status: "error"; message: string }
   | { status: "ready"; items: SolveReviewItem[] };
 
-// TODO(#102 후속): 백엔드 PR #86(GET /api/v1/daily-quizzes/result)이 머지되기 전까지는
-// 항상 실패한다. 머지 후 별도 코드 수정 없이 바로 동작하는 게 목표.
 export default function DailyQuizReviewScreen() {
   useRequireMember();
   const { accessToken } = useAuth();
@@ -27,9 +25,9 @@ export default function DailyQuizReviewScreen() {
     let cancelled = false;
 
     dailyQuizApi.getResult(accessToken).then(
-      (items) => {
+      (result) => {
         if (!cancelled) {
-          setState({ status: "ready", items });
+          setState({ status: "ready", items: result.questions });
         }
       },
       (error) => {

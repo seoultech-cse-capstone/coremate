@@ -1,15 +1,23 @@
 import { httpClient } from "../../shared/api/httpClient";
 import type {
   AuthTokenResponse,
+  FindEmailRequest,
+  FindEmailResponse,
   LoginRequest,
   LoginResponse,
+  PasswordResetCodeResponse,
+  PasswordResetTokenResponse,
   ReissueRequest,
+  ResetPasswordRequest,
+  SendPasswordResetCodeRequest,
   SendSignupCodeRequest,
   SignupCodeResponse,
   SignupRequest,
   SignupResponse,
   SignupVerifyResponse,
+  VerifyPasswordResetCodeRequest,
   VerifySignupCodeRequest,
+  WithdrawRequest,
 } from "./types";
 
 /**
@@ -38,5 +46,29 @@ export const authApi = {
 
   logout(refreshToken: string, accessToken: string): Promise<void> {
     return httpClient.post<void>("/api/auth/logout", { refreshToken }, { accessToken });
+  },
+
+  withdraw(body: WithdrawRequest, accessToken: string): Promise<void> {
+    return httpClient.post<void>("/api/auth/withdraw", body, { accessToken });
+  },
+
+  findEmail(body: FindEmailRequest): Promise<FindEmailResponse> {
+    return httpClient.post<FindEmailResponse>("/api/auth/find-email", body);
+  },
+
+  sendPasswordResetCode(
+    body: SendPasswordResetCodeRequest,
+  ): Promise<PasswordResetCodeResponse> {
+    return httpClient.post<PasswordResetCodeResponse>("/api/auth/password/reset-code", body);
+  },
+
+  verifyPasswordResetCode(
+    body: VerifyPasswordResetCodeRequest,
+  ): Promise<PasswordResetTokenResponse> {
+    return httpClient.post<PasswordResetTokenResponse>("/api/auth/password/verify-code", body);
+  },
+
+  resetPassword(body: ResetPasswordRequest): Promise<void> {
+    return httpClient.post<void>("/api/auth/password/reset", body);
   },
 };
