@@ -93,6 +93,21 @@ public class User {
         this.status = UserStatus.ACTIVE;
     }
 
+    /**
+     * 비밀번호가 없는 소셜 로그인 사용자를 만든다. 닉네임은 서버가 생성해 넘긴다.
+     * 전화번호는 소셜 가입에서 받지 않으므로 null 이다.
+     */
+    public static User socialSignup(String email, String name, String nickname) {
+        return User.builder()
+                .email(email)
+                .passwordHash(null)
+                .name(name)
+                .nickname(nickname)
+                .phoneNumber(null)
+                .role(UserRole.USER)
+                .build();
+    }
+
     public void updateLastLoginAt(LocalDateTime at) {
         this.lastLoginAt = at;
     }
