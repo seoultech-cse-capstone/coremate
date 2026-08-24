@@ -17,6 +17,8 @@ import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.paid.service.FeatureAccessPricingService;
 import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.entity.SolveSession;
+import com.coremate.backend.solve.repository.SolveLogRepository;
+import com.coremate.backend.solve.repository.SolveSessionRepository;
 import com.coremate.backend.weakness.client.WeaknessAiClient;
 import com.coremate.backend.weakness.config.WeaknessAnalysisProperties;
 import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisRequest;
@@ -70,6 +72,8 @@ class WeaknessAnalysisServiceTest {
     @Mock private WeaknessAnalysisAiCallLogRepository aiCallLogRepository;
     @Mock private WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
     @Mock private ConceptRepository contentConceptRepository;
+    @Mock private SolveLogRepository solveLogRepository;
+    @Mock private SolveSessionRepository weaknessSolveSessionRepository;
 
     @InjectMocks
     private WeaknessAnalysisService service;
