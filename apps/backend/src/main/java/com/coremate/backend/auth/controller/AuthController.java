@@ -3,6 +3,7 @@ package com.coremate.backend.auth.controller;
 import com.coremate.backend.auth.dto.request.FindEmailRequest;
 import com.coremate.backend.auth.dto.request.LoginRequest;
 import com.coremate.backend.auth.dto.request.LogoutRequest;
+import com.coremate.backend.auth.dto.request.OAuthLoginRequest;
 import com.coremate.backend.auth.dto.request.ReissueTokenRequest;
 import com.coremate.backend.auth.dto.request.ResetPasswordRequest;
 import com.coremate.backend.auth.dto.request.SendResetCodeRequest;
@@ -21,10 +22,12 @@ import com.coremate.backend.auth.dto.response.SignupResponse;
 import com.coremate.backend.auth.dto.response.SignupVerifyResponse;
 import com.coremate.backend.auth.service.AccountRecoveryService;
 import com.coremate.backend.auth.service.AuthService;
+import com.coremate.backend.auth.service.OAuthLoginService;
 import com.coremate.backend.auth.service.PasswordResetService;
 import com.coremate.backend.auth.service.SignupEmailVerificationService;
 import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
+import com.coremate.backend.user.entity.SocialProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +35,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,6 +49,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final OAuthLoginService oAuthLoginService;
     private final AccountRecoveryService accountRecoveryService;
     private final PasswordResetService passwordResetService;
     private final SignupEmailVerificationService signupEmailVerificationService;
@@ -74,6 +79,15 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @Operation(summary = "소셜 로그인",
+            description = "provider(kakao 등) SDK 토큰으로 로그인한다. 미가입이면 자동 가입하고, "
+                    + "검증된 이메일이 기존 계정과 같으면 그 계정에 연동한다. 응답은 일반 로그인과 동일하다.")
+    @PostMapping("/oauth/{provider}")
+    public LoginResponse oauthLogin(@PathVariable String provider,
+                                    @Valid @RequestBody OAuthLoginRequest request) {
+        return oAuthLoginService.login(SocialProvider.from(provider), request);
     }
 
     @Operation(summary = "로그아웃", description = "현재 기기의 세션만 해지한다. 이미 해지된 상태여도 204 다.")

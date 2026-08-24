@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/login",
+                                "/api/auth/oauth/*",
                                 "/api/auth/signup",
                                 "/api/auth/email/send-code",
                                 "/api/auth/email/verify-code",
