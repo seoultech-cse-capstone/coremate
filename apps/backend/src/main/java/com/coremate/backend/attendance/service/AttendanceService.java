@@ -9,6 +9,7 @@ import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.reward.dto.response.RewardLogResponse;
 import com.coremate.backend.reward.entity.RewardLog;
+import com.coremate.backend.reward.entity.type.RewardSkipReason;
 import com.coremate.backend.reward.entity.type.RewardSource;
 import com.coremate.backend.reward.entity.type.RewardStatus;
 import com.coremate.backend.reward.entity.type.RewardTargetType;
@@ -77,9 +78,7 @@ public class AttendanceService {
         );
         RewardLog attendanceReward = grantAttendanceReward(userId, attendance, dailyQuizSessionId);
 
-        if (attendanceReward.getRewardStatus() == RewardStatus.GRANTED) {
-            attendance.markRewardClaimed();
-        }
+        markRewardClaimedIfSettled(attendance, attendanceReward);
 
         return toRewardResponse(attendance, List.of(dailyQuizReward, attendanceReward));
     }
@@ -121,9 +120,7 @@ public class AttendanceService {
         }
 
         RewardLog attendanceReward = grantAttendanceReward(userId, attendance, attendance.getDailyQuizSessionId());
-        if (attendanceReward.getRewardStatus() == RewardStatus.GRANTED) {
-            attendance.markRewardClaimed();
-        }
+        markRewardClaimedIfSettled(attendance, attendanceReward);
         return toRewardResponse(attendance, List.of(attendanceReward));
     }
 
@@ -131,6 +128,27 @@ public class AttendanceService {
         return attendanceRepository.findByUser_UserIdAndAttendanceDate(userId, LocalDate.now())
                 .map(this::getRewardSummaryFromLogs)
                 .orElseGet(() -> emptyRewardResponse(LocalDate.now()));
+    }
+
+    /**
+     * 출석 보상이 정산된 회차를 "수령 완료"로 표시한다.
+     *
+     * <p>이미 받은 건(ALREADY_REWARDED)도 완료로 본다. 그렇지 않으면 지급은 끝났는데
+     * 플래그만 false 로 남아, 출석 화면이 계속 "아직 지급되지 않았어요"와 수령 버튼을 띄운다.
+     *
+     * <p>save 를 명시적으로 부르는 이유 — XP 지급이 벌크 update 로 영속성 컨텍스트를 비우기
+     * 때문에(RewardUserProgressRepository.updateLearningProgress 의 clearAutomatically)
+     * 이 시점의 attendance 는 준영속이다. 변경만 해 두면 더티 체킹이 일어나지 않아
+     * UPDATE 가 나가지 않고, 응답만 true 로 보이고 DB 는 false 로 남는다.
+     */
+    private void markRewardClaimedIfSettled(Attendance attendance, RewardLog attendanceReward) {
+        boolean settled = attendanceReward.getRewardStatus() == RewardStatus.GRANTED
+                || attendanceReward.getSkipReason() == RewardSkipReason.ALREADY_REWARDED;
+        if (!settled) {
+            return;
+        }
+        attendance.markRewardClaimed();
+        attendanceRepository.save(attendance);
     }
 
     private RewardLog grantAttendanceReward(Long userId, Attendance attendance, Long dailyQuizSessionId) {
