@@ -5,6 +5,7 @@ import { deviceStorage } from "../device/deviceStorage";
 import { unregisterPushToken } from "../notification/notificationApi";
 import { authApi } from "./authApi";
 import { useAuth } from "./AuthContext";
+import { signInWithKakao } from "./kakaoAuth";
 import { tokenStorage } from "./tokenStorage";
 import type {
   LoginRequest,
@@ -30,6 +31,39 @@ export function useLoginMutation() {
       const [deviceId, deviceInfo] = [await deviceStorage.get(), getDeviceInfo()];
       return authApi.login({
         ...body,
+        ...(deviceId ? { deviceId } : {}),
+        deviceName: deviceInfo.deviceName,
+        platform: deviceInfo.platform,
+        osVersion: deviceInfo.osVersion,
+      });
+    },
+    onSuccess: async (res) => {
+      if (res.deviceId) {
+        await deviceStorage.save(res.deviceId);
+      }
+      await signIn({
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        user: { userId: res.userId, nickname: res.nickname },
+      });
+    },
+  });
+}
+
+/**
+ * 카카오 로그인 → SDK 토큰을 백엔드로 넘겨 세션 발급.
+ * 응답이 일반 로그인과 동일하므로 성공 처리(세션 저장·상태 전환)도 그대로 재사용한다.
+ * 화면에서는 mutate()만 호출하면 된다(취소·실패는 onError 로 받는다).
+ */
+export function useKakaoLoginMutation() {
+  const { signIn } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      const accessToken = await signInWithKakao();
+      const [deviceId, deviceInfo] = [await deviceStorage.get(), getDeviceInfo()];
+      return authApi.oauthLogin("kakao", {
+        accessToken,
         ...(deviceId ? { deviceId } : {}),
         deviceName: deviceInfo.deviceName,
         platform: deviceInfo.platform,

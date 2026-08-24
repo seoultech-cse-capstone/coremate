@@ -5,6 +5,7 @@ export { LoginRequiredGuide } from "./components/LoginRequiredGuide";
 export { SessionRevokedModal } from "./components/SessionRevokedModal";
 export {
   useLoginMutation,
+  useKakaoLoginMutation,
   useSignupMutation,
   useLogoutMutation,
   useSendSignupCodeMutation,
