@@ -51,16 +51,24 @@ public class WeaknessAnalysisEvidenceLog {
     @Column(name = "evidence_type", length = 20, nullable = false)
     private EvidenceType evidenceType;
 
+    /**
+     * AI가 이 근거를 진단의 직접 근거로 지목했는지(응답의 {@code evidence_refs}).
+     * 저장하지 않으면 재열람 때 표시가 사라져 생성 직후와 화면이 달라진다.
+     */
+    @Column(name = "cited_by_ai", nullable = false)
+    private boolean citedByAi;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
     private WeaknessAnalysisEvidenceLog(Long analysisReportId, Long analysisConceptId,
-            Long solveLogId, EvidenceType evidenceType) {
+            Long solveLogId, EvidenceType evidenceType, boolean citedByAi) {
         this.analysisReportId = analysisReportId;
         this.analysisConceptId = analysisConceptId;
         this.solveLogId = solveLogId;
         this.evidenceType = evidenceType;
+        this.citedByAi = citedByAi;
     }
 }

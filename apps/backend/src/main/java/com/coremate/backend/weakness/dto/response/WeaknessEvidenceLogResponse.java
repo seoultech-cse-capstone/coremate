@@ -35,6 +35,10 @@ public record WeaknessEvidenceLogResponse(
         String correctAnswer,
 
         @Schema(description = "정답 여부", example = "false")
-        Boolean isCorrect
+        Boolean isCorrect,
+
+        @Schema(description = "AI가 이 근거를 진단의 직접 근거로 지목했는지. AI 응답의 evidence_refs 에서 온다",
+                example = "true")
+        Boolean citedByAi
 ) {
 }
