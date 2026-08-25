@@ -134,7 +134,10 @@ public class WeaknessScoringService {
                 log.getHintCount(),
                 log.getSelectedAnswer(),
                 log.getCorrectAnswerSnapshot(),
-                log.isCorrect());
+                log.isCorrect(),
+                // 이 단계에서는 아직 AI를 부르기 전이라 지목 여부를 알 수 없다.
+                // 생성 응답은 AI 응답을 받은 뒤 WeaknessAnalysisService 가 다시 채운다.
+                false);
     }
 
     /**

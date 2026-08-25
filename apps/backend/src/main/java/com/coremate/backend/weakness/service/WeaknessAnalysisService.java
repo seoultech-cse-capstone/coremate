@@ -193,8 +193,12 @@ public class WeaknessAnalysisService {
                     .conceptTip(ai != null ? ai.conceptTip() : null)
                     .build());
 
-            saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), candidate);
-            conceptResponses.add(toConceptResponse(concept, candidate, ai, cross));
+            List<WeaknessEvidenceLogResponse> evidence = markCitedEvidence(
+                    candidate.evidence(),
+                    bundle.evidenceRefsByConceptId().get(candidate.conceptId()),
+                    ai != null ? ai.evidenceRefs() : null);
+            saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), evidence);
+            conceptResponses.add(toConceptResponse(concept, candidate, ai, cross, evidence));
         }
 
         report.markCompleted(aiResponse.overview(), null, props.getAiModelLabel(), props.getPromptVersion(),
@@ -257,10 +261,14 @@ public class WeaknessAnalysisService {
                 diagnosticProfileService.loadQuestionProfiles(questionIds);
 
         List<AiWeaknessAnalysisRequest.Candidate> candidates = new ArrayList<>();
+        // AI 에 보낸 ref("e1", "e2"…)를 개념별·순서대로 기억해 둔다.
+        // 응답의 evidence_refs 를 실제 근거 로그에 되돌려 붙이려면 이 매핑이 필요하다.
+        Map<Long, List<String>> refsByConceptId = new LinkedHashMap<>();
         int refCounter = 1;
         for (ConceptCandidate candidate : scoring.candidates()) {
             List<AiWeaknessAnalysisRequest.Evidence> evidence = new ArrayList<>();
             Map<String, Integer> misconceptionCounts = new LinkedHashMap<>();
+            List<String> refsInOrder = new ArrayList<>();
             for (WeaknessEvidenceLogResponse log : candidate.evidence()) {
                 Double timeRatio = null;
                 if ("LONG_TIME".equals(log.evidenceType()) && log.expectedSolveSec() != null
@@ -277,8 +285,10 @@ public class WeaknessAnalysisService {
                         misconceptionCounts.merge(misconceptionCode, 1, Integer::sum);
                     }
                 }
+                String ref = "e" + refCounter++;
+                refsInOrder.add(ref);
                 evidence.add(new AiWeaknessAnalysisRequest.Evidence(
-                        "e" + refCounter++, log.evidenceType(), skillType, misconceptionCode, timeRatio));
+                        ref, log.evidenceType(), skillType, misconceptionCode, timeRatio));
             }
             int q = candidate.questionCount();
             AiWeaknessAnalysisRequest.Stats stats = new AiWeaknessAnalysisRequest.Stats(
@@ -292,10 +302,11 @@ public class WeaknessAnalysisService {
                     candidate.weaknessScore(), candidate.evidenceStrength().doubleValue(),
                     candidate.typeSeparation().doubleValue(), stats,
                     topRepeatedMisconceptions(misconceptionCounts), evidence));
+            refsByConceptId.put(candidate.conceptId(), refsInOrder);
         }
         AiWeaknessAnalysisRequest request = new AiWeaknessAnalysisRequest(
                 new AiWeaknessAnalysisRequest.Scope(subjectName), totals, candidates);
-        return new AiRequestBundle(request);
+        return new AiRequestBundle(request, refsByConceptId);
     }
 
     /**
@@ -351,13 +362,41 @@ public class WeaknessAnalysisService {
         }
     }
 
-    private void saveEvidenceLogs(Long reportId, Long conceptId, ConceptCandidate candidate) {
-        for (WeaknessEvidenceLogResponse log : candidate.evidence()) {
+    /**
+     * AI 응답의 {@code evidence_refs} 를 실제 근거 목록에 되돌려 붙인다.
+     *
+     * <p>ref 는 요청을 만들 때 근거 순서대로 매긴 값이라, 같은 순서로 짝지으면 어떤 근거를 지목한
+     * 것인지 알 수 있다. AI 가 없거나(실패) 지목이 없으면 전부 false 로 둔다.
+     */
+    private List<WeaknessEvidenceLogResponse> markCitedEvidence(List<WeaknessEvidenceLogResponse> evidence,
+            List<String> refsInOrder, List<String> citedRefs) {
+        if (citedRefs == null || citedRefs.isEmpty() || refsInOrder == null) {
+            return evidence;
+        }
+        Set<String> cited = Set.copyOf(citedRefs);
+        List<WeaknessEvidenceLogResponse> marked = new ArrayList<>(evidence.size());
+        for (int i = 0; i < evidence.size(); i++) {
+            boolean isCited = i < refsInOrder.size() && cited.contains(refsInOrder.get(i));
+            WeaknessEvidenceLogResponse log = evidence.get(i);
+            marked.add(isCited ? withCited(log) : log);
+        }
+        return marked;
+    }
+
+    private WeaknessEvidenceLogResponse withCited(WeaknessEvidenceLogResponse log) {
+        return new WeaknessEvidenceLogResponse(log.evidenceId(), log.solveLogId(), log.questionId(),
+                log.questionText(), log.evidenceType(), log.timeSpentSec(), log.expectedSolveSec(),
+                log.hintCount(), log.selectedAnswer(), log.correctAnswer(), log.isCorrect(), true);
+    }
+
+    private void saveEvidenceLogs(Long reportId, Long conceptId, List<WeaknessEvidenceLogResponse> evidence) {
+        for (WeaknessEvidenceLogResponse log : evidence) {
             evidenceLogRepository.save(WeaknessAnalysisEvidenceLog.builder()
                     .analysisReportId(reportId)
                     .analysisConceptId(conceptId)
                     .solveLogId(log.solveLogId())
                     .evidenceType(EvidenceType.valueOf(log.evidenceType()))
+                    .citedByAi(Boolean.TRUE.equals(log.citedByAi()))
                     .build());
         }
     }
@@ -382,7 +421,8 @@ public class WeaknessAnalysisService {
     // 응답 매핑
     // ----------------------------------------------------------------------- //
     private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept, ConceptCandidate candidate,
-            AiWeaknessAnalysisResponse.ConceptAnalysis ai, CrossResult cross) {
+            AiWeaknessAnalysisResponse.ConceptAnalysis ai, CrossResult cross,
+            List<WeaknessEvidenceLogResponse> evidence) {
         String evidenceSummary = String.format("오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
                 candidate.wrongCount(), candidate.longTimeCount(), candidate.hintUsedCount());
         DiagnosticProfileService.ConceptProfileView profile =
@@ -404,7 +444,7 @@ public class WeaknessAnalysisService {
                 detailedExplanation(profile, candidate.conceptCore()),
                 ai != null ? ai.conceptTip() : null,
                 profile != null ? profile.toResponse() : null,
-                candidate.evidence());
+                evidence);
     }
 
     /** 상세 설명은 개념 진단 프로필의 설명을 우선 사용하고, 없으면 개념 한 줄 정의로 대체한다. */
@@ -502,7 +542,8 @@ public class WeaknessAnalysisService {
     private WeaknessEvidenceLogResponse toEvidenceResponse(WeaknessAnalysisEvidenceLog evidence, SolveLog log) {
         if (log == null) {
             return new WeaknessEvidenceLogResponse(evidence.getEvidenceLogId(), evidence.getSolveLogId(),
-                    null, null, evidence.getEvidenceType().name(), null, null, null, null, null, null);
+                    null, null, evidence.getEvidenceType().name(), null, null, null, null, null, null,
+                    evidence.isCitedByAi());
         }
         return new WeaknessEvidenceLogResponse(
                 evidence.getEvidenceLogId(),
@@ -515,7 +556,8 @@ public class WeaknessAnalysisService {
                 log.getHintCount(),
                 log.getSelectedAnswer(),
                 log.getCorrectAnswerSnapshot(),
-                log.isCorrect());
+                log.isCorrect(),
+                evidence.isCitedByAi());
     }
 
     private EligibleSolveSessionResponse toSelectedSession(WeaknessAnalysisSession session, SolveSession source) {
@@ -672,7 +714,8 @@ public class WeaknessAnalysisService {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 
-    private record AiRequestBundle(AiWeaknessAnalysisRequest request) {
+    private record AiRequestBundle(AiWeaknessAnalysisRequest request,
+            Map<Long, List<String>> evidenceRefsByConceptId) {
     }
 
     private record CrossResult(WeaknessType aiPrimaryType, WeaknessType finalType, FinalTypeSource finalTypeSource,

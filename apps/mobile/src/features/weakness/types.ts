@@ -48,6 +48,8 @@ export type WeaknessEvidenceLog = {
   selectedAnswer: string | null;
   correctAnswer: string | null;
   isCorrect: boolean | null;
+  /** AI가 진단의 직접 근거로 지목한 문항인지. 서버 evidence_refs 에서 온다. */
+  citedByAi: boolean | null;
 };
 
 export type ConceptLearningConfusionComparison = {

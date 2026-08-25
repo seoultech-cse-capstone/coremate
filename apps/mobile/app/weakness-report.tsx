@@ -271,10 +271,15 @@ function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
 
 function EvidenceLogRow({ evidence }: { evidence: WeaknessEvidenceLog }) {
   return (
-    <View style={styles.evidenceRow}>
-      <Text style={styles.evidenceType}>
-        {label(EVIDENCE_TYPE_LABEL, evidence.evidenceType)}
-      </Text>
+    <View style={[styles.evidenceRow, evidence.citedByAi && styles.citedEvidenceRow]}>
+      <View style={styles.evidenceHeader}>
+        <Text style={styles.evidenceType}>
+          {label(EVIDENCE_TYPE_LABEL, evidence.evidenceType)}
+        </Text>
+        {evidence.citedByAi ? (
+          <Text style={styles.citedBadge}>AI가 지목한 근거</Text>
+        ) : null}
+      </View>
       <Text style={styles.subBoxText}>{evidence.questionText}</Text>
       <Text style={styles.evidenceDetailText}>
         정답 여부: {evidence.isCorrect === null ? "-" : evidence.isCorrect ? "정답" : "오답"} ·
@@ -502,6 +507,30 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#E2E8F0",
     paddingTop: 10,
+  },
+  // AI가 직접 근거로 지목한 문항은 나머지와 구분해 보여 준다.
+  citedEvidenceRow: {
+    backgroundColor: "#F5F3FF",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginHorizontal: -10,
+  },
+  evidenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  citedBadge: {
+    color: "#6D5DFB",
+    backgroundColor: "#EDEAFE",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "600",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: "hidden",
   },
   evidenceType: {
     color: "#dc2626",
