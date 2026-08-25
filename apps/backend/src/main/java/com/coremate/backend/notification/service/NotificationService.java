@@ -45,15 +45,23 @@ public class NotificationService {
     public void registerDeviceToken(Long userId, RegisterDeviceTokenRequest request) {
         User user = findActiveUser(userId);
 
-        // 같은 토큰이 다른 계정에 남아 있으면 내려둔다. 기기를 넘겨주거나 계정을 바꿔
-        // 로그인했을 때 이전 사용자에게 알림이 가는 것을 막는다.
-        deviceTokenRepository.findByToken(request.getToken())
-                .filter(existing -> !existing.getUser().getUserId().equals(userId))
-                .ifPresent(DeviceToken::deactivate);
+        // 같은 토큰을 가진 행이 이미 있으면 그 행을 넘겨받는다. token 에 UNIQUE 제약이 있어
+        // 남겨 둔 채 새로 INSERT 하면 중복 키로 500 이 난다. 기기를 다른 계정에 물려주거나,
+        // 앱을 지웠다 깔아 기기 식별자만 새로 생긴 경우가 모두 이 경로로 들어온다.
+        DeviceToken sameToken = deviceTokenRepository.findByToken(request.getToken()).orElse(null);
+        DeviceToken sameDevice = findSameDeviceToken(userId, request);
 
-        DeviceToken existing = findSameDeviceToken(userId, request);
-        if (existing != null) {
-            existing.refresh(request.getToken(), request.getPlatform());
+        if (sameToken != null) {
+            // 같은 기기의 옛 행이 따로 남아 있으면 내려둔다(토큰이 바뀌기 전의 행).
+            if (sameDevice != null && !sameDevice.getDeviceTokenId().equals(sameToken.getDeviceTokenId())) {
+                sameDevice.deactivate();
+            }
+            sameToken.takeOver(user, request.getPlatform(), request.getDeviceId());
+            return;
+        }
+
+        if (sameDevice != null) {
+            sameDevice.refresh(request.getToken(), request.getPlatform());
             return;
         }
 

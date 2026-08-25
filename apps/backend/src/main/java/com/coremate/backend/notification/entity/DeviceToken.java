@@ -87,6 +87,21 @@ public class DeviceToken {
         this.active = true;
     }
 
+    /**
+     * 이미 존재하는 토큰 행을 지금 등록하는 사용자·기기 것으로 넘겨받는다.
+     *
+     * <p>token 에 UNIQUE 제약이 있어, 같은 토큰을 가진 행을 두고 새로 INSERT 하면 중복 키로 실패한다.
+     * 기기를 다른 계정에 물려주거나 앱을 지웠다 깔아 기기 식별자만 새로 생긴 경우가 여기 해당한다.
+     */
+    public void takeOver(User user, DevicePlatform platform, String deviceId) {
+        this.user = user;
+        this.platform = platform;
+        if (deviceId != null && !deviceId.isBlank()) {
+            this.deviceId = deviceId;
+        }
+        this.active = true;
+    }
+
     public void deactivate() {
         this.active = false;
     }

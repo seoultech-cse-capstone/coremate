@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -49,10 +50,23 @@ public class DailyQuizService {
     private final DailyQuizQuestionPickerRepository dailyQuizQuestionPickerRepository;
     private final DailyQuizAnswerLogRepository dailyQuizAnswerLogRepository;
     private final AttendanceService attendanceService;
+    private final DailyQuizSetInitializer dailyQuizSetInitializer;
+
+    // 오늘의 퀴즈 세트 생성을 한 번에 하나만 하도록 묶는다. 인스턴스가 여러 개면 이 잠금이
+    // 닿지 않지만, 그때는 유니크 제약에 걸린 쪽이 createIfAbsent 안에서 예외를 삼키고
+    // 이미 만들어진 세트를 읽어 간다. 즉 이 잠금은 같은 인스턴스 안의 흔한 경합을 없애는 용도다.
+    private static final Object DAILY_QUIZ_CREATION_LOCK = new Object();
     private final ObjectMapper objectMapper;
 
     // 오늘 날짜의 퀴즈 세트를 조회하고 없으면 승인된 문제 후보에서 생성한다.
-    @Transactional
+    //
+    // NOT_SUPPORTED 로 바깥 트랜잭션을 아예 열지 않는다. 이유가 두 가지다.
+    //  ① 세트 생성은 DailyQuizSetInitializer 가 독립 트랜잭션으로 하고 여기서 다시 읽어야 하는데,
+    //     바깥 트랜잭션이 있으면 스냅샷이 고정돼 방금 커밋된 세트를 못 본다.
+    //  ② REQUIRES_NEW 는 바깥 트랜잭션을 "정지"시킬 뿐 커넥션은 붙잡고 있어서, 요청 하나가
+    //     커넥션 두 개를 쥔다. 동시 요청이 몰리면 풀이 말라 CannotCreateTransactionException 이 난다.
+    // 이 메서드는 조회와 위임뿐이라 트랜잭션이 필요 없다(클래스 기본값 readOnly 도 여기선 끈다).
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DailyQuizSetResponse getTodayDailyQuiz(Long userId) {
         LocalDate today = LocalDate.now();
         List<DailyQuizSet> quizEntries = getOrCreateDailyQuizSet(today);
@@ -173,6 +187,24 @@ public class DailyQuizService {
             return existing;
         }
 
+        // 동시에 들어온 요청들이 각자 세트를 만들다 데드락 나던 자리다.
+        //
+        // 잠금을 트랜잭션 "바깥"에서 잡는 게 핵심이다. createIfAbsent 안에서 잠그면 프록시가
+        // 트랜잭션을 먼저 열기 때문에, 기다리는 요청들이 커넥션을 하나씩 쥔 채 줄을 서서
+        // 커넥션 풀이 말라 버린다(실제로 그렇게 만들었다가 전부 500 이 났다).
+        // 여기서 잠그면 기다리는 쪽은 커넥션을 쓰지 않고, 이긴 쪽이 만든 뒤 곧바로 빠져나간다.
+        synchronized (DAILY_QUIZ_CREATION_LOCK) {
+            dailyQuizSetInitializer.createIfAbsent(quizDate, () -> buildDailyQuizEntries(quizDate));
+        }
+
+        List<DailyQuizSet> created = dailyQuizSetRepository.findByQuizDateOrderBySortOrderAsc(quizDate);
+        if (created.isEmpty()) {
+            throw new CoreMateException(ErrorCode.DAILY_QUIZ_NOT_FOUND);
+        }
+        return created;
+    }
+
+    private List<DailyQuizSet> buildDailyQuizEntries(LocalDate quizDate) {
         List<Question> selectedQuestions = selectDailyQuizQuestions(quizDate);
         List<DailyQuizSet> newEntries = new ArrayList<>();
         for (int i = 0; i < selectedQuestions.size(); i++) {
@@ -184,8 +216,7 @@ public class DailyQuizService {
                     i + 1
             ));
         }
-        dailyQuizSetRepository.saveAll(newEntries);
-        return dailyQuizSetRepository.findByQuizDateOrderBySortOrderAsc(quizDate);
+        return newEntries;
     }
 
     private List<Question> selectDailyQuizQuestions(LocalDate quizDate) {
