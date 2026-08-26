@@ -55,6 +55,12 @@ firebase:
   # 기본값은 호스트에서 bootRun 할 때 기준. Docker 는 compose 가 절대경로로 주입한다.
   credentials-path: ${FIREBASE_CREDENTIALS_PATH:secrets/firebase-service-account.json}
 
+oauth:
+  google:
+    # 구글 로그인 idToken 의 aud(수신자) 검증에 쓰는 웹 클라이언트 ID. 공개값이라 시크릿은 아니다.
+    # 프론트 GoogleSignin 의 webClientId 와 같은 값이어야 하며, 없으면 구글 로그인만 실패한다.
+    client-id: ${GOOGLE_CLIENT_ID:}
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiry-sec: 3600      # 1시간
