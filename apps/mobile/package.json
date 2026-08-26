@@ -3,7 +3,9 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@react-native-google-signin/google-signin": "^16.1.4",
     "@react-native-seoul/kakao-login": "^6.0.4",
+    "@react-native-seoul/naver-login": "^5.0.1",
     "@tanstack/react-query": "^5.101.4",
     "expo": "^54.0.0",
     "expo-blur": "~15.0.8",

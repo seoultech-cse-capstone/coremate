@@ -6,6 +6,8 @@ export { SessionRevokedModal } from "./components/SessionRevokedModal";
 export {
   useLoginMutation,
   useKakaoLoginMutation,
+  useNaverLoginMutation,
+  useGoogleLoginMutation,
   useSignupMutation,
   useLogoutMutation,
   useSendSignupCodeMutation,
