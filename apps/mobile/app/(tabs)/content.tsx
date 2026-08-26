@@ -36,7 +36,8 @@ import {
   useSubjects,
 } from "../../src/features/content";
 import type { ChildCountKind, Concept, Subject } from "../../src/features/content";
-import { useProblemSetProgress } from "../../src/features/progress";
+import { usePassRates, useProblemSetProgress } from "../../src/features/progress";
+import type { ProgressScopeType } from "../../src/features/progress";
 import { useDailyRewardLimits } from "../../src/features/reward";
 import {
   useLanguage,
@@ -96,33 +97,38 @@ function mapSubject(
   subject: Subject,
   chapterCount: number,
   language: ContentLanguage,
-  isCompleted: boolean,
+  progress: number,
+  hasSolved: boolean,
 ): ProblemSetItem {
   const visuals = SUBJECT_VISUALS[subject.subjectCode];
   return {
     id: subject.subjectId,
     title: pickLocalizedName(subject.subjectName, subject.subjectNameEn, language),
     chapterCount,
-    progress: isCompleted ? 100 : 0,
-    hasSolved: isCompleted,
+    progress,
+    hasSolved,
     Icon: visuals?.Icon,
     iconColor: visuals?.iconColor,
     thumbnailColor: visuals?.thumbnailColor,
   };
 }
 
+// 진행바는 "이 범위의 하위 개념 중 몇 개나 다 맞혔나"(서버 pass-rates)로 채운다.
+// hasSolved 는 별개로 "이 범위 모의고사를 본 적 있나"라서, 진행률 0%여도
+// 최근 풀이/다시 풀기 버튼은 그대로 남는다.
 function mapNode(
   id: number,
   title: string,
   chapterCount: number,
-  isCompleted: boolean,
+  progress: number,
+  hasSolved: boolean,
 ): ProblemSetItem {
   return {
     id,
     title,
     chapterCount,
-    progress: isCompleted ? 100 : 0,
-    hasSolved: isCompleted,
+    progress,
+    hasSolved,
   };
 }
 
@@ -214,6 +220,14 @@ const startButtonLabelByDepth: Record<ContentDepth, string> = {
   category1: "챕터 모의고사 풀기",
   category2: "챕터 모의고사 풀기",
   concept: "개념 문제집 풀기",
+};
+
+// 진행바 집계 범위. 하위 개념은 개념 목록 API 가 총 문제 수/정답 수를 직접 주므로 제외한다.
+const scopeTypeByDepth: Record<ContentDepth, ProgressScopeType | null> = {
+  subject: "SUBJECT",
+  category1: "CATEGORY_LV1",
+  category2: "CATEGORY_LV2",
+  concept: null,
 };
 
 const sessionTypeByDepth: Record<
@@ -342,6 +356,20 @@ export default function ContentScreen() {
     return map;
   }, [problemSetProgressQuery.data]);
 
+  const passRatesQuery = usePassRates(
+    accessToken,
+    scopeTypeByDepth[currentDepth],
+    currentDepth === "subject" ? null : parentId,
+  );
+
+  const progressByTargetId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const item of passRatesQuery.data ?? []) {
+      map.set(item.targetId, item.progressRate);
+    }
+    return map;
+  }, [passRatesQuery.data]);
+
   const dailyRewardLimitsQuery = useDailyRewardLimits(accessToken);
   const rewardTypeForDepth = REWARD_TYPE_BY_DEPTH[currentDepth];
   const remainingMockXpCount = useMemo(() => {
@@ -368,6 +396,7 @@ export default function ContentScreen() {
               subject,
               childCounts.get(subject.subjectId) ?? PLACEHOLDER_CHAPTER_COUNT,
               language,
+              progressByTargetId.get(subject.subjectId) ?? 0,
               completedByTargetId.get(subject.subjectId) ?? false,
             ),
           );
@@ -383,6 +412,7 @@ export default function ContentScreen() {
                 language,
               ),
               childCounts.get(category.categoryLv1Id) ?? PLACEHOLDER_CHAPTER_COUNT,
+              progressByTargetId.get(category.categoryLv1Id) ?? 0,
               completedByTargetId.get(category.categoryLv1Id) ?? false,
             ),
           );
@@ -398,6 +428,7 @@ export default function ContentScreen() {
                 language,
               ),
               childCounts.get(category.categoryLv2Id) ?? PLACEHOLDER_CHAPTER_COUNT,
+              progressByTargetId.get(category.categoryLv2Id) ?? 0,
               completedByTargetId.get(category.categoryLv2Id) ?? false,
             ),
           );
@@ -420,6 +451,7 @@ export default function ContentScreen() {
     childCounts,
     language,
     completedByTargetId,
+    progressByTargetId,
   ]);
 
   const { refetch: refetchSubjects } = subjectsQuery;

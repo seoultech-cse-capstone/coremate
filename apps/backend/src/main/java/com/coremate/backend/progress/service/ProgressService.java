@@ -4,8 +4,11 @@ import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.content.repository.SubjectRepository;
 import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.progress.dto.response.ConceptCountSummaryResponse;
+import com.coremate.backend.progress.dto.response.ConceptPassCount;
+import com.coremate.backend.progress.dto.response.ProblemSetPassRateResponse;
 import com.coremate.backend.progress.dto.response.ProblemSetProgressResponse;
 import com.coremate.backend.progress.dto.response.SubjectProgressResponse;
+import com.coremate.backend.progress.dto.type.ProgressScopeType;
 import com.coremate.backend.solve.dto.response.SubjectQuestionCount;
 import com.coremate.backend.solve.dto.type.SolveSessionType;
 import com.coremate.backend.solve.entity.SolveSession;
@@ -35,7 +38,7 @@ public class ProgressService {
     /**
      * 복습탭 개념 카운팅(총 개념 / 풀었어요 / 아직 못풀었어요)을 전역(과목 무관) 기준으로 집계한다.
      * - 총 개념: 전체 활성 개념 수
-     * - 풀었어요: 사용자가 COMPLETED 상태의 개념 문제집 세션을 가진 서로 다른 개념 수
+     * - 풀었어요: 사용자가 합격(PASS, 전 문제 정답)한 개념 문제집 세션을 가진 서로 다른 개념 수
      * - 아직 못풀었어요: 총 개념 - 풀었어요 (미풀이 + 진행중 포함)
      */
     @Transactional(readOnly = true)
@@ -47,9 +50,52 @@ public class ProgressService {
     }
 
     /**
+     * 문제집 탐색 화면의 범위별 진행률을 조회한다(FR-CONTENT-01·02·03).
+     *
+     * <p>진행률은 그 범위의 활성 하위 개념 중 합격(PASS, 전 문제 정답)한 개념의 비율이고,
+     * 완료 체크는 진행률이 100일 때만 붙는다. 모의고사를 몇 번 봤는지는 보지 않는다 —
+     * 모의고사 응시 이력은 {@link #getProblemSetProgress} 가 따로 내려준다.
+     *
+     * @param parentId SUBJECT 면 무시하고, CATEGORY_LV1 이면 과목 ID, CATEGORY_LV2 면 대분류 ID
+     */
+    @Transactional(readOnly = true)
+    public List<ProblemSetPassRateResponse> getPassRates(
+            Long userId, ProgressScopeType scopeType, Long parentId) {
+        List<ConceptPassCount> counts = switch (scopeType) {
+            case SUBJECT -> conceptRepository.aggregatePassCountBySubject(userId);
+            case CATEGORY_LV1 -> conceptRepository.aggregatePassCountByCategoryLv1(userId, parentId);
+            case CATEGORY_LV2 -> conceptRepository.aggregatePassCountByCategoryLv2(userId, parentId);
+        };
+
+        return counts.stream()
+                .map(count -> {
+                    int progressRate = progressRateOf(count);
+                    return new ProblemSetPassRateResponse(
+                            scopeType, count.targetId(),
+                            count.totalConceptCount(), count.passedConceptCount(),
+                            progressRate, progressRate == 100);
+                })
+                .toList();
+    }
+
+    /**
+     * 합격 개념 비율을 0~100 정수로 만든다.
+     *
+     * <p>내림으로 자른다. 다 합격하지 않았는데 반올림 때문에 100이 되어 완료 체크가 붙는 일을 막는다.
+     * 개념이 하나도 없는 범위(아직 콘텐츠가 안 들어온 챕터)는 0으로 둔다 — 푼 게 없는데 100%가
+     * 되는 것보다 낫고, 화면에서도 미완료로 보인다.
+     */
+    private int progressRateOf(ConceptPassCount count) {
+        if (count.totalConceptCount() <= 0) {
+            return 0;
+        }
+        return (int) (count.passedConceptCount() * 100 / count.totalConceptCount());
+    }
+
+    /**
      * 과목별 학습 진행률을 조회한다(활성 과목 전체, 정렬 순서대로).
-     * 홈 "Your Progress"가 쓰는 achievementRate 는 "완료한 개념 / 전체 개념" 비율(%)로 계산한다.
-     * 완료 개념 기준은 복습탭 카운팅과 동일하게 COMPLETED 개념 문제집 세션이다.
+     * 홈 "Your Progress"가 쓰는 achievementRate 는 "합격한 개념 / 전체 개념" 비율(%)로 계산한다.
+     * 합격 개념 기준은 복습탭 카운팅과 동일하게 전 문제 정답(PASS)한 개념 문제집 세션이다(FR-STAT-02).
      *
      * 푼/맞힌/틀린 문제 수는 COMPLETED 회차의 solve_logs 를 과목별로 집계해 채운다.
      * 마이페이지·친구 프로필의 과목별 스탯(FR-STAT-01)도 이 메서드를 재사용하므로,

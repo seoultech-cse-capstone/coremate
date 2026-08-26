@@ -56,3 +56,20 @@ export type ProblemSetProgress = {
   completedCount: number;
   lastCompletedAt: string | null;
 };
+
+export type ProgressScopeType = "SUBJECT" | "CATEGORY_LV1" | "CATEGORY_LV2";
+
+/**
+ * GET /api/v1/progress/pass-rates 응답. ProblemSetPassRateResponse와 1:1 대응.
+ *
+ * 진행률은 그 범위의 활성 하위 개념 중 합격(PASS, 전 문제 정답)한 개념 비율이다.
+ * 모의고사를 몇 번 봤는지는 들어가지 않는다 — 그건 ProblemSetProgress 쪽이다.
+ */
+export type ProblemSetPassRate = {
+  scopeType: ProgressScopeType;
+  targetId: number;
+  totalConceptCount: number;
+  passedConceptCount: number;
+  progressRate: number;
+  completed: boolean;
+};
