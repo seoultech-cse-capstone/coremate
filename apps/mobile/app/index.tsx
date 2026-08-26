@@ -7,7 +7,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { FONT } from "../constants/fonts";
-import { useAuth, useKakaoLoginMutation } from "../src/features/auth";
+import {
+  useAuth,
+  useKakaoLoginMutation,
+  useNaverLoginMutation,
+  useGoogleLoginMutation,
+} from "../src/features/auth";
 import { LoadingScreen } from "../src/shared/components/LoadingScreen";
 
 function GoogleLogo({ size = 20 }: { size?: number }) {
@@ -41,6 +46,8 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
 export default function StartScreen() {
   const { continueAsGuest, status } = useAuth();
   const kakaoLogin = useKakaoLoginMutation();
+  const naverLogin = useNaverLoginMutation();
+  const googleLogin = useGoogleLoginMutation();
 
   // 세션이 복원되어 이미 로그인된 상태라면 시작화면을 보여주지 않고 바로 홈으로 보낸다.
   // 카카오 로그인 성공도 status 를 authenticated 로 바꾸므로 이 효과가 홈으로 보낸다.
@@ -52,6 +59,30 @@ export default function StartScreen() {
 
   const handleKakaoLogin = () => {
     kakaoLogin.mutate(undefined, {
+      onError: (error) => {
+        // 사용자가 로그인 창을 닫은 경우는 조용히 무시한다.
+        if (String(error).toLowerCase().includes("cancel")) {
+          return;
+        }
+
+      },
+    });
+  };
+
+  const handleNaverLogin = () => {
+    naverLogin.mutate(undefined, {
+      onError: (error) => {
+        // 사용자가 로그인 창을 닫은 경우는 조용히 무시한다.
+        if (String(error).toLowerCase().includes("cancel")) {
+          return;
+        }
+
+      },
+    });
+  };
+
+  const handleGoogleLogin = () => {
+    googleLogin.mutate(undefined, {
       onError: (error) => {
         // 사용자가 로그인 창을 닫은 경우는 조용히 무시한다.
         if (String(error).toLowerCase().includes("cancel")) {
@@ -97,9 +128,26 @@ export default function StartScreen() {
             </Text>
           </Pressable>
 
-          <Pressable style={styles.googleButton} onPress={() => {}}>
+          <Pressable
+            style={styles.naverButton}
+            onPress={handleNaverLogin}
+            disabled={naverLogin.isPending}
+          >
+            <Text style={styles.naverMark}>N</Text>
+            <Text style={styles.naverButtonText}>
+              {naverLogin.isPending ? "로그인 중..." : "네이버 로그인"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.googleButton}
+            onPress={handleGoogleLogin}
+            disabled={googleLogin.isPending}
+          >
             <GoogleLogo size={20} />
-            <Text style={styles.googleButtonText}>구글 로그인</Text>
+            <Text style={styles.googleButtonText}>
+              {googleLogin.isPending ? "로그인 중..." : "구글 로그인"}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -154,6 +202,27 @@ const styles = StyleSheet.create({
   },
   kakaoButtonText: {
     color: "#191919",
+    fontFamily: FONT.pretendard,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  naverButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 16,
+    backgroundColor: "#03C75A",
+    paddingVertical: 16,
+  },
+  naverMark: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  naverButtonText: {
+    color: "#ffffff",
     fontFamily: FONT.pretendard,
     fontSize: 16,
     fontWeight: "800",

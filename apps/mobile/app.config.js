@@ -9,6 +9,9 @@ module.exports = ({ config }) => {
     plugins: [
       ...(config.plugins ?? []),
       ["@react-native-seoul/kakao-login", { kakaoAppKey }],
+      // 구글 로그인 네이티브 SDK. Android 는 런타임 webClientId 로 동작하고, iOS 는 URL scheme 이
+      // 필요하지만 현재 검증은 Android 라 별도 파라미터 없이 오토링크만 시킨다.
+      "@react-native-google-signin/google-signin",
       // 카카오 SDK 는 별도 Maven 저장소에서 받는다(Android 빌드용).
       [
         "expo-build-properties",
