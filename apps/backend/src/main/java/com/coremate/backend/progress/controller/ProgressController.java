@@ -5,8 +5,10 @@ import com.coremate.backend.global.response.ApiResponse;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.problemset.dto.type.ProblemSetType;
 import com.coremate.backend.progress.dto.response.ConceptCountSummaryResponse;
+import com.coremate.backend.progress.dto.response.ProblemSetPassRateResponse;
 import com.coremate.backend.progress.dto.response.ProblemSetProgressResponse;
 import com.coremate.backend.progress.dto.response.SubjectProgressResponse;
+import com.coremate.backend.progress.dto.type.ProgressScopeType;
 import com.coremate.backend.progress.service.ProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,7 +35,7 @@ public class ProgressController {
     // 복습탭 개념 카운팅(총 개념 / 풀었어요 / 아직 못풀었어요) 조회
     @Operation(summary = "복습탭 개념 카운팅 조회",
             description = "복습탭에 표시할 총 개념 / 풀었어요 / 아직 못풀었어요 수를 전역(과목 무관) 기준으로 조회한다. "
-                    + "풀었어요는 COMPLETED 상태의 개념 문제집 세션이 있는 개념만 집계하며, "
+                    + "풀었어요는 합격(PASS, 전 문제 정답)한 개념 문제집 세션이 있는 개념만 집계하며, "
                     + "아직 못풀었어요는 전체에서 풀었어요를 뺀 값(미풀이 + 진행중 포함)이다.")
     @GetMapping("/concepts/summary")
     public ApiResponse<ConceptCountSummaryResponse> getConceptCountSummary(
@@ -64,6 +66,27 @@ public class ProgressController {
         return ApiResponse.success("문제집별 완료 상태 조회 성공",
                 progressService.getProblemSetProgress(
                         userDetails.getUserId(), problemSetType, subjectId, categoryLv1Id, categoryLv2Id));
+    }
+
+    // 문제집 탐색 화면의 범위별 진행률 조회
+    @Operation(summary = "문제집 범위별 진행률 조회",
+            description = "문제집 목록의 진행바와 완료 체크에 쓸 값을 조회한다. "
+                    + "진행률은 그 범위의 활성 하위 개념 중 합격(PASS, 전 문제 정답)한 개념 비율이며, "
+                    + "100일 때만 완료로 본다. 모의고사 응시 이력은 반영하지 않는다(FR-CONTENT-01·02·03). "
+                    + "하위 개념의 진행률은 이 API가 아니라 개념 목록 API의 총 문제 수/정답 수로 계산한다.")
+    @GetMapping("/pass-rates")
+    public ApiResponse<List<ProblemSetPassRateResponse>> getPassRates(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+
+            @Parameter(description = "집계 범위", example = "CATEGORY_LV2", required = true)
+            @RequestParam ProgressScopeType scopeType,
+
+            @Parameter(description = "상위 범위 ID. CATEGORY_LV1이면 과목 ID, CATEGORY_LV2면 대분류 ID. SUBJECT면 불필요",
+                    example = "9102")
+            @RequestParam(required = false) Long parentId
+    ) {
+        return ApiResponse.success("문제집 범위별 진행률 조회 성공",
+                progressService.getPassRates(userDetails.getUserId(), scopeType, parentId));
     }
 
     // 과목별 학습 진행률 및 스탯 조회

@@ -2,8 +2,10 @@ import { httpClient } from "../../shared/api/httpClient";
 import type {
   ApiEnvelope,
   ConceptCountSummary,
+  ProblemSetPassRate,
   ProblemSetProgress,
   ProblemSetProgressFilters,
+  ProgressScopeType,
   SubjectProgress,
 } from "./types";
 
@@ -25,6 +27,23 @@ export const progressApi = {
   getSubjectProgress(accessToken: string, userId: number): Promise<SubjectProgress[]> {
     return httpClient
       .get<ApiEnvelope<SubjectProgress[]>>(`/api/v1/progress/subjects?userId=${userId}`, {
+        accessToken,
+      })
+      .then((res) => res.data);
+  },
+
+  getPassRates(
+    accessToken: string,
+    scopeType: ProgressScopeType,
+    parentId: number | null,
+  ): Promise<ProblemSetPassRate[]> {
+    const params = new URLSearchParams({ scopeType });
+    if (parentId !== null) {
+      params.set("parentId", String(parentId));
+    }
+
+    return httpClient
+      .get<ApiEnvelope<ProblemSetPassRate[]>>(`/api/v1/progress/pass-rates?${params}`, {
         accessToken,
       })
       .then((res) => res.data);

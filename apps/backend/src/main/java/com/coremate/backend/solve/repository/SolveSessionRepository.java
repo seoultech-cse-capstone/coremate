@@ -83,26 +83,37 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
             Long userId, SolveSessionStatus status, Collection<SolveSessionType> sessionTypes);
 
     /**
-     * 복습탭 개념 카운팅의 "풀었어요": 사용자가 COMPLETED 상태의 개념 문제집 세션을 가진 서로 다른 개념 수.
-     * IN_PROGRESS(풀다 만 것)는 제외되어 자연히 "아직 못풀었어요"에 포함된다.
+     * 복습탭 개념 카운팅의 "풀었어요": 사용자가 합격(PASS)한 개념 문제집 세션을 가진 서로 다른 개념 수.
+     * SCR-LOG-01 이 요구하는 기준은 완료(COMPLETED)가 아니라 합격이다. 끝까지 풀기만 하고 틀린 개념은
+     * "아직 못풀었어요"에 남는다. 문제가 0개인 회차가 합격으로 오판되지 않도록 총 문제 수 > 0 을 함께 건다.
+     *
+     * <p>비활성 개념은 제외한다. "총 개념"(countByActiveTrue)이 활성만 세므로, 합격한 뒤 비활성으로
+     * 바뀐 개념을 여기서 세면 풀었어요가 총 개념을 넘어 "아직 못풀었어요"가 음수가 될 수 있다.
      */
     @Query("""
             SELECT COUNT(DISTINCT s.concept.conceptId) FROM SolveSession s
             WHERE s.userId = :userId
               AND s.sessionType = com.coremate.backend.solve.dto.type.SolveSessionType.CONCEPT_PRACTICE
               AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+              AND s.totalQuestionCount > 0
+              AND s.correctCount = s.totalQuestionCount
+              AND s.concept.active = true
             """)
     long countDistinctSolvedConcepts(@Param("userId") Long userId);
 
     /**
-     * 과목별 진행률의 "완료한 개념": 해당 과목 하위에서 COMPLETED 개념 문제집 세션을 가진 서로 다른 개념 수.
-     * 복습탭 카운팅(countDistinctSolvedConcepts)과 동일하게 COMPLETED 기준을 쓴다.
+     * 과목별 학습 달성률의 "합격한 개념": 해당 과목 하위에서 합격(PASS)한 개념 문제집 세션을 가진
+     * 서로 다른 개념 수. FR-STAT-02 가 정한 기준이며, 복습탭 카운팅(countDistinctSolvedConcepts)과 같다.
+     * 분모(countByCategoryLv2_..._AndActiveTrue)가 활성 개념만 세므로 여기서도 비활성 개념을 뺀다.
      */
     @Query("""
             SELECT COUNT(DISTINCT s.concept.conceptId) FROM SolveSession s
             WHERE s.userId = :userId
               AND s.sessionType = com.coremate.backend.solve.dto.type.SolveSessionType.CONCEPT_PRACTICE
               AND s.status = com.coremate.backend.solve.dto.type.SolveSessionStatus.COMPLETED
+              AND s.totalQuestionCount > 0
+              AND s.correctCount = s.totalQuestionCount
+              AND s.concept.active = true
               AND s.concept.categoryLv2.categoryLv1.subject.subjectId = :subjectId
             """)
     long countDistinctSolvedConceptsBySubject(@Param("userId") Long userId, @Param("subjectId") Long subjectId);
