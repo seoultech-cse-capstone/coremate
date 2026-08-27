@@ -4,6 +4,7 @@ import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.shop.dto.request.OpenRandomBoxRequest;
 import com.coremate.backend.shop.dto.response.RandomBoxItemResponse;
+import com.coremate.backend.shop.dto.response.RandomBoxOddsResponse;
 import com.coremate.backend.shop.dto.response.RandomBoxOpenResponse;
 import com.coremate.backend.shop.dto.response.RandomBoxResponse;
 import com.coremate.backend.shop.service.RandomBoxService;
@@ -42,6 +43,14 @@ public class RandomBoxController {
             @RequestParam(required = false) Long randomBoxId
     ) {
         return randomBoxService.getRandomBoxItems(randomBoxId);
+    }
+
+    @Operation(summary = "랜덤박스 등급별 확률 조회")
+    @GetMapping("/odds")
+    public List<RandomBoxOddsResponse> getRandomBoxOdds(
+            @RequestParam(required = false) Long randomBoxId
+    ) {
+        return randomBoxService.getRandomBoxOdds(randomBoxId);
     }
 
     @Operation(summary = "랜덤박스 열기")

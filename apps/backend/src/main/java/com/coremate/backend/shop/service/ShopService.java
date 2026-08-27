@@ -17,6 +17,7 @@ import com.coremate.backend.shop.repository.ShopPurchaseLogRepository;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,14 @@ public class ShopService {
     private static final String REFERENCE_TYPE_SHOP_PRODUCT = "SHOP_PRODUCT";
     private static final String ACQUIRED_SOURCE_SHOP_PURCHASE = "SHOP_PURCHASE";
 
+    // 상점에 노출하는 상품은 3종뿐이다. 꾸미기 직판(ITEM/ROOM_THEME/ACTION_CARD)이 폐기돼
+    // 폐기된 product_type 행이 DB 에 남아 있어도 조회에서 제외한다. (FR-SHOP-01)
+    private static final Set<String> VISIBLE_PRODUCT_TYPES = Set.of(
+            ShopProduct.PRODUCT_TYPE_RANDOM_BOX,
+            ShopProduct.PRODUCT_TYPE_NICKNAME_CHANGE,
+            ShopProduct.PRODUCT_TYPE_GENDER_CHANGE
+    );
+
     private final ShopProductRepository shopProductRepository;
     private final ShopPurchaseLogRepository shopPurchaseLogRepository;
     private final RewardService rewardService;
@@ -38,8 +47,14 @@ public class ShopService {
     public List<ShopProductResponse> getProducts() {
         return shopProductRepository.findByActiveTrueOrderByRequiredLevelAscShopProductIdAsc()
                 .stream()
+                .filter(this::isVisibleProduct)
                 .map(this::toShopProductResponse)
                 .toList();
+    }
+
+    private boolean isVisibleProduct(ShopProduct product) {
+        return product.getProductType() != null
+                && VISIBLE_PRODUCT_TYPES.contains(product.getProductType().toUpperCase());
     }
 
     // 코인 차감, 상품 지급, 구매 로그 저장을 같은 트랜잭션으로 처리한다.
