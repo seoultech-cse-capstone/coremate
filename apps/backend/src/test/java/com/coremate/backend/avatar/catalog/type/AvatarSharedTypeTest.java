@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.coremate.backend.global.exception.CoreMateException;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Objects;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -66,6 +68,40 @@ class AvatarSharedTypeTest {
             assertThat(Arrays.stream(AvatarSlot.values()).filter(AvatarSlot::isRequired))
                     .containsExactlyInAnyOrder(AvatarSlot.HAIR, AvatarSlot.EYES,
                             AvatarSlot.MOUTH, AvatarSlot.WALLPAPER, AvatarSlot.FLOOR);
+        }
+    }
+
+    @Nested
+    @DisplayName("렌더 순서는 서버가 갖는다")
+    class RenderOrder {
+
+        @Test
+        @DisplayName("착용 9부위는 확정된 정면 겹침 순서를 갖는다")
+        void avatarStackIsInSpecOrder() {
+            assertThat(Arrays.stream(AvatarSlot.values())
+                    .filter(s -> s.getRenderOrder() != null)
+                    .sorted(Comparator.comparing(AvatarSlot::getRenderOrder))
+                    .map(Enum::name))
+                    .containsExactly("SHOES", "BOTTOM", "TOP", "BAG",
+                            "HAIR", "EYES", "MOUTH", "EYEWEAR", "HAT");
+        }
+
+        @Test
+        @DisplayName("아바타 스택이 아닌 3종은 순서가 없다")
+        void nonAvatarSlotsHaveNoRenderOrder() {
+            assertThat(Arrays.stream(AvatarSlot.values())
+                    .filter(s -> s.getRenderOrder() == null)
+                    .map(Enum::name))
+                    .containsExactlyInAnyOrder("PET", "WALLPAPER", "FLOOR");
+        }
+
+        @Test
+        @DisplayName("순서는 1부터 9까지 중복 없이 이어진다")
+        void renderOrderIsDenseAndUnique() {
+            assertThat(Arrays.stream(AvatarSlot.values())
+                    .map(AvatarSlot::getRenderOrder)
+                    .filter(Objects::nonNull))
+                    .containsExactlyInAnyOrder(1, 2, 3, 4, 5, 6, 7, 8, 9);
         }
     }
 
