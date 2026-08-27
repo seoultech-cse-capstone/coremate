@@ -1,6 +1,6 @@
 package com.coremate.backend.avatar.dto.response;
 
-import com.coremate.backend.avatar.dto.type.AvatarItemType;
+import com.coremate.backend.avatar.catalog.type.AvatarItemType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "아바타 아이템 응답")

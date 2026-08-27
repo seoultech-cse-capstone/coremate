@@ -1,4 +1,4 @@
-package com.coremate.backend.avatar.entity;
+package com.coremate.backend.avatar.catalog;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

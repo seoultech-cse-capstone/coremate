@@ -1,6 +1,6 @@
 package com.coremate.backend.shop.entity;
 
-import com.coremate.backend.avatar.entity.AvatarItem;
+import com.coremate.backend.avatar.catalog.AvatarItem;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;

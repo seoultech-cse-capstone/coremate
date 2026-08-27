@@ -1,6 +1,6 @@
-package com.coremate.backend.avatar.repository;
+package com.coremate.backend.avatar.catalog;
 
-import com.coremate.backend.avatar.entity.AvatarItem;
+import com.coremate.backend.avatar.catalog.AvatarItem;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 

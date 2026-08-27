@@ -1,10 +1,10 @@
-package com.coremate.backend.inventory.controller;
+package com.coremate.backend.avatar.inventory.controller;
 
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.global.config.OpenApiConfig;
-import com.coremate.backend.inventory.dto.response.UserItemInventoryResponse;
-import com.coremate.backend.inventory.dto.response.UserItemResponse;
-import com.coremate.backend.inventory.service.InventoryService;
+import com.coremate.backend.avatar.inventory.dto.response.UserItemInventoryResponse;
+import com.coremate.backend.avatar.inventory.dto.response.UserItemResponse;
+import com.coremate.backend.avatar.inventory.service.InventoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;

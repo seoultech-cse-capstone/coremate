@@ -1,4 +1,4 @@
-package com.coremate.backend.avatar.dto.type;
+package com.coremate.backend.avatar.catalog.type;
 
 public enum AvatarItemType {
     CLOTHES,
