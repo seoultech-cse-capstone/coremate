@@ -1,0 +1,21 @@
+-- 06. 랜덤박스 구성 (random_box_items)
+-- 담당: 재훈 (B-10, 생성 스크립트는 B-6)
+--
+-- 선행: 03_avatar_items (item_id FK), 04_random_boxes (random_box_id FK)
+--
+-- 버킷 확률을 행으로 펼치는 규칙
+--   - 행은 아이템 1개당 1행이고, 확률표는 등급 버킷 단위다
+--   - probability = 버킷 확률 / 그 등급의 후보 수  (예: 하 9개면 각 0.45/9 = 0.05)
+--   - 후보 = is_active = TRUE AND is_default = FALSE AND rarity = 해당 등급
+--   - LEGENDARY 는 박스에서 안 나온다 (레벨 30 특별 보상 전용)
+--   - 코인은 1행: reward_type = COIN, coin_amount = 30, probability = 0.20
+--   - DECIMAL(8,6) 잔차는 각 등급 마지막 행에 몰아주고, 박스 전체 합이 1.000000 인지 검증
+--
+-- 버킷 확률 (고정) — 하 0.45 / 중 0.20 / 코인 0.20 / 상 0.15
+
+-- ⚠️ 아래 한 줄을 지우지 말 것.
+--    Spring 의 ScriptUtils 는 주석만 있는 파일을 거절한다:
+--      IllegalArgumentException: 'script' must not be null or empty
+--    continue-on-error: false 라서 앱이 아예 기동하지 않는다.
+--    실제 INSERT 를 넣을 때 이 줄도 같이 지운다.
+SELECT 1;

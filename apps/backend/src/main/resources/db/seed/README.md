@@ -26,9 +26,47 @@ AR-ADMIN-04(관리자가 `reward_policies` 관리) 기능이 생기거나 운영
 
 ## 파일
 
-| 파일 | 내용 | 상태 |
-| --- | --- | --- |
-| `01_reward_policies.sql` | 보상 정책 19행 (XP 3 / 코인 4 = 최초 통과 2 + 재응시 2 / 퀴즈·출석 2 / 레벨업 6 / 스타터팩·광고·프리미엄 4) | 적용 중 |
+| 파일 | 담당 | 내용 | 상태 |
+| --- | --- | --- | --- |
+| `01_reward_policies.sql` | — | 보상 정책 19행 (XP 3 / 코인 4 = 최초 통과 2 + 재응시 2 / 퀴즈·출석 2 / 레벨업 6 / 스타터팩·광고·프리미엄 4) | 적용 중 |
+| `02_paid_products.sql` | — | 유료 상품 | 적용 중 |
+| `03_avatar_items.sql` | **용주** | 아바타 아이템 마스터 | 🚧 주석만 — 아이템 목록·등급 확정 대기 |
+| `04_random_boxes.sql` | **재훈** | 랜덤박스 1종 (STANDARD) | 🚧 주석만 |
+| `05_shop_products.sql` | **재훈** | 상점 상품 3종 | 🚧 주석만 |
+| `06_random_box_items.sql` | **재훈** | 등급별 확률 전개 | 🚧 주석만 |
+
+### 번호가 곧 FK 순서다
+
+```
+03 avatar_items          (FK 없음)
+04 random_boxes          (FK 없음)
+05 shop_products         → item_id → avatar_items,  random_box_id → random_boxes
+06 random_box_items      → random_box_id → random_boxes,  item_id → avatar_items
+```
+
+`continue-on-error: false`라 순서를 어기면 FK 위반으로 **앱이 아예 기동하지 않는다.**
+새 시드를 넣을 때는 참조하는 테이블보다 뒤 번호를 쓴다.
+
+> 역할 분담표에는 `04_shop_products` / `05_random_boxes`로 적혀 있었으나,
+> `shop_products.random_box_id`가 `random_boxes`를 참조하므로 순서가 반대여야 해서 맞바꿨다.
+
+**03~06은 지금 내용이 비어 있고, `application.yaml`에 이미 4개 다 등록돼 있다.**
+내용을 채울 때 yaml을 건드릴 필요가 없다 — 서로 충돌하지 않게 하려는 것이다.
+
+### ⚠️ 빈 시드 파일에는 `SELECT 1;` 이 들어 있다
+
+Spring의 `ScriptUtils`는 **주석만 있는 파일을 거절한다.**
+
+```
+IllegalArgumentException: 'script' must not be null or empty
+```
+
+`continue-on-error: false`라서 이게 나면 **앱이 아예 기동하지 않는다.**
+그래서 03~06 끝에 아무 일도 하지 않는 `SELECT 1;`을 한 줄 넣어 뒀다.
+**실제 `INSERT`를 넣을 때 이 줄도 같이 지운다.**
+
+`./gradlew build`로는 안 잡힌다 — 테스트 설정(`src/test/resources/application.yaml`)에는
+`spring.sql.init`이 없어 시드가 실행되지 않는다. **시드를 건드렸으면 실제로 띄워서 확인해야 한다.**
 
 로컬에서 확인된 동작: 백엔드 기동 1회 → 19행 적용, 재기동 → 그대로 19행(중복 없음).
 테스트에서는 `src/test/resources/application.yaml`이 main 설정을 대체하므로 시드가 실행되지 않는다.
@@ -42,8 +80,8 @@ H2에는 `ON DUPLICATE KEY UPDATE`가 없어 오히려 실행되면 실패하므
 | --- | --- |
 | `feature_access_products` (AI 분석표 100/50코인, 월 5/30회) | **JPA 엔티티가 없다.** 엔티티가 없으면 `ddl-auto`가 테이블을 만들지 않아 INSERT가 실패한다 |
 | `subscription_plans` (프리미엄 혜택) | **JPA 엔티티가 없다.** 구독 원화 금액도 미정 |
-| `shop_products` (상점 5개 상품) | 엔티티는 있으나 `item_id`·`random_box_id` FK가 `avatar_items`·`random_boxes`를 참조. 아바타 아이템 품목이 미정 |
-| `random_boxes` / `random_box_items` (확률표) | `random_box_items.item_id`가 `avatar_items`를 참조. 아이템 마스터가 먼저 확정돼야 한다 |
+| `shop_products` (상점 3개 상품) | 파일은 `05_shop_products.sql`로 만들어 뒀다. 아바타 아이템 품목이 미정이라 내용이 비어 있다 |
+| `random_boxes` / `random_box_items` (확률표) | 파일은 `04`·`06`으로 만들어 뒀다. `random_box_items.item_id`가 `avatar_items`를 참조하므로 아이템 마스터가 먼저 확정돼야 한다 |
 
 ## 주의
 
