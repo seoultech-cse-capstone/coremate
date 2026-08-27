@@ -10,6 +10,7 @@ import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.shop.dto.request.OpenRandomBoxRequest;
 import com.coremate.backend.shop.dto.response.RandomBoxItemResponse;
+import com.coremate.backend.shop.dto.response.RandomBoxOddsResponse;
 import com.coremate.backend.shop.dto.response.RandomBoxOpenResponse;
 import com.coremate.backend.shop.dto.response.RandomBoxResponse;
 import com.coremate.backend.shop.dto.type.RandomBoxGrade;
@@ -26,7 +27,10 @@ import com.coremate.backend.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +43,10 @@ public class RandomBoxService {
     private static final String REFERENCE_TYPE_RANDOM_BOX = "RANDOM_BOX";
     private static final String ACQUIRED_SOURCE_RANDOM_BOX = "RANDOM_BOX";
     private static final BigDecimal MIN_PROBABILITY_SUM = BigDecimal.ONE;
+
+    // 등급별 확률 공개용 버킷. 아이템 보상은 등급(COMMON/RARE/EPIC), 코인 보상은 COIN 으로 묶는다.
+    private static final String ODDS_GRADE_COIN = "COIN";
+    private static final List<String> ODDS_GRADE_ORDER = List.of("COMMON", "RARE", "EPIC", "LEGENDARY", ODDS_GRADE_COIN);
 
     private final RandomBoxRepository randomBoxRepository;
     private final RandomBoxItemRepository randomBoxItemRepository;
@@ -63,6 +71,39 @@ public class RandomBoxService {
         return items.stream()
                 .map(this::toRandomBoxItemResponse)
                 .toList();
+    }
+
+    // 등급별 확률 공개. 아이템 1행씩인 random_box_items 를 등급 버킷으로 합산해
+    // 하 0.45 / 중 0.20 / 코인 0.20 / 상 0.15 처럼 내려준다.
+    // 저장된 행을 그대로 합치는 것이라 표시 확률의 합이 DB 저장 확률의 합과 항상 일치한다.
+    public List<RandomBoxOddsResponse> getRandomBoxOdds(Long randomBoxId) {
+        List<RandomBoxItem> items = randomBoxId == null
+                ? getAllActiveRandomBoxItems()
+                : getActiveRandomBoxItems(randomBoxId);
+
+        Map<String, BigDecimal> byGrade = new LinkedHashMap<>();
+        for (RandomBoxItem item : items) {
+            byGrade.merge(gradeOf(item), item.getProbability(), BigDecimal::add);
+        }
+        return byGrade.entrySet().stream()
+                .sorted(Comparator.comparingInt(entry -> gradeOrder(entry.getKey())))
+                .map(entry -> new RandomBoxOddsResponse(entry.getKey(), entry.getValue().toPlainString()))
+                .toList();
+    }
+
+    // 보상의 등급 버킷 이름. 코인은 COIN, 아이템은 그 아이템의 rarity 를 쓴다.
+    private String gradeOf(RandomBoxItem item) {
+        if (item.isCoinReward()) {
+            return ODDS_GRADE_COIN;
+        }
+        AvatarItem avatarItem = item.getItem();
+        String rarity = avatarItem == null ? null : avatarItem.getRarity();
+        return rarity == null ? "UNKNOWN" : rarity.trim().toUpperCase();
+    }
+
+    private int gradeOrder(String grade) {
+        int index = ODDS_GRADE_ORDER.indexOf(grade);
+        return index < 0 ? Integer.MAX_VALUE : index;
     }
 
     // 랜덤박스 오픈은 코인 차감, 확률 보상 결정, 지급, 로그 저장을 하나로 묶는다.
@@ -145,6 +186,8 @@ public class RandomBoxService {
         throw new CoreMateException(ErrorCode.INVALID_RANDOM_BOX_POLICY);
     }
 
+    // random_box_items 는 이미 아이템 1개당 1행이라, 등급 버킷을 고르고 그 안에서 다시 뽑는
+    // 2단 추첨이 필요 없다. 전체 행을 확률로 누적해 단 한 번만 가중 추첨한다. (FR-SHOP-04)
     private RandomBoxItem pickReward(Long randomBoxId) {
         List<RandomBoxItem> rewards = randomBoxItemRepository
                 .findByRandomBox_RandomBoxIdOrderByRandomBoxItemIdAsc(randomBoxId)

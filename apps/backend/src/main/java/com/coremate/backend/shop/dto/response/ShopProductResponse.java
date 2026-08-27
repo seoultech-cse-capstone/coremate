@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 @Schema(description = "상점 상품 응답")
 public record ShopProductResponse(
         @Schema(example = "10") Long shopProductId,
-        @Schema(example = "ITEM") ShopProductType productType,
+        @Schema(example = "RANDOM_BOX") ShopProductType productType,
         @Schema(example = "1") Long itemId,
         @Schema(example = "2") Long randomBoxId,
         @Schema(example = "Blue Hat") String productName,
