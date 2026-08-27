@@ -15,7 +15,7 @@ public record UpdateEquippedItemsRequest(
     @Schema(description = "장착 슬롯 매핑")
     public record EquippedItemSlot(
             @NotBlank
-            @Schema(example = "HEAD") String slot,
+            @Schema(example = "HAIR") String slot,
 
             @Schema(description = "null이면 해당 슬롯 장착 해제", example = "100")
             Long userItemId
