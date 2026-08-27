@@ -1,13 +1,13 @@
-package com.coremate.backend.inventory.service;
+package com.coremate.backend.avatar.inventory.service;
 
-import com.coremate.backend.avatar.entity.AvatarItem;
-import com.coremate.backend.avatar.repository.AvatarItemRepository;
+import com.coremate.backend.avatar.catalog.AvatarItem;
+import com.coremate.backend.avatar.catalog.AvatarItemRepository;
+import com.coremate.backend.avatar.inventory.dto.response.UserItemInventoryResponse;
+import com.coremate.backend.avatar.inventory.dto.response.UserItemResponse;
+import com.coremate.backend.avatar.inventory.entity.UserItem;
+import com.coremate.backend.avatar.inventory.repository.UserItemRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
-import com.coremate.backend.inventory.dto.response.UserItemInventoryResponse;
-import com.coremate.backend.inventory.dto.response.UserItemResponse;
-import com.coremate.backend.inventory.entity.UserItem;
-import com.coremate.backend.inventory.repository.UserItemRepository;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
 import java.util.List;

@@ -1,6 +1,6 @@
-package com.coremate.backend.inventory.repository;
+package com.coremate.backend.avatar.inventory.repository;
 
-import com.coremate.backend.inventory.entity.UserItem;
+import com.coremate.backend.avatar.inventory.entity.UserItem;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;

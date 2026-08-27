@@ -1,4 +1,4 @@
-package com.coremate.backend.avatar.entity;
+package com.coremate.backend.avatar.profile;
 
 import com.coremate.backend.avatar.dto.type.AvatarGenderType;
 import com.coremate.backend.user.entity.User;

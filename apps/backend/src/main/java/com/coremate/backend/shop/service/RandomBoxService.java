@@ -1,10 +1,10 @@
 package com.coremate.backend.shop.service;
 
-import com.coremate.backend.avatar.entity.AvatarItem;
+import com.coremate.backend.avatar.catalog.AvatarItem;
+import com.coremate.backend.avatar.inventory.entity.UserItem;
+import com.coremate.backend.avatar.inventory.service.InventoryService;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
-import com.coremate.backend.inventory.entity.UserItem;
-import com.coremate.backend.inventory.service.InventoryService;
 import com.coremate.backend.reward.entity.CurrencyLog;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
