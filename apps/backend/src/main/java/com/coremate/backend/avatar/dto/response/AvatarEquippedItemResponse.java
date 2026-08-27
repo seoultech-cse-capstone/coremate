@@ -11,6 +11,9 @@ public record AvatarEquippedItemResponse(
         @Schema(example = "Blue Hat") String itemName,
         @Schema(example = "HAIR") AvatarItemType itemType,
         @Schema(example = "RARE") String rarity,
-        @Schema(example = "https://cdn.example.com/hat.png") String imageUrl
+        @Schema(example = "https://cdn.example.com/hat.png") String imageUrl,
+
+        // 정면 기준 겹쳐 그리는 순서. 아바타 스프라이트 스택이 아니면 null.
+        @Schema(example = "5") Integer renderOrder
 ) {
 }

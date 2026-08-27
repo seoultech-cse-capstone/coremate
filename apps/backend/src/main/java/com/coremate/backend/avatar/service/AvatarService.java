@@ -2,6 +2,7 @@ package com.coremate.backend.avatar.service;
 
 import com.coremate.backend.avatar.catalog.AvatarItem;
 import com.coremate.backend.avatar.catalog.type.AvatarItemType;
+import com.coremate.backend.avatar.catalog.type.AvatarSlot;
 import com.coremate.backend.avatar.dto.request.UpdateAvatarProfileRequest;
 import com.coremate.backend.avatar.dto.request.UpdateEquippedItemsRequest;
 import com.coremate.backend.avatar.dto.response.AvatarEquippedItemResponse;
@@ -19,6 +20,7 @@ import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -123,9 +125,13 @@ public class AvatarService {
     }
 
     private List<AvatarEquippedItemResponse> getEquippedItems(Long userId) {
+        // 렌더 순서는 서버가 갖는다. 앱이 따로 순서를 적어두면 둘이 어긋난다.
+        // 스택에 없는 슬롯(PET/WALLPAPER/FLOOR)은 뒤로 밀고, 그 안에서는 레포지토리의 slot 순서를 유지한다.
         return userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId)
                 .stream()
                 .map(this::toEquippedItemResponse)
+                .sorted(Comparator.comparing(AvatarEquippedItemResponse::renderOrder,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
     }
 
@@ -148,7 +154,8 @@ public class AvatarService {
                 item.getItemName(),
                 AvatarItemType.from(item.getItemType()),
                 item.getRarity(),
-                item.getImageUrl()
+                item.getImageUrl(),
+                AvatarSlot.from(equippedItem.getSlot()).getRenderOrder()
         );
     }
 
