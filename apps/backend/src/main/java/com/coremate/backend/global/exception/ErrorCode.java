@@ -79,6 +79,8 @@ public enum ErrorCode {
     USER_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "보유 아이템을 찾을 수 없습니다"),
     AVATAR_ITEM_NOT_EQUIPPABLE(HttpStatus.BAD_REQUEST, "장착할 수 없는 아이템입니다"),
     INVALID_AVATAR_SLOT(HttpStatus.BAD_REQUEST, "아바타 장착 슬롯이 올바르지 않습니다"),
+    // EX-ITEM-007. 머리·눈·입·벽지·바닥은 비우면 렌더가 깨져 교체만 허용한다.
+    REQUIRED_AVATAR_SLOT(HttpStatus.BAD_REQUEST, "이 부위는 비워둘 수 없습니다. 다른 아이템으로 바꿔주세요"),
 
     // Shop / RandomBox
     SHOP_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상점 상품을 찾을 수 없습니다"),

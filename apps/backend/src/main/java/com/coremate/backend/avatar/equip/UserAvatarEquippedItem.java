@@ -1,9 +1,12 @@
 package com.coremate.backend.avatar.equip;
 
+import com.coremate.backend.avatar.catalog.type.AvatarSlot;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
 import com.coremate.backend.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -45,8 +48,11 @@ public class UserAvatarEquippedItem {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 50)
-    private String slot;
+    // columnDefinition 을 박아 varchar 로 고정한다. 안 그러면 새 DB 는 native enum 으로,
+    // 기존 DB 는 varchar 로 생성돼 환경마다 타입이 달라진다(ddl-auto 는 기존 컬럼 타입을 못 바꾼다).
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(50)")
+    private AvatarSlot slot;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_item_id", nullable = false)
@@ -56,7 +62,7 @@ public class UserAvatarEquippedItem {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    public UserAvatarEquippedItem(User user, String slot, UserItem userItem) {
+    public UserAvatarEquippedItem(User user, AvatarSlot slot, UserItem userItem) {
         this.user = user;
         this.slot = slot;
         this.userItem = userItem;
