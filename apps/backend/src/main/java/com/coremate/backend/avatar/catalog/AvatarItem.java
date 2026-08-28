@@ -46,6 +46,18 @@ public class AvatarItem {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // 기본 지급 8종(머리·눈·입·상의·하의·신발·벽지·바닥) 표시. 비매품이고 랜덤박스 후보에서 제외한다.
+    @Column(name = "is_default", nullable = false)
+    private boolean defaultItem;
+
+    // 렌더링 부가 정보(JSON). 백엔드는 저장·전달만 하고 해석은 앱이 한다.
+    // footprint {"w":2,"h":1} 가구가 차지하는 칸 수(FURNITURE 필수)
+    // interaction "desk"|"bed"  아바타가 포즈를 취하게 하는 가구 표시
+    // poseOffsets {"sit":[0,-8],"sleep":null}  포즈별 스프라이트 오프셋(null 이면 그 포즈에서 안 그림)
+    // dualPart true  가방처럼 앞뒤 두 조각으로 렌더
+    @Column(name = "metadata", columnDefinition = "json")
+    private String metadata;
+
     @Column(name = "is_active", nullable = false)
     private boolean active;
 
