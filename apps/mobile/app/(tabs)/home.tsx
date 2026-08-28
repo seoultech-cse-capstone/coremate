@@ -26,6 +26,7 @@ import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
 const OVERSCROLL_BUFFER = 96;
+const ROOM_OVERLAP = 32;
 
 type TabPressNavigation = {
   addListener: (eventName: "tabPress", callback: () => void) => () => void;
@@ -113,7 +114,10 @@ export default function HomeScreen() {
       contentContainerStyle={styles.scrollContent}
     >
       <View style={{ height: panelTopOffset }}>
-        <RoomScene height={panelTopOffset} />
+        {/* 방을 패널 시작선보다 더 길게 그려서, 패널의 둥근 모서리 안쪽으로 방 배경이 살짝 보이게 한다. */}
+        <View style={{ height: panelTopOffset + ROOM_OVERLAP }}>
+          <RoomScene height={panelTopOffset + ROOM_OVERLAP} />
+        </View>
       </View>
 
       <View style={[styles.bottomPanel, { minHeight: height }]}>
