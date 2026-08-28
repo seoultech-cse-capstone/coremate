@@ -1,6 +1,5 @@
 package com.coremate.backend.avatar.profile;
 
-import com.coremate.backend.avatar.dto.type.AvatarGenderType;
 import com.coremate.backend.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +20,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-// 사용자별 기본 아바타 타입과 성별/타입 상태.
+// 사용자별 기본 아바타 상태. 성별 구분은 두지 않는다.
 @Entity
 @Table(
         name = "user_avatar_profiles",
@@ -32,7 +31,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class UserAvatarProfile {
 
-    public static final AvatarGenderType DEFAULT_GENDER = AvatarGenderType.OTHER;
+    // 아바타에 성별 구분을 두지 않으므로 베이스 마네킹은 1종뿐이고 사용자가 바꿀 수 없다.
     public static final String DEFAULT_BASE_AVATAR_TYPE = "BASIC_01";
 
     @Id
@@ -44,9 +43,7 @@ public class UserAvatarProfile {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "avatar_gender", length = 20)
-    private String avatarGender;
-
+    // 베이스 마네킹(렌더 레이어 1). BASIC_01 고정이며 변경 수단이 없다.
     @Column(name = "base_avatar_type", length = 50)
     private String baseAvatarType;
 
@@ -60,16 +57,6 @@ public class UserAvatarProfile {
 
     public UserAvatarProfile(User user) {
         this.user = user;
-        this.avatarGender = DEFAULT_GENDER.name();
         this.baseAvatarType = DEFAULT_BASE_AVATAR_TYPE;
-    }
-
-    public void update(AvatarGenderType avatarGender, String baseAvatarType) {
-        if (avatarGender != null) {
-            this.avatarGender = avatarGender.name();
-        }
-        if (baseAvatarType != null && !baseAvatarType.isBlank()) {
-            this.baseAvatarType = baseAvatarType;
-        }
     }
 }

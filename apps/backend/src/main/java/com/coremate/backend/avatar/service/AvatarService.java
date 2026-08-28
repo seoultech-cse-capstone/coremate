@@ -3,13 +3,11 @@ package com.coremate.backend.avatar.service;
 import com.coremate.backend.avatar.catalog.AvatarItem;
 import com.coremate.backend.avatar.catalog.type.AvatarItemType;
 import com.coremate.backend.avatar.catalog.type.AvatarSlot;
-import com.coremate.backend.avatar.dto.request.UpdateAvatarProfileRequest;
 import com.coremate.backend.avatar.dto.request.UpdateEquippedItemsRequest;
 import com.coremate.backend.avatar.dto.response.AvatarEquippedItemResponse;
 import com.coremate.backend.avatar.dto.response.AvatarItemResponse;
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import com.coremate.backend.avatar.dto.response.UserAvatarResponse;
-import com.coremate.backend.avatar.dto.type.AvatarGenderType;
 import com.coremate.backend.avatar.equip.UserAvatarEquippedItem;
 import com.coremate.backend.avatar.equip.UserAvatarEquippedItemRepository;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
@@ -53,13 +51,6 @@ public class AvatarService {
     @Transactional
     public AvatarProfileResponse getAvatarProfile(Long userId) {
         return toProfileResponse(getOrCreateProfile(userId));
-    }
-
-    @Transactional
-    public AvatarProfileResponse updateProfile(Long userId, UpdateAvatarProfileRequest request) {
-        UserAvatarProfile profile = getOrCreateProfile(userId);
-        profile.update(request.avatarGender(), request.baseAvatarType());
-        return toProfileResponse(profile);
     }
 
     @Transactional
@@ -117,7 +108,6 @@ public class AvatarService {
     private AvatarProfileResponse toProfileResponse(UserAvatarProfile profile) {
         return new AvatarProfileResponse(
                 profile.getUser().getUserId(),
-                AvatarGenderType.from(profile.getAvatarGender()),
                 profile.getBaseAvatarType(),
                 getEquippedItems(profile.getUser().getUserId()),
                 profile.getUpdatedAt()
