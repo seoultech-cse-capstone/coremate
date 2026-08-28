@@ -36,8 +36,8 @@ export function RoomScene({ height }: RoomSceneProps) {
 
   const cellSize = width / GRID_COLS;
   const gridHeight = cellSize * GRID_ROWS;
-  // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 반 칸만큼 남겨둔다.
-  const gridBottomMargin = cellSize * 0.5;
+  // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 한 칸만큼 남겨둔다.
+  const gridBottomMargin = cellSize;
   const floorHeight = Math.min(height, gridHeight + gridBottomMargin);
   const wallHeight = height - floorHeight;
   const avatarScale = cellSize / AVATAR_STAGE_WIDTH;
