@@ -1,6 +1,7 @@
-import { Image, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
+import { AvatarFaceThumbnail } from "../../avatar";
 import { useAuth } from "../../auth";
 import { useMyCurrency } from "../../currency";
 import { getLevelProgress, useMyProfile } from "../../user";
@@ -23,11 +24,7 @@ export function MyProfile() {
   return (
     <View style={styles.container}>
       <View style={styles.userRow}>
-        <Image
-          source={require("../../../../assets/images/splash-icon-white.png")}
-          style={styles.avatar}
-          resizeMode="cover"
-        />
+        <AvatarFaceThumbnail size={76} />
 
         <View style={styles.userText}>
           <Text style={styles.nickname}>{profile?.nickname ?? "코어메이트"}</Text>
@@ -75,12 +72,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
-  },
-  avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   userText: {
     flex: 1,
