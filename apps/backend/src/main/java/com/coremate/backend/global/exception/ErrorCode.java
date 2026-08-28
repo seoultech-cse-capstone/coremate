@@ -81,6 +81,11 @@ public enum ErrorCode {
     INVALID_AVATAR_SLOT(HttpStatus.BAD_REQUEST, "아바타 장착 슬롯이 올바르지 않습니다"),
     // EX-ITEM-007. 머리·눈·입·벽지·바닥은 비우면 렌더가 깨져 교체만 허용한다.
     REQUIRED_AVATAR_SLOT(HttpStatus.BAD_REQUEST, "이 부위는 비워둘 수 없습니다. 다른 아이템으로 바꿔주세요"),
+    // 방 가구 배치 검증 4가지. 하나라도 걸리면 배치 저장 전체를 롤백한다.
+    FURNITURE_NOT_OWNED(HttpStatus.BAD_REQUEST, "보유하지 않은 가구는 방에 놓을 수 없습니다"),
+    ROOM_PLACEMENT_OUT_OF_BOUNDS(HttpStatus.BAD_REQUEST, "방 밖에는 가구를 놓을 수 없습니다"),
+    ROOM_PLACEMENT_OVERLAP(HttpStatus.BAD_REQUEST, "가구끼리 겹쳐 놓을 수 없습니다. 자리를 옮겨주세요"),
+    ROOM_PLACEMENT_EXCEEDS_QUANTITY(HttpStatus.BAD_REQUEST, "보유한 개수보다 많이 놓을 수 없습니다"),
 
     // Shop / RandomBox
     SHOP_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상점 상품을 찾을 수 없습니다"),
