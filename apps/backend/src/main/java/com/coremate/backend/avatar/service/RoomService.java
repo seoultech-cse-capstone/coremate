@@ -10,6 +10,7 @@ import com.coremate.backend.avatar.dto.response.RoomResponse;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
 import com.coremate.backend.avatar.inventory.repository.UserItemRepository;
 import com.coremate.backend.avatar.profile.RoomPose;
+import com.coremate.backend.avatar.profile.RoomPoseElapsed;
 import com.coremate.backend.avatar.profile.UserAvatarProfile;
 import com.coremate.backend.avatar.profile.UserAvatarProfileRepository;
 import com.coremate.backend.avatar.room.RoomGrid;
@@ -68,7 +69,9 @@ public class RoomService {
                 placements.stream().map(this::toPlacementResponse).toList(),
                 profile.getRoomPose(),
                 validPosePlacementId(profile, placements),
-                profile.getRoomPoseUpdatedAt()
+                profile.getRoomPoseUpdatedAt(),
+                RoomPoseElapsed.label(profile.getRoomPose(), profile.getRoomPoseUpdatedAt(),
+                        LocalDateTime.now())
         );
     }
 

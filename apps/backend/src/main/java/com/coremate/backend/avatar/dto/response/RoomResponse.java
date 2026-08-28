@@ -26,6 +26,10 @@ public record RoomResponse(
 
         @Schema(description = "포즈가 마지막으로 바뀐 시각. 친구 방의 경과 시간 표시 기준",
                 example = "2026-08-25T10:00:00")
-        LocalDateTime roomPoseUpdatedAt
+        LocalDateTime roomPoseUpdatedAt,
+
+        // ⚠️ 접속 상태가 아니다. 친구 방에서는 이 라벨을 반드시 함께 보여야 한다.
+        @Schema(description = "경과 시간 라벨. STAND 이거나 시각이 없으면 null", example = "3일 전부터")
+        String roomPoseElapsedText
 ) {
 }
