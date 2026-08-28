@@ -35,7 +35,10 @@ export function RoomScene({ height }: RoomSceneProps) {
   };
 
   const cellSize = width / GRID_COLS;
-  const floorHeight = Math.min(height, cellSize * GRID_ROWS);
+  const gridHeight = cellSize * GRID_ROWS;
+  // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 반 칸만큼 남겨둔다.
+  const gridBottomMargin = cellSize * 0.5;
+  const floorHeight = Math.min(height, gridHeight + gridBottomMargin);
   const wallHeight = height - floorHeight;
   const avatarScale = cellSize / AVATAR_STAGE_WIDTH;
   const avatarWidth = cellSize;
@@ -47,10 +50,10 @@ export function RoomScene({ height }: RoomSceneProps) {
         {Array.from({ length: GRID_COLS - 1 }, (_, index) => (
           <View
             key={`col-${index}`}
-            style={[styles.gridLineVertical, { left: (index + 1) * cellSize }]}
+            style={[styles.gridLineVertical, { left: (index + 1) * cellSize, height: gridHeight }]}
           />
         ))}
-        {Array.from({ length: GRID_ROWS - 1 }, (_, index) => (
+        {Array.from({ length: GRID_ROWS }, (_, index) => (
           <View
             key={`row-${index}`}
             style={[styles.gridLineHorizontal, { top: (index + 1) * cellSize }]}
@@ -88,7 +91,6 @@ const styles = StyleSheet.create({
   gridLineVertical: {
     position: "absolute",
     top: 0,
-    bottom: 0,
     width: 1,
     backgroundColor: GRID_LINE_COLOR,
   },
