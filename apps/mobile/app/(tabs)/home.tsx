@@ -12,7 +12,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
 import { RoomScene } from "../../src/features/avatar";
@@ -36,7 +35,6 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const { status, accessToken } = useAuth();
   const isGuest = status === "guest";
@@ -105,129 +103,129 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView
-      bounces
-      onScroll={handleScroll}
-      ref={scrollRef}
-      scrollEventThrottle={16}
-      style={[styles.container, { backgroundColor: bounceBackground }]}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-    >
-      <View
-        style={[
-          styles.roomArea,
-          { height: panelTopOffset, paddingTop: insets.top + 12 },
-        ]}
+    <View style={[styles.root, { backgroundColor: bounceBackground }]}>
+      <View style={[styles.roomArea, { height: panelTopOffset }]}>
+        <RoomScene height={panelTopOffset} />
+      </View>
+
+      <ScrollView
+        bounces
+        onScroll={handleScroll}
+        ref={scrollRef}
+        scrollEventThrottle={16}
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        <RoomScene height={panelTopOffset - insets.top - 24} />
-      </View>
+        {/* 방 위에 뚫린 자리. box-none 이라 스크롤/탭이 뒤에 고정된 RoomScene 으로 그대로 전달된다. */}
+        <View pointerEvents="box-none" style={{ height: panelTopOffset }} />
 
-      <View style={[styles.bottomPanel, { minHeight: height }]}>
-        <View style={styles.panelContent}>
-          <View style={styles.notificationRow}>
-            <View style={styles.identityGroup}>
-              {!isGuest ? (
-                <>
-                  <Text numberOfLines={1} style={styles.nicknameText}>
-                    {profile?.nickname ?? ""}
-                  </Text>
-                  <View style={styles.coinPill}>
-                    <Coins color="#B45309" size={13} strokeWidth={2.2} />
-                    <Text style={styles.coinText}>{currency?.coin ?? 0}</Text>
-                  </View>
-                </>
-              ) : null}
-            </View>
+        <View style={[styles.bottomPanel, { minHeight: height }]}>
+          <View style={styles.panelContent}>
+            <View style={styles.notificationRow}>
+              <View style={styles.identityGroup}>
+                {!isGuest ? (
+                  <>
+                    <Text numberOfLines={1} style={styles.nicknameText}>
+                      {profile?.nickname ?? ""}
+                    </Text>
+                    <View style={styles.coinPill}>
+                      <Coins color="#B45309" size={13} strokeWidth={2.2} />
+                      <Text style={styles.coinText}>{currency?.coin ?? 0}</Text>
+                    </View>
+                  </>
+                ) : null}
+              </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                unreadCount > 0 ? `알림 ${unreadCount}건` : "알림"
-              }
-              hitSlop={8}
-              onPress={() => goToMemberFeature("/notifications")}
-              style={styles.notificationButton}
-            >
-              <Bell color="#1F2937" size={22} strokeWidth={2} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
-          <View style={styles.levelBarTrack}>
-            <LinearGradient
-              colors={["#6D5DFB", "#2EE6A6"]}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
-              style={[styles.levelBarFill, { width: `${levelProgress.percent}%` }]}
-            >
-              <Text style={styles.levelText}>Lv.{level}</Text>
-            </LinearGradient>
-          </View>
-
-          <View style={styles.dailyQuizRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => goToMemberFeature("/daily-quiz")}
-            style={[
-              styles.primaryButton,
-              styles.dailyQuizButton,
-              dailyQuizSolved && styles.dailyQuizCompletedButton,
-            ]}
-          >
-            <View style={styles.dailyQuizButtonContent}>
-              <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
-              {dailyQuizSolved ? (
-                <Text style={styles.dailyQuizStatus}>출석 완료</Text>
-              ) : null}
-            </View>
-          </Pressable>
-          {dailyQuizSolved ? (
-            <Pressable
-              accessibilityLabel="오늘의 퀴즈 다시보기"
-              accessibilityRole="button"
-              onPress={() => goToMemberFeature("/daily-quiz-review")}
-              style={styles.dailyQuizReviewButton}
-            >
-              <ListChecks color="#475569" size={22} strokeWidth={2.1} />
-            </Pressable>
-          ) : null}
-          </View>
-
-          <View style={styles.secondaryRow}>
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() => router.push("/(tabs)/content")}
-            >
-              <Text style={styles.secondaryButtonText}>연습문제 풀이</Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.secondaryButton, styles.weaknessButton]}
-              onPress={() =>
-                goToMemberFeature({
-                  pathname: "/(tabs)/log-weak",
-                  params: { mode: "weakness", entry: Date.now().toString() },
-                })
-              }
-            >
-              <Text
-                style={[styles.secondaryButtonText, styles.weaknessButtonText]}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadCount > 0 ? `알림 ${unreadCount}건` : "알림"
+                }
+                hitSlop={8}
+                onPress={() => goToMemberFeature("/notifications")}
+                style={styles.notificationButton}
               >
-                약점 분석하기
-              </Text>
-            </Pressable>
-          </View>
+                <Bell color="#1F2937" size={22} strokeWidth={2} />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+            <View style={styles.levelBarTrack}>
+              <LinearGradient
+                colors={["#6D5DFB", "#2EE6A6"]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={[styles.levelBarFill, { width: `${levelProgress.percent}%` }]}
+              >
+                <Text style={styles.levelText}>Lv.{level}</Text>
+              </LinearGradient>
+            </View>
 
-          <YourProgress />
+            <View style={styles.dailyQuizRow}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => goToMemberFeature("/daily-quiz")}
+                style={[
+                  styles.primaryButton,
+                  styles.dailyQuizButton,
+                  dailyQuizSolved && styles.dailyQuizCompletedButton,
+                ]}
+              >
+                <View style={styles.dailyQuizButtonContent}>
+                  <Text style={styles.primaryButtonText}>오늘의 퀴즈</Text>
+                  {dailyQuizSolved ? (
+                    <Text style={styles.dailyQuizStatus}>출석 완료</Text>
+                  ) : null}
+                </View>
+              </Pressable>
+              {dailyQuizSolved ? (
+                <Pressable
+                  accessibilityLabel="오늘의 퀴즈 다시보기"
+                  accessibilityRole="button"
+                  onPress={() => goToMemberFeature("/daily-quiz-review")}
+                  style={styles.dailyQuizReviewButton}
+                >
+                  <ListChecks color="#475569" size={22} strokeWidth={2.1} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={styles.secondaryRow}>
+              <Pressable
+                style={styles.secondaryButton}
+                onPress={() => router.push("/(tabs)/content")}
+              >
+                <Text style={styles.secondaryButtonText}>연습문제 풀이</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.secondaryButton, styles.weaknessButton]}
+                onPress={() =>
+                  goToMemberFeature({
+                    pathname: "/(tabs)/log-weak",
+                    params: { mode: "weakness", entry: Date.now().toString() },
+                  })
+                }
+              >
+                <Text
+                  style={[styles.secondaryButtonText, styles.weaknessButtonText]}
+                >
+                  약점 분석하기
+                </Text>
+              </Pressable>
+            </View>
+
+            <YourProgress />
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -290,14 +288,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
+  root: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
   scrollContent: {
-    backgroundColor: BRAND_PURPLE,
+    backgroundColor: "transparent",
   },
   roomArea: {
-    paddingHorizontal: 20,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
   },
   bottomPanel: {
     width: "100%",

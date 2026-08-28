@@ -62,8 +62,6 @@ export function RoomScene({ height }: RoomSceneProps) {
 const styles = StyleSheet.create({
   card: {
     width: "100%",
-    borderRadius: 24,
-    overflow: "hidden",
   },
   avatarWrap: {
     position: "absolute",
