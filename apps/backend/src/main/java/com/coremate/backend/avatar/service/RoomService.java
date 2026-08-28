@@ -4,6 +4,7 @@ import com.coremate.backend.avatar.catalog.AvatarItem;
 import com.coremate.backend.avatar.catalog.ItemMetadataReader;
 import com.coremate.backend.avatar.catalog.type.AvatarItemType;
 import com.coremate.backend.avatar.dto.request.SaveRoomPlacementsRequest;
+import com.coremate.backend.avatar.dto.request.SaveRoomPoseRequest;
 import com.coremate.backend.avatar.dto.response.RoomPlacementResponse;
 import com.coremate.backend.avatar.dto.response.RoomResponse;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
@@ -19,6 +20,7 @@ import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +70,43 @@ public class RoomService {
                 validPosePlacementId(profile, placements),
                 profile.getRoomPoseUpdatedAt()
         );
+    }
+
+    /**
+     * 마지막에 취한 포즈를 저장한다. 좌표는 저장하지 않는다 - 위치는 가구에서 유도한다.
+     * 앱이 자동으로 보내는 값이라 실패해도 사용자에게 보여줄 안내는 없다(EX-ITEM-008).
+     */
+    @Transactional
+    public RoomResponse savePose(Long userId, SaveRoomPoseRequest request) {
+        RoomPose pose = RoomPose.from(request.roomPose());
+        UserAvatarProfile profile = userAvatarProfileRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.RESOURCE_NOT_FOUND));
+
+        UserRoomPlacement placement = pose.requiresPlacement()
+                ? resolvePosePlacement(userId, pose, request.placementId())
+                : null;
+
+        profile.updateRoomPose(pose, placement, LocalDateTime.now());
+        return getRoom(userId);
+    }
+
+    /**
+     * 가구 상호작용 포즈의 배치를 검증한다. ① 요청자 소유이고 ② 그 포즈에 맞는 가구여야 한다.
+     * 침대에서 타이핑하거나 남의 가구를 가리키는 포즈가 저장되면 앱이 엉뚱한 자리에 아바타를 그린다.
+     */
+    private UserRoomPlacement resolvePosePlacement(Long userId, RoomPose pose, Long placementId) {
+        if (placementId == null) {
+            throw new CoreMateException(ErrorCode.INVALID_ROOM_POSE);
+        }
+        UserRoomPlacement placement = userRoomPlacementRepository.findById(placementId)
+                .filter(found -> found.getUser().getUserId().equals(userId))
+                .orElseThrow(() -> new CoreMateException(ErrorCode.INVALID_ROOM_POSE));
+
+        String interaction = itemMetadataReader.interaction(placement.getUserItem().getItem());
+        if (!pose.getRequiredInteraction().equals(interaction)) {
+            throw new CoreMateException(ErrorCode.INVALID_ROOM_POSE);
+        }
+        return placement;
     }
 
     /**

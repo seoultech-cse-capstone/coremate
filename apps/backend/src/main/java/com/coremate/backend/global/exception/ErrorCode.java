@@ -86,6 +86,8 @@ public enum ErrorCode {
     ROOM_PLACEMENT_OUT_OF_BOUNDS(HttpStatus.BAD_REQUEST, "방 밖에는 가구를 놓을 수 없습니다"),
     ROOM_PLACEMENT_OVERLAP(HttpStatus.BAD_REQUEST, "가구끼리 겹쳐 놓을 수 없습니다. 자리를 옮겨주세요"),
     ROOM_PLACEMENT_EXCEEDS_QUANTITY(HttpStatus.BAD_REQUEST, "보유한 개수보다 많이 놓을 수 없습니다"),
+    // EX-ITEM-008. 앱이 자동으로 보내는 값이라 사용자에게 보여줄 안내는 없다.
+    INVALID_ROOM_POSE(HttpStatus.BAD_REQUEST, "저장할 수 없는 아바타 포즈입니다"),
 
     // Shop / RandomBox
     SHOP_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "상점 상품을 찾을 수 없습니다"),
