@@ -48,6 +48,16 @@ public class ItemMetadataReader {
         return new Footprint(width, height);
     }
 
+    /**
+     * 아바타가 그 가구에서 특정 포즈를 취하게 하는지. "desk" · "bed" 이며 없으면 null.
+     * 포즈 저장(EX-ITEM-008)에서 요청 포즈와 맞는 가구인지 확인하는 데 쓴다.
+     */
+    public String interaction(AvatarItem item) {
+        JsonNode metadata = read(item);
+        JsonNode interaction = metadata == null ? null : metadata.get("interaction");
+        return interaction == null || interaction.isNull() ? null : interaction.asString();
+    }
+
     public record Footprint(int width, int height) {
         public static final Footprint SINGLE = new Footprint(1, 1);
     }
