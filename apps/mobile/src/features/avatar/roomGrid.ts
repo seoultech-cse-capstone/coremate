@@ -20,11 +20,20 @@ export type RoomGridLayout = {
   wallHeight: number;
 };
 
-/** 방 너비·전체 높이가 주어졌을 때 격자/바닥/벽 치수를 계산한다. */
-export function getRoomGridLayout(width: number, roomHeight: number): RoomGridLayout {
-  const cellWidth = width / ROOM_GRID_COLS;
+/**
+ * 방 너비·전체 높이가 주어졌을 때 격자/바닥/벽 치수를 계산한다.
+ * cols·rows를 넘기면 그 칸수로 계산한다 — 화면에서 임시로 다른 칸수를 미리 보고
+ * 싶을 때만 쓰고, 실제 가구 배치 기준은 항상 기본값(ROOM_GRID_COLS/ROWS)이다.
+ */
+export function getRoomGridLayout(
+  width: number,
+  roomHeight: number,
+  cols: number = ROOM_GRID_COLS,
+  rows: number = ROOM_GRID_ROWS,
+): RoomGridLayout {
+  const cellWidth = width / cols;
   const rowHeight = cellWidth * ROW_HEIGHT_RATIO;
-  const gridHeight = rowHeight * ROOM_GRID_ROWS;
+  const gridHeight = rowHeight * rows;
   const gridBottomMargin = rowHeight * GRID_BOTTOM_MARGIN_ROWS;
   const floorHeight = Math.min(roomHeight, gridHeight + gridBottomMargin);
   const wallHeight = roomHeight - floorHeight;
