@@ -35,6 +35,7 @@ public class AvatarService {
     private final UserAvatarProfileRepository userAvatarProfileRepository;
     private final UserAvatarEquippedItemRepository userAvatarEquippedItemRepository;
     private final UserItemRepository userItemRepository;
+    private final DefaultAvatarItemService defaultAvatarItemService;
 
     // 내 아바타 화면은 프로필, 현재 장착 아이템, 보유 아이템 마스터 정보를 함께 내려준다.
     @Transactional
@@ -99,10 +100,13 @@ public class AvatarService {
                 .ifPresent(userAvatarEquippedItemRepository::delete);
     }
 
+    // 아바타를 보는 모든 경로가 여기를 지난다. 기본 지급 8종 보충도 같은 자리에서 한다.
     private UserAvatarProfile getOrCreateProfile(Long userId) {
         User user = findUser(userId);
-        return userAvatarProfileRepository.findByUser_UserId(userId)
+        UserAvatarProfile profile = userAvatarProfileRepository.findByUser_UserId(userId)
                 .orElseGet(() -> userAvatarProfileRepository.save(new UserAvatarProfile(user)));
+        defaultAvatarItemService.ensureGranted(user);
+        return profile;
     }
 
     private AvatarProfileResponse toProfileResponse(UserAvatarProfile profile) {

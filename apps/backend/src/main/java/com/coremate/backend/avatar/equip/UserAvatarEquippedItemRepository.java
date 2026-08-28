@@ -1,6 +1,5 @@
 package com.coremate.backend.avatar.equip;
 
-import com.coremate.backend.avatar.equip.UserAvatarEquippedItem;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
