@@ -14,18 +14,10 @@ type RoomSceneProps = {
   height: number;
   /** 격자 안내선 표시 여부. 실제 바닥 에셋이 들어오면 false로 끈다 — 칸 지오메트리 자체는 roomGrid.ts에 고정돼 있으니 영향 없음. */
   showGridLines?: boolean;
-  /** 화면에서 미리보기용으로만 다른 칸수를 보고 싶을 때. 생략하면 확정된 10x7(roomGrid.ts) 사용. */
-  gridCols?: number;
-  gridRows?: number;
 };
 
 /** 방(벽+바닥) 위에 아바타를 세워 보여준다. 아바타를 탭하면 살짝 튀어오른다. */
-export function RoomScene({
-  height,
-  showGridLines = true,
-  gridCols = ROOM_GRID_COLS,
-  gridRows = ROOM_GRID_ROWS,
-}: RoomSceneProps) {
+export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
   const [width, setWidth] = useState(0);
   const bounce = useRef(new Animated.Value(0)).current;
 
@@ -43,8 +35,6 @@ export function RoomScene({
   const { cellWidth, rowHeight, gridHeight, floorHeight, wallHeight } = getRoomGridLayout(
     width,
     height,
-    gridCols,
-    gridRows,
   );
   const avatarScale = cellWidth / AVATAR_STAGE_WIDTH;
   const avatarWidth = cellWidth;
@@ -54,7 +44,7 @@ export function RoomScene({
       <View style={{ height: wallHeight, backgroundColor: WALL_COLOR }} />
       <View style={{ height: floorHeight, backgroundColor: FLOOR_COLOR }}>
         {showGridLines
-          ? Array.from({ length: gridCols - 1 }, (_, index) => (
+          ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
               <View
                 key={`col-${index}`}
                 style={[
@@ -65,7 +55,7 @@ export function RoomScene({
             ))
           : null}
         {showGridLines
-          ? Array.from({ length: gridRows }, (_, index) => (
+          ? Array.from({ length: ROOM_GRID_ROWS }, (_, index) => (
               <View
                 key={`row-${index}`}
                 style={[styles.gridLineHorizontal, { top: (index + 1) * rowHeight }]}

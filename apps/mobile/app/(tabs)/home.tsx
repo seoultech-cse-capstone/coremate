@@ -116,8 +116,7 @@ export default function HomeScreen() {
       <View style={{ height: panelTopOffset }}>
         {/* 방을 패널 시작선보다 더 길게 그려서, 패널의 둥근 모서리 안쪽으로 방 배경이 살짝 보이게 한다. */}
         <View style={{ height: panelTopOffset + ROOM_OVERLAP }}>
-          {/* 7x5는 이 화면에서만 임시로 보는 미리보기 칸수. 확정된 방 격자는 roomGrid.ts의 10x7. */}
-          <RoomScene gridCols={7} gridRows={5} height={panelTopOffset + ROOM_OVERLAP} />
+          <RoomScene height={panelTopOffset + ROOM_OVERLAP} />
         </View>
       </View>
 
