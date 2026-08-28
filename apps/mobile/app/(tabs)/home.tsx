@@ -38,7 +38,7 @@ export default function HomeScreen() {
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const { status, accessToken } = useAuth();
   const isGuest = status === "guest";
-  const panelTopOffset = Math.round(height * 0.46);
+  const panelTopOffset = Math.round(height * 0.6);
   const [dailyQuizSolved, setDailyQuizSolved] = useState(false);
   const { data: profile } = useMyProfile(accessToken);
   const { data: currency } = useMyCurrency(accessToken);
@@ -103,24 +103,20 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: bounceBackground }]}>
-      <View style={[styles.roomArea, { height: panelTopOffset }]}>
+    <ScrollView
+      bounces
+      onScroll={handleScroll}
+      ref={scrollRef}
+      scrollEventThrottle={16}
+      style={[styles.container, { backgroundColor: bounceBackground }]}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
+      <View style={{ height: panelTopOffset }}>
         <RoomScene height={panelTopOffset} />
       </View>
 
-      <ScrollView
-        bounces
-        onScroll={handleScroll}
-        ref={scrollRef}
-        scrollEventThrottle={16}
-        style={styles.container}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* 방 위에 뚫린 자리. box-none 이라 스크롤/탭이 뒤에 고정된 RoomScene 으로 그대로 전달된다. */}
-        <View pointerEvents="box-none" style={{ height: panelTopOffset }} />
-
-        <View style={[styles.bottomPanel, { minHeight: height }]}>
+      <View style={[styles.bottomPanel, { minHeight: height }]}>
           <View style={styles.panelContent}>
             <View style={styles.notificationRow}>
               <View style={styles.identityGroup}>
@@ -223,9 +219,8 @@ export default function HomeScreen() {
 
             <YourProgress />
           </View>
-        </View>
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -288,20 +283,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  root: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
   scrollContent: {
-    backgroundColor: "transparent",
-  },
-  roomArea: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
+    backgroundColor: BRAND_PURPLE,
   },
   bottomPanel: {
     width: "100%",
