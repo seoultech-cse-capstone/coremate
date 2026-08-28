@@ -14,7 +14,7 @@ const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 const GRID_COLS = 10;
 const GRID_ROWS = 7;
 // 칸을 정사각형이 아니라 납작한 직사각형으로 그려서 내려다본 듯한 입체감을 준다.
-const ROW_HEIGHT_RATIO = 0.55;
+const ROW_HEIGHT_RATIO = 0.75;
 
 type RoomSceneProps = {
   height: number;
