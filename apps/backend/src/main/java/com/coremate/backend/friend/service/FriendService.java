@@ -3,7 +3,9 @@ package com.coremate.backend.friend.service;
 import com.coremate.backend.attendance.entity.Attendance;
 import com.coremate.backend.attendance.repository.AttendanceRepository;
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
+import com.coremate.backend.avatar.dto.response.RoomResponse;
 import com.coremate.backend.avatar.service.AvatarService;
+import com.coremate.backend.avatar.service.RoomService;
 import com.coremate.backend.friend.dto.request.PokeFriendRequest;
 import com.coremate.backend.friend.dto.request.RespondFriendRequest;
 import com.coremate.backend.friend.dto.request.SendFriendRequest;
@@ -55,6 +57,7 @@ public class FriendService {
     private final UserRepository userRepository;
     private final AttendanceRepository attendanceRepository;
     private final AvatarService avatarService;
+    private final RoomService roomService;
     private final LearningHistoryService learningHistoryService;
     private final ProgressService progressService;
     private final ApplicationEventPublisher eventPublisher;
@@ -267,6 +270,8 @@ public class FriendService {
 
     private FriendProfileResponse toFriendProfileResponse(User friendUser) {
         AvatarProfileResponse avatarProfile = avatarService.getAvatarProfile(friendUser.getUserId());
+        // 친구 방은 프로필 상세에서만 내려준다. 목록에 넣으면 친구 수만큼 배치를 읽게 된다.
+        RoomResponse room = roomService.getRoom(friendUser.getUserId());
         return new FriendProfileResponse(
                 friendUser.getUserId(),
                 friendUser.getNickname(),
@@ -278,6 +283,7 @@ public class FriendService {
                 attendanceRepository.countByUser_UserId(friendUser.getUserId()),
                 lastAttendanceDate(friendUser.getUserId()),
                 avatarProfile,
+                room,
                 toSubjectStats(friendUser.getUserId())
         );
     }

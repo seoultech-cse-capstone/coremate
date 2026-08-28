@@ -12,12 +12,14 @@ import com.coremate.backend.avatar.equip.UserAvatarEquippedItem;
 import com.coremate.backend.avatar.equip.UserAvatarEquippedItemRepository;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
 import com.coremate.backend.avatar.inventory.repository.UserItemRepository;
+import com.coremate.backend.avatar.profile.RoomPoseElapsed;
 import com.coremate.backend.avatar.profile.UserAvatarProfile;
 import com.coremate.backend.avatar.profile.UserAvatarProfileRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -119,6 +121,10 @@ public class AvatarService {
                 profile.getUser().getUserId(),
                 profile.getBaseAvatarType(),
                 getEquippedItems(profile.getUser().getUserId()),
+                profile.getRoomPose(),
+                profile.getRoomPoseUpdatedAt(),
+                RoomPoseElapsed.label(profile.getRoomPose(), profile.getRoomPoseUpdatedAt(),
+                        LocalDateTime.now()),
                 profile.getUpdatedAt()
         );
     }
