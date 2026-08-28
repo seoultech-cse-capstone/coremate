@@ -12,8 +12,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
+import { RoomScene } from "../../src/features/avatar";
 import { useAuth } from "../../src/features/auth";
 import { dailyQuizApi } from "../../src/features/dailyQuiz";
 import { useMyCurrency } from "../../src/features/currency";
@@ -34,6 +36,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const { status, accessToken } = useAuth();
   const isGuest = status === "guest";
@@ -109,11 +112,17 @@ export default function HomeScreen() {
       scrollEventThrottle={16}
       style={[styles.container, { backgroundColor: bounceBackground }]}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.scrollContent,
-        { paddingTop: panelTopOffset },
-      ]}
+      contentContainerStyle={styles.scrollContent}
     >
+      <View
+        style={[
+          styles.roomArea,
+          { height: panelTopOffset, paddingTop: insets.top + 12 },
+        ]}
+      >
+        <RoomScene height={panelTopOffset - insets.top - 24} />
+      </View>
+
       <View style={[styles.bottomPanel, { minHeight: height }]}>
         <View style={styles.panelContent}>
           <View style={styles.notificationRow}>
@@ -286,6 +295,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     backgroundColor: BRAND_PURPLE,
+  },
+  roomArea: {
+    paddingHorizontal: 20,
   },
   bottomPanel: {
     width: "100%",
