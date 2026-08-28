@@ -1,6 +1,5 @@
 package com.coremate.backend.avatar.controller;
 
-import com.coremate.backend.avatar.dto.request.UpdateAvatarProfileRequest;
 import com.coremate.backend.avatar.dto.request.UpdateEquippedItemsRequest;
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import com.coremate.backend.avatar.dto.response.UserAvatarResponse;
@@ -32,15 +31,6 @@ public class AvatarController {
     @GetMapping("/me")
     public UserAvatarResponse getMyAvatar(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return avatarService.getMyAvatar(userDetails.getUserId());
-    }
-
-    @Operation(summary = "아바타 프로필 수정")
-    @PutMapping("/profile")
-    public AvatarProfileResponse updateProfile(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody UpdateAvatarProfileRequest request
-    ) {
-        return avatarService.updateProfile(userDetails.getUserId(), request);
     }
 
     @Operation(summary = "장착 아이템 변경")

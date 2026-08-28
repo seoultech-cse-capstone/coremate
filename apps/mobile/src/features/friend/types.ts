@@ -4,7 +4,7 @@ export type FriendStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "BLOCKED";
 
 export type AvatarProfile = {
   userId: number;
-  avatarGender: string | null;
+  /** 베이스 마네킹. 아바타에 성별 구분이 없어 BASIC_01 고정이다 */
   baseAvatarType: string | null;
 };
 
