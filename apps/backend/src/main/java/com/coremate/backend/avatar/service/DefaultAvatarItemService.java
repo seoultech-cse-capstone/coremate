@@ -68,11 +68,11 @@ public class DefaultAvatarItemService {
 
         // 방금 지급한 것만 자동 장착한다. 사용자가 나중에 벗어 둔 슬롯을 다시 채우지 않는다.
         AvatarSlot slot = AvatarSlot.from(item.getSlot());
-        if (userAvatarEquippedItemRepository.findByUser_UserIdAndSlot(user.getUserId(), slot.name()).isPresent()) {
+        if (userAvatarEquippedItemRepository.findByUser_UserIdAndSlot(user.getUserId(), slot).isPresent()) {
             return;
         }
         UserItem userItem = userItemRepository.findById(result.userItemId())
                 .orElseThrow(() -> new CoreMateException(ErrorCode.USER_ITEM_NOT_FOUND));
-        userAvatarEquippedItemRepository.save(new UserAvatarEquippedItem(user, slot.name(), userItem));
+        userAvatarEquippedItemRepository.save(new UserAvatarEquippedItem(user, slot, userItem));
     }
 }

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.coremate.backend.avatar.catalog.AvatarItem;
 import com.coremate.backend.avatar.catalog.AvatarItemRepository;
 import com.coremate.backend.avatar.catalog.type.AcquiredSource;
+import com.coremate.backend.avatar.catalog.type.AvatarSlot;
 import com.coremate.backend.avatar.equip.UserAvatarEquippedItem;
 import com.coremate.backend.avatar.equip.UserAvatarEquippedItemRepository;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
@@ -106,7 +107,7 @@ class DefaultAvatarItemServiceTest {
             ArgumentCaptor<UserAvatarEquippedItem> saved =
                     ArgumentCaptor.forClass(UserAvatarEquippedItem.class);
             verify(userAvatarEquippedItemRepository).save(saved.capture());
-            assertThat(saved.getValue().getSlot()).isEqualTo("HAIR");
+            assertThat(saved.getValue().getSlot()).isEqualTo(AvatarSlot.HAIR);
         }
 
         @Test
@@ -150,7 +151,7 @@ class DefaultAvatarItemServiceTest {
         void doesNotOverwriteFilledSlot() {
             givenDefaults(defaultItem(10L, "TOP"));
             givenGrantSucceeds(100L);
-            when(userAvatarEquippedItemRepository.findByUser_UserIdAndSlot(USER_ID, "TOP"))
+            when(userAvatarEquippedItemRepository.findByUser_UserIdAndSlot(USER_ID, AvatarSlot.TOP))
                     .thenReturn(Optional.of(mock(UserAvatarEquippedItem.class)));
 
             defaultAvatarItemService.ensureGranted(user);

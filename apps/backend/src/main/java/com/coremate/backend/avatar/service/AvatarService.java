@@ -59,14 +59,19 @@ public class AvatarService {
         User user = findUser(userId);
         getOrCreateProfile(userId);
 
-        Set<String> requestedSlots = new HashSet<>();
+        Set<AvatarSlot> requestedSlots = new HashSet<>();
         for (UpdateEquippedItemsRequest.EquippedItemSlot equippedItem : request.equippedItems()) {
-            String slot = normalizeSlot(equippedItem.slot());
+            // 슬롯 문자열은 여기서 12종 중 하나로 좁힌다. 아니면 INVALID_AVATAR_SLOT.
+            AvatarSlot slot = AvatarSlot.from(equippedItem.slot());
             if (!requestedSlots.add(slot)) {
                 throw new CoreMateException(ErrorCode.INVALID_AVATAR_SLOT);
             }
 
             if (equippedItem.userItemId() == null) {
+                // 필수 5종(머리·눈·입·벽지·바닥)은 비우면 렌더가 깨지므로 교체만 허용한다. EX-ITEM-007
+                if (slot.isRequired()) {
+                    throw new CoreMateException(ErrorCode.REQUIRED_AVATAR_SLOT);
+                }
                 unequip(userId, slot);
             } else {
                 equip(user, slot, equippedItem.userItemId());
@@ -76,7 +81,7 @@ public class AvatarService {
         return toProfileResponse(getOrCreateProfile(userId));
     }
 
-    private void equip(User user, String slot, Long userItemId) {
+    private void equip(User user, AvatarSlot slot, Long userItemId) {
         UserItem userItem = userItemRepository.findByUserItemIdAndUser_UserId(userItemId, user.getUserId())
                 .orElseThrow(() -> new CoreMateException(ErrorCode.USER_ITEM_NOT_FOUND));
         AvatarItem item = userItem.getItem();
@@ -84,7 +89,7 @@ public class AvatarService {
         if (!userItem.isOwned() || !item.isEquippable()) {
             throw new CoreMateException(ErrorCode.AVATAR_ITEM_NOT_EQUIPPABLE);
         }
-        if (!slot.equals(normalizeSlot(item.getSlot()))) {
+        if (slot != AvatarSlot.from(item.getSlot())) {
             throw new CoreMateException(ErrorCode.INVALID_AVATAR_SLOT);
         }
 
@@ -95,7 +100,7 @@ public class AvatarService {
         equippedItem.changeUserItem(userItem);
     }
 
-    private void unequip(Long userId, String slot) {
+    private void unequip(Long userId, AvatarSlot slot) {
         userAvatarEquippedItemRepository.findByUser_UserIdAndSlot(userId, slot)
                 .ifPresent(userAvatarEquippedItemRepository::delete);
     }
@@ -149,7 +154,7 @@ public class AvatarService {
                 AvatarItemType.from(item.getItemType()),
                 item.getRarity(),
                 item.getImageUrl(),
-                AvatarSlot.from(equippedItem.getSlot()).getRenderOrder()
+                equippedItem.getSlot().getRenderOrder()
         );
     }
 
@@ -171,10 +176,4 @@ public class AvatarService {
                 .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
     }
 
-    private String normalizeSlot(String slot) {
-        if (slot == null || slot.isBlank()) {
-            throw new CoreMateException(ErrorCode.INVALID_AVATAR_SLOT);
-        }
-        return slot.trim().toUpperCase();
-    }
 }

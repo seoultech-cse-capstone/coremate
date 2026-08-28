@@ -1,11 +1,12 @@
 package com.coremate.backend.avatar.dto.response;
 
 import com.coremate.backend.avatar.catalog.type.AvatarItemType;
+import com.coremate.backend.avatar.catalog.type.AvatarSlot;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "아바타 장착 아이템 응답")
 public record AvatarEquippedItemResponse(
-        @Schema(example = "HAIR") String slot,
+        @Schema(example = "HAIR") AvatarSlot slot,
         @Schema(example = "100") Long userItemId,
         @Schema(example = "1") Long itemId,
         @Schema(example = "Blue Hat") String itemName,

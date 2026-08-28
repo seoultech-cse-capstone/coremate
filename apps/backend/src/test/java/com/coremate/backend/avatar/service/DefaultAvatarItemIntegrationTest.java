@@ -2,6 +2,7 @@ package com.coremate.backend.avatar.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.coremate.backend.avatar.catalog.type.AvatarSlot;
 import com.coremate.backend.avatar.dto.response.UserAvatarResponse;
 import com.coremate.backend.avatar.equip.UserAvatarEquippedItemRepository;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
@@ -130,12 +131,14 @@ class DefaultAvatarItemIntegrationTest {
     void equippedItemsAreSortedByRenderOrder() {
         UserAvatarResponse response = avatarService.getMyAvatar(userId);
 
-        List<String> slots = response.profile().equippedItems().stream()
+        List<AvatarSlot> slots = response.profile().equippedItems().stream()
                 .map(item -> item.slot())
                 .toList();
         // 착용 6종이 렌더 순서(신발-하의-상의-머리-눈-입)로 먼저 오고 벽지·바닥이 뒤에 온다.
-        assertThat(slots.subList(0, 6))
-                .containsExactly("SHOES", "BOTTOM", "TOP", "HAIR", "EYES", "MOUTH");
-        assertThat(slots.subList(6, 8)).containsExactlyInAnyOrder("WALLPAPER", "FLOOR");
+        assertThat(slots.subList(0, 6)).containsExactly(
+                AvatarSlot.SHOES, AvatarSlot.BOTTOM, AvatarSlot.TOP,
+                AvatarSlot.HAIR, AvatarSlot.EYES, AvatarSlot.MOUTH);
+        assertThat(slots.subList(6, 8))
+                .containsExactlyInAnyOrder(AvatarSlot.WALLPAPER, AvatarSlot.FLOOR);
     }
 }
