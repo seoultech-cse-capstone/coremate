@@ -9,10 +9,12 @@ const WALL_COLOR = "#DCD6FB";
 const FLOOR_COLOR = "#C9BFE8";
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 
-// 확정된 방 격자: 가로 10 × 세로 7(#165). 한 칸 크기를 아바타 폭 기준으로 잡아서,
+// 확정된 방 격자: 가로 10 × 세로 7(#165). 한 칸 너비를 아바타 폭 기준으로 잡아서,
 // 바닥 가로에 아바타가 대략 10개, 세로에 7개 들어가는 크기로 맞춘다.
 const GRID_COLS = 10;
 const GRID_ROWS = 7;
+// 칸을 정사각형이 아니라 납작한 직사각형으로 그려서 내려다본 듯한 입체감을 준다.
+const ROW_HEIGHT_RATIO = 0.55;
 
 type RoomSceneProps = {
   height: number;
@@ -34,14 +36,15 @@ export function RoomScene({ height }: RoomSceneProps) {
     ]).start();
   };
 
-  const cellSize = width / GRID_COLS;
-  const gridHeight = cellSize * GRID_ROWS;
+  const cellWidth = width / GRID_COLS;
+  const rowHeight = cellWidth * ROW_HEIGHT_RATIO;
+  const gridHeight = rowHeight * GRID_ROWS;
   // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 한 칸만큼 남겨둔다.
-  const gridBottomMargin = cellSize;
+  const gridBottomMargin = rowHeight;
   const floorHeight = Math.min(height, gridHeight + gridBottomMargin);
   const wallHeight = height - floorHeight;
-  const avatarScale = cellSize / AVATAR_STAGE_WIDTH;
-  const avatarWidth = cellSize;
+  const avatarScale = cellWidth / AVATAR_STAGE_WIDTH;
+  const avatarWidth = cellWidth;
 
   return (
     <View onLayout={onLayout} style={[styles.card, { height }]}>
@@ -50,13 +53,13 @@ export function RoomScene({ height }: RoomSceneProps) {
         {Array.from({ length: GRID_COLS - 1 }, (_, index) => (
           <View
             key={`col-${index}`}
-            style={[styles.gridLineVertical, { left: (index + 1) * cellSize, height: gridHeight }]}
+            style={[styles.gridLineVertical, { left: (index + 1) * cellWidth, height: gridHeight }]}
           />
         ))}
         {Array.from({ length: GRID_ROWS }, (_, index) => (
           <View
             key={`row-${index}`}
-            style={[styles.gridLineHorizontal, { top: (index + 1) * cellSize }]}
+            style={[styles.gridLineHorizontal, { top: (index + 1) * rowHeight }]}
           />
         ))}
       </View>
