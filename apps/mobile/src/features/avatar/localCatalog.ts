@@ -19,6 +19,8 @@ export type LocalCatalogItem = {
   slot: LocalAvatarSlot;
   label: string;
   source: ImageSourcePropType;
+  /** 뒷모습 전용 파일(있는 아이템만). 없으면 뒷모습에서도 정면 파일을 그대로 재사용한다. */
+  backSource?: ImageSourcePropType;
 };
 
 // 항상 무언가 착용돼 있어야 하는 부위. 나머지(HAT/EYEWEAR/SHOES/BAG)는 "없음"이 가능하다.
@@ -54,12 +56,14 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     slot: "HAIR",
     label: "기본 머리",
     source: require("../../../assets/avatar/items/hair_basic.png"),
+    backSource: require("../../../assets/avatar/items/hair_basic_back.png"),
   },
   {
     key: "hair_long_black",
     slot: "HAIR",
     label: "긴 검은 머리",
     source: require("../../../assets/avatar/items/hair_long_black.png"),
+    backSource: require("../../../assets/avatar/items/hair_long_black_back.png"),
   },
   {
     key: "eyes_basic",
@@ -96,6 +100,7 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     slot: "TOP",
     label: "후드티",
     source: require("../../../assets/avatar/items/top_hoodie.png"),
+    backSource: require("../../../assets/avatar/items/top_hoodie_back.png"),
   },
   {
     key: "bottom_basic",
@@ -114,6 +119,7 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     slot: "HAT",
     label: "야구모자",
     source: require("../../../assets/avatar/items/hat_cap.png"),
+    backSource: require("../../../assets/avatar/items/hat_cap_back.png"),
   },
   {
     key: "hat_wizard",
@@ -150,6 +156,7 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     slot: "BAG",
     label: "백팩",
     source: require("../../../assets/avatar/items/bag_backpack.png"),
+    backSource: require("../../../assets/avatar/items/bag_backpack_back.png"),
   },
 ];
 
