@@ -1,102 +1,45 @@
 import { router } from "expo-router";
 import { CheckCircle2, ChevronLeft } from "lucide-react-native";
-import { useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { useAuth, useRequireMember } from "../src/features/auth";
+import { useRequireMember } from "../src/features/auth";
 import {
-  useInventory,
-  useUpdateEquippedItemsMutation,
-  type AvatarItemType,
-  type InventoryItem,
+  AvatarStage,
+  DEFAULT_LOCAL_KEY_BY_SLOT,
+  LOCAL_AVATAR_CATALOG,
+  LOCAL_SLOT_LABEL,
+  LOCAL_SLOT_ORDER,
+  REQUIRED_LOCAL_SLOTS,
+  type LocalAvatarSlot,
 } from "../src/features/avatar";
-import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
-const ITEM_TYPE_LABEL: Record<AvatarItemType, string> = {
-  HAT: "모자",
-  HAIR: "머리",
-  EYES: "눈",
-  EYEWEAR: "안경",
-  MOUTH: "입",
-  TOP: "상의",
-  BOTTOM: "하의",
-  SHOES: "신발",
-  BAG: "가방",
-  PET: "반려동물",
-  WALLPAPER: "벽지",
-  FLOOR: "바닥",
-  FURNITURE: "가구",
-};
-
-const ITEM_TYPE_ORDER: AvatarItemType[] = [
-  "HAT",
-  "HAIR",
-  "EYES",
-  "EYEWEAR",
-  "MOUTH",
-  "TOP",
-  "BOTTOM",
-  "SHOES",
-  "BAG",
-  "PET",
-  "WALLPAPER",
-  "FLOOR",
-  "FURNITURE",
-];
-
-const RARITY_COLOR: Record<string, string> = {
-  COMMON: "#94A3B8",
-  RARE: "#3B82F6",
-  EPIC: "#A855F7",
-  LEGENDARY: "#F59E0B",
-};
-
+// 백엔드 아이템 카탈로그가 아직 비어있어(#165 0단계 미확정) 실제 API로 착용 상태를
+// 저장할 수 없다. 받아둔 로컬 스프라이트로 조합만 미리 볼 수 있게 만든 테스트 화면.
+// 카탈로그가 정해지면 실제 인벤토리 API(useInventory) 연동으로 교체한다.
 export default function AvatarInventoryScreen() {
   useRequireMember();
-  const { accessToken } = useAuth();
-  const inventoryQuery = useInventory(accessToken);
-  const updateEquippedMutation = useUpdateEquippedItemsMutation(accessToken);
-  const [selectedType, setSelectedType] = useState<AvatarItemType>("HAIR");
-  const [equipErrorMessage, setEquipErrorMessage] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<LocalAvatarSlot>("HAIR");
+  const [equipped, setEquipped] = useState<Partial<Record<LocalAvatarSlot, string | null>>>({});
 
-  const groups = inventoryQuery.data?.groups ?? [];
-  const groupByType = new Map(groups.map((group) => [group.itemType, group]));
-  const currentGroup = groupByType.get(selectedType);
-
-  const toggleEquip = (item: InventoryItem) => {
-    if (!item.slot || item.itemType === "FURNITURE") {
-      // 가구는 착용이 아니라 방 배치 대상이라 여기서는 다루지 않는다.
-      return;
+  const itemsBySlot = useMemo(() => {
+    const map = new Map<LocalAvatarSlot, typeof LOCAL_AVATAR_CATALOG>();
+    for (const slot of LOCAL_SLOT_ORDER) {
+      map.set(
+        slot,
+        LOCAL_AVATAR_CATALOG.filter((item) => item.slot === slot),
+      );
     }
-    setEquipErrorMessage(null);
-    updateEquippedMutation.mutate(
-      {
-        equippedItems: [
-          {
-            slot: item.slot,
-            userItemId: item.equipped ? null : item.userItemId,
-          },
-        ],
-      },
-      {
-        onError: (error) => {
-          setEquipErrorMessage(
-            getApiErrorMessage(error, "장착 상태를 바꾸지 못했습니다."),
-          );
-        },
-      },
-    );
-  };
+    return map;
+  }, []);
+
+  const currentItems = itemsBySlot.get(selectedSlot) ?? [];
+  const isRequiredSlot = REQUIRED_LOCAL_SLOTS.includes(selectedSlot);
+  const rawSelection = equipped[selectedSlot];
+  const effectiveKey =
+    rawSelection !== undefined ? rawSelection : (DEFAULT_LOCAL_KEY_BY_SLOT[selectedSlot] ?? null);
 
   return (
     <View style={styles.screen}>
@@ -116,106 +59,81 @@ export default function AvatarInventoryScreen() {
             <Text style={styles.title}>아이템 보관함</Text>
           </View>
 
+          <View style={styles.previewArea}>
+            <AvatarStage equipped={equipped} scale={0.55} />
+          </View>
+
           <ScrollView
             horizontal
             contentContainerStyle={styles.chipRow}
             showsHorizontalScrollIndicator={false}
             style={styles.chipScroller}
           >
-            {ITEM_TYPE_ORDER.map((type) => {
-              const group = groupByType.get(type);
-              const isSelected = type === selectedType;
+            {LOCAL_SLOT_ORDER.map((slot) => {
+              const isSelected = slot === selectedSlot;
               return (
                 <Pressable
-                  key={type}
+                  key={slot}
                   style={[styles.chip, isSelected && styles.chipSelected]}
-                  onPress={() => setSelectedType(type)}
+                  onPress={() => setSelectedSlot(slot)}
                 >
-                  <Text
-                    style={[styles.chipText, isSelected && styles.chipTextSelected]}
-                  >
-                    {ITEM_TYPE_LABEL[type]}
-                    {group ? ` ${group.count}` : ""}
+                  <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                    {LOCAL_SLOT_LABEL[slot]}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
 
-          {equipErrorMessage ? (
-            <Text style={styles.equipErrorText}>{equipErrorMessage}</Text>
-          ) : null}
+          <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+            {!isRequiredSlot ? (
+              <Pressable
+                style={[styles.card, effectiveKey === null && styles.cardEquipped]}
+                onPress={() =>
+                  setEquipped((prev) => ({ ...prev, [selectedSlot]: null }))
+                }
+              >
+                {effectiveKey === null ? (
+                  <View style={styles.equippedBadge}>
+                    <CheckCircle2 color="#16C45B" size={18} strokeWidth={2.4} />
+                  </View>
+                ) : null}
+                <View style={styles.thumbnail}>
+                  <Text style={styles.thumbnailFallback}>-</Text>
+                </View>
+                <Text style={styles.itemName}>없음</Text>
+              </Pressable>
+            ) : null}
 
-          {inventoryQuery.isLoading ? (
-            <View style={styles.stateContainer}>
-              <ActivityIndicator color="#6D5DFB" size="large" />
-            </View>
-          ) : inventoryQuery.isError ? (
-            <View style={styles.stateContainer}>
-              <Text style={styles.stateText}>
-                {getApiErrorMessage(inventoryQuery.error, "보관함을 불러오지 못했습니다.")}
-              </Text>
-            </View>
-          ) : !currentGroup || currentGroup.items.length === 0 ? (
-            <View style={styles.stateContainer}>
-              <Text style={styles.stateText}>
-                보유한 {ITEM_TYPE_LABEL[selectedType]} 아이템이 없어요.
-              </Text>
-            </View>
-          ) : (
-            <ScrollView
-              contentContainerStyle={styles.grid}
-              showsVerticalScrollIndicator={false}
-            >
-              {currentGroup.items.map((item) => (
+            {currentItems.map((item) => {
+              const isEquipped = item.key === effectiveKey;
+
+              return (
                 <Pressable
-                  disabled={item.itemType === "FURNITURE" || updateEquippedMutation.isPending}
-                  key={item.userItemId}
-                  style={[
-                    styles.card,
-                    { borderColor: RARITY_COLOR[item.rarity] ?? "#e5e7eb" },
-                    item.equipped && styles.cardEquipped,
-                  ]}
-                  onPress={() => toggleEquip(item)}
+                  key={item.key}
+                  style={[styles.card, isEquipped && styles.cardEquipped]}
+                  onPress={() =>
+                    setEquipped((prev) => ({ ...prev, [selectedSlot]: item.key }))
+                  }
                 >
-                  {item.equipped ? (
+                  {isEquipped ? (
                     <View style={styles.equippedBadge}>
                       <CheckCircle2 color="#16C45B" size={18} strokeWidth={2.4} />
                     </View>
                   ) : null}
-
                   <View style={styles.thumbnail}>
-                    {item.imageUrl ? (
-                      <Image
-                        resizeMode="contain"
-                        source={{ uri: item.imageUrl }}
-                        style={styles.thumbnailImage}
-                      />
-                    ) : (
-                      <Text style={styles.thumbnailFallback}>
-                        {ITEM_TYPE_LABEL[item.itemType].slice(0, 1)}
-                      </Text>
-                    )}
+                    <AvatarStage
+                      equipped={{ [item.slot]: item.key }}
+                      scale={0.16}
+                    />
                   </View>
-
                   <Text numberOfLines={1} style={styles.itemName}>
-                    {item.itemName}
+                    {item.label}
                   </Text>
-                  <Text
-                    style={[
-                      styles.rarityText,
-                      { color: RARITY_COLOR[item.rarity] ?? "#64748b" },
-                    ]}
-                  >
-                    {item.rarity}
-                  </Text>
-                  {item.quantity > 1 ? (
-                    <Text style={styles.quantityText}>보유 {item.quantity}개</Text>
-                  ) : null}
                 </Pressable>
-              ))}
-            </ScrollView>
-          )}
+              );
+            })}
+          </ScrollView>
         </View>
       </SafeAreaView>
     </View>
@@ -259,6 +177,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
   },
+  previewArea: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    backgroundColor: "#F8FAFC",
+  },
   chipScroller: {
     flexGrow: 0,
     borderBottomWidth: 1,
@@ -290,27 +214,6 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: "#ffffff",
   },
-  equipErrorText: {
-    marginTop: 8,
-    marginHorizontal: 16,
-    color: "#dc2626",
-    fontFamily: FONT.pretendard,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  stateContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  stateText: {
-    color: "#64748b",
-    fontFamily: FONT.pretendard,
-    fontSize: 14,
-    fontWeight: "500",
-    textAlign: "center",
-  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -318,58 +221,42 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   card: {
-    width: "47%",
+    width: "30%",
     borderRadius: 14,
     borderWidth: 2,
+    borderColor: "#e5e7eb",
     backgroundColor: "#F8FAFC",
-    padding: 12,
+    padding: 8,
     alignItems: "center",
   },
   cardEquipped: {
+    borderColor: "#6D5DFB",
     backgroundColor: "#F1EFFF",
   },
   equippedBadge: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: 6,
+    right: 6,
   },
   thumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: 12,
-    backgroundColor: "#ffffff",
+    width: 60,
+    height: 88,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
-  },
-  thumbnailImage: {
-    width: 56,
-    height: 56,
+    marginBottom: 6,
+    overflow: "hidden",
   },
   thumbnailFallback: {
     color: "#94a3b8",
     fontFamily: FONT.pretendard,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
   },
   itemName: {
     color: "#111827",
     fontFamily: FONT.pretendard,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     textAlign: "center",
-  },
-  rarityText: {
-    marginTop: 2,
-    fontFamily: FONT.pretendard,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  quantityText: {
-    marginTop: 2,
-    color: "#94a3b8",
-    fontFamily: FONT.pretendard,
-    fontSize: 11,
-    fontWeight: "500",
   },
 });

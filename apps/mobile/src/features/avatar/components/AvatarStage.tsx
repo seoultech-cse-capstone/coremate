@@ -1,6 +1,12 @@
 import type { ImageSourcePropType } from "react-native";
 import { Image, StyleSheet, View } from "react-native";
 
+import {
+  DEFAULT_LOCAL_KEY_BY_SLOT,
+  LOCAL_CATALOG_BY_KEY,
+  type LocalAvatarSlot,
+} from "../localCatalog";
+
 // 스프라이트 시트 규격(픽셀 아바타 스펙북 08/26 기준): 코디 레이어 캔버스는
 // 328x528 이고, 캐릭터 베이스는 328x432 로 더 작게 잘려 있다. 두 캔버스는
 // 하단(발끝)을 기준으로 정렬되도록 만들어졌기 때문에, 베이스를 528 캔버스
@@ -10,26 +16,48 @@ export const AVATAR_STAGE_HEIGHT = 528;
 const AVATAR_BASE_HEIGHT = 432;
 const AVATAR_BASE_TOP_OFFSET = AVATAR_STAGE_HEIGHT - AVATAR_BASE_HEIGHT;
 
-// 정면 서있는 포즈의 이목구비/의상 기본값(is_default 아이템에 대응).
-// 머리·눈·입·상의·하의는 항상 무언가 착용돼 있어야 하므로 기본 에셋을 둔다.
 const AVATAR_BASE_STAND: ImageSourcePropType = require("../../../../assets/avatar/base/avatar_base_stand_1.png");
 
-const AVATAR_BASIC_LAYERS: ImageSourcePropType[] = [
-  require("../../../../assets/avatar/items/bottom_basic.png"),
-  require("../../../../assets/avatar/items/top_basic.png"),
-  require("../../../../assets/avatar/items/eyes_basic.png"),
-  require("../../../../assets/avatar/items/mouth_basic.png"),
-  require("../../../../assets/avatar/items/hair_basic.png"),
+// 뒤(발밑)부터 앞(얼굴 위)까지 겹쳐 그리는 순서.
+const LAYER_DRAW_ORDER: LocalAvatarSlot[] = [
+  "SHOES",
+  "BOTTOM",
+  "TOP",
+  "BAG",
+  "EYES",
+  "MOUTH",
+  "HAIR",
+  "EYEWEAR",
+  "HAT",
 ];
 
 type AvatarStageProps = {
   scale?: number;
+  /** 부위별로 입힐 로컬 카탈로그 아이템 key. 생략한 부위는 기본값(필수 부위) 또는 미착용(선택 부위). */
+  equipped?: Partial<Record<LocalAvatarSlot, string | null>>;
 };
 
-/** 328x528 캔버스에 기본 아바타(서있는 포즈)를 합성해 보여준다. */
-export function AvatarStage({ scale = 1 }: AvatarStageProps) {
+/** 328x528 캔버스에 서있는 포즈 아바타를 합성해 보여준다. */
+export function AvatarStage({ scale = 1, equipped }: AvatarStageProps) {
   const width = AVATAR_STAGE_WIDTH * scale;
   const height = AVATAR_STAGE_HEIGHT * scale;
+
+  const keyBySlot: Partial<Record<LocalAvatarSlot, string>> = { ...DEFAULT_LOCAL_KEY_BY_SLOT };
+  for (const slot of LAYER_DRAW_ORDER) {
+    if (equipped && slot in equipped) {
+      const key = equipped[slot];
+      if (key) {
+        keyBySlot[slot] = key;
+      } else {
+        delete keyBySlot[slot];
+      }
+    }
+  }
+
+  const layers = LAYER_DRAW_ORDER.map((slot) => keyBySlot[slot])
+    .filter((key): key is string => Boolean(key))
+    .map((key) => LOCAL_CATALOG_BY_KEY.get(key))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   return (
     <View style={{ width, height }}>
@@ -41,11 +69,11 @@ export function AvatarStage({ scale = 1 }: AvatarStageProps) {
           { top: AVATAR_BASE_TOP_OFFSET * scale, width, height: AVATAR_BASE_HEIGHT * scale },
         ]}
       />
-      {AVATAR_BASIC_LAYERS.map((source, index) => (
+      {layers.map((item) => (
         <Image
-          key={index}
+          key={item.key}
           resizeMode="contain"
-          source={source}
+          source={item.source}
           style={[styles.layer, { top: 0, width, height }]}
         />
       ))}
