@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
 
 import { AVATAR_STAGE_WIDTH, AvatarStage } from "./AvatarStage";
+import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout } from "../roomGrid";
 
 // 실제 벽지·바닥 에셋(#165)이 아직 없어서, 방이라는 걸 알아볼 수 있는 최소한의
 // 자리만 잡아둔다. 이미지가 정해지면 이 두 영역을 이미지로 바꾸면 된다.
@@ -9,19 +10,14 @@ const WALL_COLOR = "#DCD6FB";
 const FLOOR_COLOR = "#C9BFE8";
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 
-// 확정된 방 격자: 가로 10 × 세로 7(#165). 한 칸 너비를 아바타 폭 기준으로 잡아서,
-// 바닥 가로에 아바타가 대략 10개, 세로에 7개 들어가는 크기로 맞춘다.
-const GRID_COLS = 10;
-const GRID_ROWS = 7;
-// 칸을 정사각형이 아니라 납작한 직사각형으로 그려서 내려다본 듯한 입체감을 준다.
-const ROW_HEIGHT_RATIO = 0.75;
-
 type RoomSceneProps = {
   height: number;
+  /** 격자 안내선 표시 여부. 실제 바닥 에셋이 들어오면 false로 끈다 — 칸 지오메트리 자체는 roomGrid.ts에 고정돼 있으니 영향 없음. */
+  showGridLines?: boolean;
 };
 
 /** 방(벽+바닥) 위에 아바타를 세워 보여준다. 아바타를 탭하면 살짝 튀어오른다. */
-export function RoomScene({ height }: RoomSceneProps) {
+export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
   const [width, setWidth] = useState(0);
   const bounce = useRef(new Animated.Value(0)).current;
 
@@ -36,13 +32,10 @@ export function RoomScene({ height }: RoomSceneProps) {
     ]).start();
   };
 
-  const cellWidth = width / GRID_COLS;
-  const rowHeight = cellWidth * ROW_HEIGHT_RATIO;
-  const gridHeight = rowHeight * GRID_ROWS;
-  // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 두 칸만큼 남겨둔다.
-  const gridBottomMargin = rowHeight * 2;
-  const floorHeight = Math.min(height, gridHeight + gridBottomMargin);
-  const wallHeight = height - floorHeight;
+  const { cellWidth, rowHeight, gridHeight, floorHeight, wallHeight } = getRoomGridLayout(
+    width,
+    height,
+  );
   const avatarScale = cellWidth / AVATAR_STAGE_WIDTH;
   const avatarWidth = cellWidth;
 
@@ -50,18 +43,25 @@ export function RoomScene({ height }: RoomSceneProps) {
     <View onLayout={onLayout} style={[styles.card, { height }]}>
       <View style={{ height: wallHeight, backgroundColor: WALL_COLOR }} />
       <View style={{ height: floorHeight, backgroundColor: FLOOR_COLOR }}>
-        {Array.from({ length: GRID_COLS - 1 }, (_, index) => (
-          <View
-            key={`col-${index}`}
-            style={[styles.gridLineVertical, { left: (index + 1) * cellWidth, height: gridHeight }]}
-          />
-        ))}
-        {Array.from({ length: GRID_ROWS }, (_, index) => (
-          <View
-            key={`row-${index}`}
-            style={[styles.gridLineHorizontal, { top: (index + 1) * rowHeight }]}
-          />
-        ))}
+        {showGridLines
+          ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
+              <View
+                key={`col-${index}`}
+                style={[
+                  styles.gridLineVertical,
+                  { left: (index + 1) * cellWidth, height: gridHeight },
+                ]}
+              />
+            ))
+          : null}
+        {showGridLines
+          ? Array.from({ length: ROOM_GRID_ROWS }, (_, index) => (
+              <View
+                key={`row-${index}`}
+                style={[styles.gridLineHorizontal, { top: (index + 1) * rowHeight }]}
+              />
+            ))
+          : null}
       </View>
 
       {width > 0 ? (

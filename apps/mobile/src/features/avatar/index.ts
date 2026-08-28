@@ -2,6 +2,8 @@ export { avatarApi } from "./avatarApi";
 export { useMyAvatar, useUpdateEquippedItemsMutation } from "./useAvatarQueries";
 export { AvatarStage, AvatarFaceThumbnail } from "./components/AvatarStage";
 export { RoomScene } from "./components/RoomScene";
+export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect } from "./roomGrid";
+export type { RoomGridLayout } from "./roomGrid";
 export {
   DEFAULT_LOCAL_KEY_BY_SLOT,
   LOCAL_AVATAR_CATALOG,
