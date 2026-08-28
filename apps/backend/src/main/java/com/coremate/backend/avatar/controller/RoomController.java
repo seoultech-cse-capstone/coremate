@@ -1,5 +1,6 @@
 package com.coremate.backend.avatar.controller;
 
+import com.coremate.backend.avatar.dto.request.SaveRoomPlacementsRequest;
 import com.coremate.backend.avatar.dto.response.RoomResponse;
 import com.coremate.backend.avatar.service.RoomService;
 import com.coremate.backend.global.config.OpenApiConfig;
@@ -9,7 +10,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,5 +32,16 @@ public class RoomController {
     @GetMapping
     public RoomResponse getMyRoom(@AuthenticationPrincipal CustomUserDetails userDetails) {
         return roomService.getRoom(userDetails.getUserId());
+    }
+
+    @Operation(summary = "방 가구 배치 저장",
+            description = "사용자의 배치를 통째로 교체한다. 소유·격자 범위·겹침·보유 수량 네 가지를"
+                    + " 검증하고, 하나라도 실패하면 기존 배치를 그대로 유지한다.")
+    @PutMapping("/placements")
+    public RoomResponse savePlacements(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @Valid @RequestBody SaveRoomPlacementsRequest request
+    ) {
+        return roomService.savePlacements(userDetails.getUserId(), request);
     }
 }

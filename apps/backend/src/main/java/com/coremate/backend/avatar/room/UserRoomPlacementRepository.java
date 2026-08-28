@@ -9,4 +9,7 @@ public interface UserRoomPlacementRepository extends JpaRepository<UserRoomPlace
     // 내 방·친구 방 조회. 가구 이름과 metadata.footprint 까지 한 번에 끌어온다.
     @EntityGraph(attributePaths = {"userItem", "userItem.item"})
     List<UserRoomPlacement> findByUser_UserIdOrderByGridYAscGridXAsc(Long userId);
+
+    // 배치는 통째 교체라 기존 행을 먼저 지운다.
+    void deleteByUser_UserId(Long userId);
 }
