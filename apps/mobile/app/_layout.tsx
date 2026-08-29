@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
+import { RoomThemeProvider } from "../src/features/avatar";
 import { usePushRegistration } from "../src/features/notification";
 import { queryClient } from "../src/shared/api/queryClient";
 import { LanguageProvider } from "../src/shared/language/LanguageContext";
@@ -47,6 +48,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <PushRegistration />
+        <RoomThemeProvider>
         <LanguageProvider>
         <SafeAreaProvider>
           <Stack
@@ -107,6 +109,7 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="random-box" options={{ headerShown: false }} />
+        <Stack.Screen name="room-theme" options={{ headerShown: false }} />
         <Stack.Screen
           name="mistake-exam-review"
           options={{ headerShown: false }}
@@ -140,6 +143,7 @@ export default function RootLayout() {
           <StatusBar style="dark" />
         </SafeAreaProvider>
         </LanguageProvider>
+        </RoomThemeProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

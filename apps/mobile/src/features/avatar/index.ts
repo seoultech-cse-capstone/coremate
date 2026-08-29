@@ -2,6 +2,9 @@ export { avatarApi } from "./avatarApi";
 export { useMyAvatar, useUpdateEquippedItemsMutation } from "./useAvatarQueries";
 export { AvatarStage, AvatarFaceThumbnail } from "./components/AvatarStage";
 export { RoomScene } from "./components/RoomScene";
+export { RoomThemeProvider, useRoomTheme } from "./RoomThemeContext";
+export { ROOM_THEMES } from "./roomThemes";
+export type { RoomTheme, RoomThemeKey } from "./roomThemes";
 export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect } from "./roomGrid";
 export type { RoomGridLayout } from "./roomGrid";
 export {

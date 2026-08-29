@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  Image,
   Pressable,
   StyleSheet,
   View,
@@ -11,11 +12,8 @@ import {
 
 import { AVATAR_STAGE_HEIGHT, AVATAR_STAGE_WIDTH, AvatarStage } from "./AvatarStage";
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout } from "../roomGrid";
+import { useRoomTheme } from "../RoomThemeContext";
 
-// 실제 벽지·바닥 에셋(#165)이 아직 없어서, 방이라는 걸 알아볼 수 있는 최소한의
-// 자리만 잡아둔다. 이미지가 정해지면 이 두 영역을 이미지로 바꾸면 된다.
-const WALL_COLOR = "#DCD6FB";
-const FLOOR_COLOR = "#C9BFE8";
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 
 // AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
@@ -44,6 +42,7 @@ type RoomSceneProps = {
  * 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
  */
 export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
+  const { theme } = useRoomTheme();
   const [width, setWidth] = useState(0);
   const [hasPositioned, setHasPositioned] = useState(false);
   const [frame, setFrame] = useState<1 | 2 | 3>(1);
@@ -203,12 +202,17 @@ export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
 
   return (
     <View onLayout={onLayout} style={[styles.card, { height }]}>
-      <View style={{ height: wallHeight, backgroundColor: WALL_COLOR }} />
+      <Image
+        resizeMode="cover"
+        source={theme.wallSource}
+        style={{ width: "100%", height: wallHeight }}
+      />
       <Pressable
         accessibilityLabel="방 바닥"
-        style={{ height: floorHeight, backgroundColor: FLOOR_COLOR }}
+        style={{ height: floorHeight }}
         onPress={handleFloorPress}
       >
+        <Image resizeMode="cover" source={theme.floorSource} style={StyleSheet.absoluteFillObject} />
         {showGridLines
           ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
               <View
