@@ -32,6 +32,12 @@ const MIN_WALK_DURATION_MS = 300;
 
 type RoomSceneProps = {
   height: number;
+  /**
+   * 바닥 쪽으로만 추가되는 여분 높이. 홈 화면에서 방을 패널 시작선보다 더 길게
+   * 그려서 패널 둥근 모서리 안쪽으로 바닥이 살짝 보이게 할 때 쓴다 — height를
+   * 그냥 늘리면 늘어난 만큼 벽이 커지므로, 늘려야 하는 건 바닥 쪽이라 따로 받는다.
+   */
+  bottomOverflow?: number;
   /** 격자 안내선 표시 여부. 실제 바닥 에셋이 들어오면 false로 끈다 — 칸 지오메트리 자체는 roomGrid.ts에 고정돼 있으니 영향 없음. */
   showGridLines?: boolean;
 };
@@ -41,7 +47,7 @@ type RoomSceneProps = {
  * 흔들리고(idle), 바닥을 탭하면 그 자리로 통통 튀며 걸어가고(위로 이동하면
  * 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
  */
-export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
+export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
   const { theme } = useRoomTheme();
   const [width, setWidth] = useState(0);
   const [hasPositioned, setHasPositioned] = useState(false);
@@ -59,10 +65,9 @@ export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
     setWidth(event.nativeEvent.layout.width);
   };
 
-  const { cellWidth, rowHeight, gridHeight, floorHeight, wallHeight } = getRoomGridLayout(
-    width,
-    height,
-  );
+  const { cellWidth, rowHeight, gridHeight, floorHeight: baseFloorHeight, wallHeight } =
+    getRoomGridLayout(width, height);
+  const floorHeight = baseFloorHeight + bottomOverflow;
   const avatarWidth = cellWidth;
   const avatarHeight = avatarWidth * (AVATAR_STAGE_HEIGHT / AVATAR_STAGE_WIDTH);
   const avatarScale = avatarWidth / AVATAR_STAGE_WIDTH;
@@ -201,7 +206,7 @@ export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
   });
 
   return (
-    <View onLayout={onLayout} style={[styles.card, { height }]}>
+    <View onLayout={onLayout} style={[styles.card, { height: height + bottomOverflow }]}>
       <Image
         resizeMode="cover"
         source={theme.wallSource}

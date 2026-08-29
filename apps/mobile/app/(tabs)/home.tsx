@@ -116,7 +116,7 @@ export default function HomeScreen() {
       <View style={{ height: panelTopOffset }}>
         {/* 방을 패널 시작선보다 더 길게 그려서, 패널의 둥근 모서리 안쪽으로 방 배경이 살짝 보이게 한다. */}
         <View style={{ height: panelTopOffset + ROOM_OVERLAP }}>
-          <RoomScene height={panelTopOffset + ROOM_OVERLAP} />
+          <RoomScene bottomOverflow={ROOM_OVERLAP} height={panelTopOffset} />
         </View>
       </View>
 
