@@ -47,12 +47,15 @@ public class UserController {
         return userService.updateMyProfile(userDetails.getUserId(), request);
     }
 
+    // 닉네임 무료 변경 경로 폐쇄 — 닉네임 변경권(상점)으로만 바꾸도록 이전한다. (#202)
+    /*
     @Operation(summary = "내 닉네임 변경")
     @PatchMapping("/me/nickname")
     public UserSummaryResponse updateNickname(@AuthenticationPrincipal CustomUserDetails userDetails,
                                               @Valid @RequestBody UpdateNicknameRequest request) {
         return userService.updateNickname(userDetails.getUserId(), request);
     }
+    */
 
     @Operation(summary = "내 비밀번호 변경", description = "로그인 상태에서 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경한다.")
     @PatchMapping("/me/password")

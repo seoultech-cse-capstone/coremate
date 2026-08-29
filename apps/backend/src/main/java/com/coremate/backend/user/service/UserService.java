@@ -39,14 +39,16 @@ public class UserService {
     public MyProfileResponse updateMyProfile(Long userId, UpdateUserProfileRequest request) {
         User user = findUser(userId);
 
-        if (request.getNickname() != null && !request.getNickname().isBlank()
-                && !request.getNickname().equals(user.getNickname())) {
-            if (userRepository.existsByNicknameAndUserIdNot(request.getNickname(), userId)) {
-                throw new CoreMateException(ErrorCode.DUPLICATE_NICKNAME);
-            }
-        }
+        // 닉네임 무료 변경 경로 폐쇄 — 닉네임은 닉네임 변경권(상점)으로만 바꾼다. (#202)
+        // 학교 정보 등 나머지 프로필 수정은 그대로 두고, 닉네임만 null 로 넘겨 변경되지 않게 한다.
+        // if (request.getNickname() != null && !request.getNickname().isBlank()
+        //         && !request.getNickname().equals(user.getNickname())) {
+        //     if (userRepository.existsByNicknameAndUserIdNot(request.getNickname(), userId)) {
+        //         throw new CoreMateException(ErrorCode.DUPLICATE_NICKNAME);
+        //     }
+        // }
 
-        user.updateProfile(request.getNickname(), request.getSchoolName(), request.getSchoolEmail());
+        user.updateProfile(null, request.getSchoolName(), request.getSchoolEmail());
         return toMyProfileResponse(user);
     }
 
