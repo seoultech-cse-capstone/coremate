@@ -168,12 +168,31 @@ export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
     const targetX = Math.min(Math.max(locationX, avatarWidth / 2), Math.max(width - avatarWidth / 2, avatarWidth / 2));
     const targetY = Math.min(Math.max(locationY, 0), floorHeight);
 
+    if (!isMovingRef.current) {
+      // 서있는 중이면 지금 위치가 곧 restPos이니 브릿지 왕복 없이 바로 출발한다.
+      startWalk(restPos, targetX, targetY);
+      return;
+    }
+
     // 이동 중 재탭: 진행 중인 애니메이션을 멈추고, 멈춘 바로 그 위치에서 새로 시작한다.
+    // stopAnimation은 네이티브→JS 브릿지 왕복이 있어서, X·Y를 순서대로(중첩) 기다리면
+    // 그만큼 두 배로 느려진다 — 동시에 요청하고 둘 다 도착했을 때만 시작한다.
     hopLoopRef.current?.stop();
-    posX.stopAnimation((fromX) => {
-      posY.stopAnimation((fromY) => {
-        startWalk({ x: fromX, y: fromY }, targetX, targetY);
-      });
+    let resolvedX: number | null = null;
+    let resolvedY: number | null = null;
+    const tryStart = () => {
+      if (resolvedX === null || resolvedY === null) {
+        return;
+      }
+      startWalk({ x: resolvedX, y: resolvedY }, targetX, targetY);
+    };
+    posX.stopAnimation((value) => {
+      resolvedX = value;
+      tryStart();
+    });
+    posY.stopAnimation((value) => {
+      resolvedY = value;
+      tryStart();
     });
   };
 
