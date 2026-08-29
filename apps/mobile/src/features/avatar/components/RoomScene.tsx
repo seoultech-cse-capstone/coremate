@@ -104,28 +104,10 @@ export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
     }
   }, [width, floorHeight, hasPositioned, posX, posY]);
 
-  const handleFloorPress = (event: GestureResponderEvent) => {
-    if (!hasPositioned) {
-      return;
-    }
-    const { locationX, locationY } = event.nativeEvent;
-    const from = currentPosRef.current;
-
-    const tappedAvatar =
-      !isMovingRef.current &&
-      Math.abs(locationX - from.x) <= avatarWidth / 2 &&
-      locationY <= from.y &&
-      locationY >= from.y - avatarHeight;
-
-    if (tappedAvatar) {
-      setFacing((prev) => (prev === "front" ? "back" : "front"));
-      return;
-    }
-
-    const targetX = Math.min(Math.max(locationX, avatarWidth / 2), Math.max(width - avatarWidth / 2, avatarWidth / 2));
-    const targetY = Math.min(Math.max(locationY, 0), floorHeight);
+  const startWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
     const distance = Math.hypot(targetX - from.x, targetY - from.y);
     if (distance < 6) {
+      isMovingRef.current = false;
       return;
     }
 
@@ -150,12 +132,48 @@ export function RoomScene({ height, showGridLines = true }: RoomSceneProps) {
     Animated.parallel([
       Animated.timing(posX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
       Animated.timing(posY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
-    ]).start(() => {
+    ]).start(({ finished }) => {
+      // 이동 도중 다시 탭해서 끊긴 애니메이션(finished=false)의 콜백은 여기서 멈춘다.
+      // 그대로 두면 이미 시작된 "다음" 이동의 hopLoop를 멈추고 위치·상태를 옛 목적지로
+      // 되돌려버려서 이상하게 움직이는 것처럼 보인다.
+      if (!finished) {
+        return;
+      }
       hopLoopRef.current?.stop();
       hopPhase.setValue(0);
       currentPosRef.current = { x: targetX, y: targetY };
       isMovingRef.current = false;
       setFacing("front");
+    });
+  };
+
+  const handleFloorPress = (event: GestureResponderEvent) => {
+    if (!hasPositioned) {
+      return;
+    }
+    const { locationX, locationY } = event.nativeEvent;
+    const restPos = currentPosRef.current;
+
+    const tappedAvatar =
+      !isMovingRef.current &&
+      Math.abs(locationX - restPos.x) <= avatarWidth / 2 &&
+      locationY <= restPos.y &&
+      locationY >= restPos.y - avatarHeight;
+
+    if (tappedAvatar) {
+      setFacing((prev) => (prev === "front" ? "back" : "front"));
+      return;
+    }
+
+    const targetX = Math.min(Math.max(locationX, avatarWidth / 2), Math.max(width - avatarWidth / 2, avatarWidth / 2));
+    const targetY = Math.min(Math.max(locationY, 0), floorHeight);
+
+    // 이동 중 재탭: 진행 중인 애니메이션을 멈추고, 멈춘 바로 그 위치에서 새로 시작한다.
+    hopLoopRef.current?.stop();
+    posX.stopAnimation((fromX) => {
+      posY.stopAnimation((fromY) => {
+        startWalk({ x: fromX, y: fromY }, targetX, targetY);
+      });
     });
   };
 
