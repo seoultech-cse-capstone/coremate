@@ -1,4 +1,4 @@
-import type { ImageSourcePropType } from "react-native";
+import { Image, type ImageSourcePropType } from "react-native";
 
 // assets_template.md 6절 기준. 좌표는 전부 "아바타 원점" 같은 공통 기준점 하나를
 // 공유한다고 보고 그대로 옮겨왔다 — 세트 내 상대 배치(바운딩박스)만 쓰므로
@@ -19,8 +19,6 @@ type FurniturePieceSpec = {
   source: ImageSourcePropType;
   offsetXDots: number;
   offsetYDots: number;
-  widthDots: number;
-  heightDots: number;
   /**
    * 앉기/수면 상호작용 중 아바타보다 앞(front)에 그려야 하는 조각인지.
    * 책상 상판은 아바타를 가려야 하고(책상 씬: chair → 아바타 → desk),
@@ -30,12 +28,17 @@ type FurniturePieceSpec = {
   role?: "back" | "front";
 };
 
+type FurniturePiece = FurniturePieceSpec & {
+  widthDots: number;
+  heightDots: number;
+};
+
 export type FurnitureSet = {
   type: FurnitureType;
   label: string;
   /** 격자에서 차지하는 가로 칸 수. */
   footprintCols: number;
-  pieces: FurniturePieceSpec[];
+  pieces: FurniturePiece[];
   /** 아래 네 값은 조각들을 합친 바운딩박스(도트) — buildSet이 자동 계산. */
   widthDots: number;
   heightDots: number;
@@ -43,7 +46,17 @@ export type FurnitureSet = {
   minYDots: number;
 };
 
-function buildSet(type: FurnitureType, label: string, footprintCols: number, pieces: FurniturePieceSpec[]): FurnitureSet {
+// 도트=8px 고정 규칙(assets_template.md 1절)이라, 파일의 실제 픽셀 크기만 알면
+// 도트 수는 8로 나누면 된다. Image.resolveAssetSource는 로컬(require) 이미지는
+// Metro가 번들할 때 크기를 이미 심어놔서 동기적으로 바로 읽힌다 — 그림이
+// 바뀌거나 크기가 달라져도 widthDots/heightDots를 손으로 다시 잴 필요가 없다.
+function resolvePieceDots(source: ImageSourcePropType): { widthDots: number; heightDots: number } {
+  const { width, height } = Image.resolveAssetSource(source);
+  return { widthDots: width / 8, heightDots: height / 8 };
+}
+
+function buildSet(type: FurnitureType, label: string, footprintCols: number, pieceSpecs: FurniturePieceSpec[]): FurnitureSet {
+  const pieces: FurniturePiece[] = pieceSpecs.map((spec) => ({ ...spec, ...resolvePieceDots(spec.source) }));
   const minXDots = Math.min(...pieces.map((piece) => piece.offsetXDots));
   const maxXDots = Math.max(...pieces.map((piece) => piece.offsetXDots + piece.widthDots));
   const minYDots = Math.min(...pieces.map((piece) => piece.offsetYDots));
@@ -67,15 +80,11 @@ const DESK_SET = buildSet("desk", "책상", 2, [
     source: require("../../../assets/room/furniture/furn_chair_basic.png"),
     offsetXDots: 4,
     offsetYDots: 24,
-    widthDots: 31,
-    heightDots: 26,
   },
   {
     source: require("../../../assets/room/furniture/furn_desk_basic.png"),
     offsetXDots: -5,
     offsetYDots: 33,
-    widthDots: 49,
-    heightDots: 17,
     role: "front",
   },
 ]);
@@ -85,15 +94,11 @@ const BED_SET = buildSet("bed", "침대", 2, [
     source: require("../../../assets/room/furniture/furn_bed_basic.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 58,
-    heightDots: 28,
   },
   {
     source: require("../../../assets/room/furniture/furn_bed_blanket_basic.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 58,
-    heightDots: 28,
     role: "front",
   },
 ]);
@@ -104,8 +109,6 @@ const DRYING_RACK_SET = buildSet("dryingRack", "빨래 건조대", 1, [
     source: require("../../../assets/room/furniture/furn_drying_rack.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 17,
-    heightDots: 13,
   },
 ]);
 
@@ -114,8 +117,6 @@ const SHELF_SET = buildSet("shelf", "선반", 1, [
     source: require("../../../assets/room/furniture/furn_shelf.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 16,
-    heightDots: 20,
   },
 ]);
 
@@ -124,8 +125,6 @@ const FRIDGE_SET = buildSet("fridge", "냉장고", 1, [
     source: require("../../../assets/room/furniture/furn_fridge.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 16,
-    heightDots: 22,
   },
 ]);
 
@@ -134,8 +133,6 @@ const PC_TOWER_SET = buildSet("pcTower", "PC 본체", 1, [
     source: require("../../../assets/room/furniture/furn_pc_tower.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 10,
-    heightDots: 17,
   },
 ]);
 
@@ -144,8 +141,6 @@ const PET_CUSHION_SET = buildSet("petCushion", "반려동물 방석", 1, [
     source: require("../../../assets/room/furniture/furn_pet_cushion.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 15,
-    heightDots: 7,
   },
 ]);
 
@@ -154,8 +149,6 @@ const WASHER_SET = buildSet("washer", "세탁기", 1, [
     source: require("../../../assets/room/furniture/furn_washer.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 16,
-    heightDots: 20,
   },
 ]);
 
