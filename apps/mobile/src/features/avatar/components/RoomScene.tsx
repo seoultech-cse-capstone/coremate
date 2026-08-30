@@ -22,9 +22,8 @@ import { useRoomTheme } from "../RoomThemeContext";
 import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThemes";
 
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
-// 아바타·코디 원본 PNG는 1도트를 8px로 미리 확대해서 그린 것이다(assets_template.md 1절).
-// 화면에 dotPx(도트당 실제 px)로 보이게 하려면 그 역배율(dotPx/8)만큼 축소해서 그린다.
-const AVATAR_RAW_PX_PER_DOT = 8;
+// 아바타 너비 기준: 타일 몇 칸 크기로 보일지.
+const AVATAR_WIDTH_IN_CELLS = 2;
 
 // AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
 const IDLE_SEQUENCE: { frame: 1 | 2 | 3; duration: number }[] = [
@@ -78,9 +77,8 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const { cellWidth, rowHeight, gridHeight, floorHeight: baseFloorHeight, wallHeight, dotPx } =
     getRoomGridLayout(width, height);
   const floorHeight = baseFloorHeight + bottomOverflow;
-  // 아바타는 더 이상 "한 칸 너비"가 아니라, 배경과 같은 dotPx 스케일로 그린다
-  // (assets_template.md 1절) — 41도트 캔버스가 대략 칸 2개 폭 정도로 나온다.
-  const avatarScale = dotPx / AVATAR_RAW_PX_PER_DOT;
+  // 아바타 너비를 타일 2칸 크기로 고정한다(dotPx 그대로 쓰면 약 1.8칸이라 요청대로 조정).
+  const avatarScale = (AVATAR_WIDTH_IN_CELLS * cellWidth) / AVATAR_STAGE_WIDTH;
   const avatarRenderWidth = AVATAR_STAGE_WIDTH * avatarScale;
   const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
   const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
@@ -276,10 +274,14 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
               />
             ))
           : null}
+      </Pressable>
 
-        {hasPositioned ? (
+      {/* 아바타는 바닥 Pressable 밖의 별도 레이어다 — 바닥은 크롭(overflow hidden)이
+          걸려 있어서, 안에 있으면 벽 쪽으로 머리가 살짝 넘어갈 때 잘려 보인다.
+          여기서는 벽·바닥 다음(맨 나중)에 그려서 항상 그 위에 보이고, 잘리지도 않는다. */}
+      {hasPositioned ? (
+        <View pointerEvents="none" style={[styles.avatarLayer, { top: wallHeight, height: floorHeight }]}>
           <Animated.View
-            pointerEvents="none"
             style={[
               styles.avatarWrap,
               {
@@ -292,8 +294,8 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
           >
             <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
           </Animated.View>
-        ) : null}
-      </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -301,6 +303,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
 const styles = StyleSheet.create({
   card: {
     width: "100%",
+  },
+  avatarLayer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
   },
   avatarWrap: {
     position: "absolute",
