@@ -28,3 +28,10 @@ export const ROOM_THEMES: RoomTheme[] = [
 export const DEFAULT_ROOM_THEME_KEY: RoomThemeKey = "basic";
 
 export const ROOM_THEME_BY_KEY = new Map(ROOM_THEMES.map((theme) => [theme.key, theme]));
+
+// assets_template.md 3절: 두 테마 모두 같은 도트 규격(가로 112도트 = 7칸x16도트).
+// 바닥은 9줄(108도트, 격자6줄+여유 36도트), 벽은 96도트. dotPx로 표시 크기를 구한다.
+export const FLOOR_DOT_HEIGHT = 108;
+export const WALL_DOT_HEIGHT = 96;
+// 벽 art가 필요한 높이보다 짧을 때(화면이 세로로 아주 긴 기기) 위쪽을 채우는 색 — 벽 상단과 동일.
+export const WALL_EXTEND_COLOR = "#E9DEC6";

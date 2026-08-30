@@ -12,6 +12,9 @@ export const ROOM_GRID_ROWS = 5;
 const ROW_HEIGHT_RATIO = 0.75;
 // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 한 칸만큼 남겨둔다.
 const GRID_BOTTOM_MARGIN_ROWS = 1;
+// assets_template.md 1절: 한 칸 = 16x12도트(16*0.75=12, ROW_HEIGHT_RATIO와 정확히 일치).
+// dotPx = cellWidth/16 이 배경·아바타·가구 전체가 공유하는 화면 표시 스케일이다.
+const DOTS_PER_CELL_WIDTH = 16;
 
 export type RoomGridLayout = {
   cellWidth: number;
@@ -20,6 +23,8 @@ export type RoomGridLayout = {
   gridBottomMargin: number;
   floorHeight: number;
   wallHeight: number;
+  /** 도트 하나를 화면에서 몇 px로 그릴지. 배경·아바타·가구가 전부 이 값으로 스케일을 맞춘다. */
+  dotPx: number;
 };
 
 /** 방 너비·전체 높이가 주어졌을 때 격자/바닥/벽 치수를 계산한다. */
@@ -30,8 +35,9 @@ export function getRoomGridLayout(width: number, roomHeight: number): RoomGridLa
   const gridBottomMargin = rowHeight * GRID_BOTTOM_MARGIN_ROWS;
   const floorHeight = Math.min(roomHeight, gridHeight + gridBottomMargin);
   const wallHeight = roomHeight - floorHeight;
+  const dotPx = cellWidth / DOTS_PER_CELL_WIDTH;
 
-  return { cellWidth, rowHeight, gridHeight, gridBottomMargin, floorHeight, wallHeight };
+  return { cellWidth, rowHeight, gridHeight, gridBottomMargin, floorHeight, wallHeight, dotPx };
 }
 
 /** row·col(0부터 시작) 칸의 바닥 기준 좌상단 좌표와 크기. 가구 배치 좌표 변환에 쓴다. */

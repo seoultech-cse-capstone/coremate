@@ -24,6 +24,16 @@ const CONTENT_CROP = { x: 48, y: 64, width: 232, height: 432 };
 export const AVATAR_STAGE_WIDTH = CONTENT_CROP.width;
 export const AVATAR_STAGE_HEIGHT = CONTENT_CROP.height;
 
+// assets_template.md 4절: 아바타(베이스) 캔버스는 41x54도트, 중심 x=20도트,
+// 발바닥 기준선 y=49도트(베이스 캔버스 자체 기준). 스테이지 좌표로 옮기면
+// RAW_BASE_TOP_OFFSET(96px)만큼 아래로 내려가 있다. AvatarStage가 실제로
+// 그리는 건 CONTENT_CROP만큼 잘라낸 영역이라, 배치 쪽(RoomScene)에서 "발이
+// 어디 있는지" 알 수 있도록 그 잘라낸 좌표계 기준 비율로 내보낸다.
+const RAW_FOOT_CENTER_X = 20 * 8;
+const RAW_FOOT_Y = RAW_BASE_TOP_OFFSET + 49 * 8;
+export const AVATAR_FOOT_X_RATIO = (RAW_FOOT_CENTER_X - CONTENT_CROP.x) / AVATAR_STAGE_WIDTH;
+export const AVATAR_FOOT_Y_RATIO = (RAW_FOOT_Y - CONTENT_CROP.y) / AVATAR_STAGE_HEIGHT;
+
 const AVATAR_BASE_STAND_FRAMES: ImageSourcePropType[] = [
   require("../../../../assets/avatar/base/avatar_base_stand_1.png"),
   require("../../../../assets/avatar/base/avatar_base_stand_2.png"),
