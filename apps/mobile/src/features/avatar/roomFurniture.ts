@@ -48,6 +48,12 @@ function buildSet(
   label: string,
   footprintCols: number,
   pieces: FurniturePieceSpec[],
+  /**
+   * 실제 조각 폭 대신 이 값으로 세트 폭(→ 스케일)을 계산한다. footprintCols칸에
+   * 꽉 채우지 않고 그보다 작게, 조각들의 offsetXDots 쪽(보통 0=왼쪽)에 붙여서
+   * 보여주고 싶을 때 씀 — 예: 실제 폭의 2배를 주면 칸의 절반 크기로 왼쪽 정렬된다.
+   */
+  virtualWidthDots?: number,
 ): FurnitureSet {
   const minXDots = Math.min(...pieces.map((piece) => piece.offsetXDots));
   const maxXDots = Math.max(...pieces.map((piece) => piece.offsetXDots + piece.widthDots));
@@ -59,7 +65,7 @@ function buildSet(
     label,
     footprintCols,
     pieces,
-    widthDots: maxXDots - minXDots,
+    widthDots: virtualWidthDots ?? maxXDots - minXDots,
     heightDots: maxYDots - minYDots,
     minXDots,
     minYDots,
@@ -134,15 +140,23 @@ const FRIDGE_SET = buildSet("fridge", "미니 냉장고", 1, [
   },
 ]);
 
-const PC_TOWER_SET = buildSet("pcTower", "PC 본체", 1, [
-  {
-    source: require("../../../assets/room/furniture/furn_pc_tower.png"),
-    offsetXDots: 0,
-    offsetYDots: 0,
-    widthDots: 10,
-    heightDots: 17,
-  },
-]);
+// 실제 폭(10dots)의 2배를 가상 세트 폭으로 줘서, 칸 하나(footprintCols=1)의
+// 절반 크기로 왼쪽에 붙여 보여준다(offsetXDots가 0이라 왼쪽 기준).
+const PC_TOWER_SET = buildSet(
+  "pcTower",
+  "PC 본체",
+  1,
+  [
+    {
+      source: require("../../../assets/room/furniture/furn_pc_tower.png"),
+      offsetXDots: 0,
+      offsetYDots: 0,
+      widthDots: 10,
+      heightDots: 17,
+    },
+  ],
+  20,
+);
 
 const PET_CUSHION_SET = buildSet("petCushion", "반려동물 방석", 1, [
   {
