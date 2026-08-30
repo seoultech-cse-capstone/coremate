@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { CheckCircle2, ChevronLeft } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -10,6 +10,7 @@ import {
   AvatarStage,
   DEFAULT_LOCAL_KEY_BY_SLOT,
   LOCAL_AVATAR_CATALOG,
+  LOCAL_CATALOG_BY_KEY,
   LOCAL_SLOT_LABEL,
   LOCAL_SLOT_ORDER,
   REQUIRED_LOCAL_SLOTS,
@@ -41,6 +42,12 @@ export default function AvatarInventoryScreen() {
   const effectiveKey =
     rawSelection !== undefined ? rawSelection : (DEFAULT_LOCAL_KEY_BY_SLOT[selectedSlot] ?? null);
 
+  // 펫은 옷처럼 아바타 캔버스에 겹쳐 그리는 게 아니라 방에서 아바타를 뒤따라 다니는
+  // 별도 스프라이트라, AvatarStage에는 안 넘기고 미리보기 옆에 따로 그려서 보여준다.
+  const rawPetSelection = equipped.PET;
+  const equippedPetKey = rawPetSelection !== undefined ? rawPetSelection : (DEFAULT_LOCAL_KEY_BY_SLOT.PET ?? null);
+  const equippedPetItem = equippedPetKey ? LOCAL_CATALOG_BY_KEY.get(equippedPetKey) : undefined;
+
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
@@ -61,6 +68,9 @@ export default function AvatarInventoryScreen() {
 
           <View style={styles.previewArea}>
             <AvatarStage equipped={equipped} scale={0.55} />
+            {equippedPetItem ? (
+              <Image resizeMode="contain" source={equippedPetItem.source} style={styles.petPreviewImage} />
+            ) : null}
           </View>
 
           <ScrollView
@@ -122,10 +132,11 @@ export default function AvatarInventoryScreen() {
                     </View>
                   ) : null}
                   <View style={styles.thumbnail}>
-                    <AvatarStage
-                      equipped={{ [item.slot]: item.key }}
-                      scale={0.16}
-                    />
+                    {item.slot === "PET" ? (
+                      <Image resizeMode="contain" source={item.source} style={styles.petThumbnailImage} />
+                    ) : (
+                      <AvatarStage equipped={{ [item.slot]: item.key }} scale={0.16} />
+                    )}
                   </View>
                   <Text numberOfLines={1} style={styles.itemName}>
                     {item.label}
@@ -178,10 +189,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   previewArea: {
-    alignItems: "center",
+    flexDirection: "row",
+    alignItems: "flex-end",
     justifyContent: "center",
+    gap: 8,
     paddingVertical: 12,
     backgroundColor: "#F8FAFC",
+  },
+  petPreviewImage: {
+    width: 48,
+    height: 40,
+  },
+  petThumbnailImage: {
+    width: 48,
+    height: 40,
   },
   chipScroller: {
     flexGrow: 0,

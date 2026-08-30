@@ -12,7 +12,8 @@ export type LocalAvatarSlot =
   | "TOP"
   | "BOTTOM"
   | "SHOES"
-  | "BAG";
+  | "BAG"
+  | "PET";
 
 export type LocalCatalogItem = {
   key: string;
@@ -27,7 +28,7 @@ export type LocalCatalogItem = {
   sleepSource?: ImageSourcePropType;
 };
 
-// 항상 무언가 착용돼 있어야 하는 부위. 나머지(HAT/EYEWEAR/SHOES/BAG)는 "없음"이 가능하다.
+// 항상 무언가 착용돼 있어야 하는 부위. 나머지(HAT/EYEWEAR/SHOES/BAG/PET)는 "없음"이 가능하다.
 export const REQUIRED_LOCAL_SLOTS: LocalAvatarSlot[] = ["HAIR", "EYES", "MOUTH", "TOP", "BOTTOM"];
 
 export const LOCAL_SLOT_LABEL: Record<LocalAvatarSlot, string> = {
@@ -40,6 +41,7 @@ export const LOCAL_SLOT_LABEL: Record<LocalAvatarSlot, string> = {
   BOTTOM: "하의",
   SHOES: "신발",
   BAG: "가방",
+  PET: "펫",
 };
 
 export const LOCAL_SLOT_ORDER: LocalAvatarSlot[] = [
@@ -52,6 +54,7 @@ export const LOCAL_SLOT_ORDER: LocalAvatarSlot[] = [
   "EYEWEAR",
   "SHOES",
   "BAG",
+  "PET",
 ];
 
 export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
@@ -222,6 +225,18 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     label: "백팩",
     source: require("../../../assets/avatar/items/bag_backpack.png"),
     backSource: require("../../../assets/avatar/items/bag_backpack_back.png"),
+  },
+  {
+    key: "pet_dog",
+    slot: "PET",
+    label: "강아지",
+    source: require("../../../assets/avatar/items/pet_dog.png"),
+  },
+  {
+    key: "pet_turtle",
+    slot: "PET",
+    label: "거북이",
+    source: require("../../../assets/avatar/items/pet_turtle.png"),
   },
 ];
 

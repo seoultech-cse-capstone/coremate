@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, View, type GestureResponderEvent } from "react-native";
+import { Animated, Easing, Image, StyleSheet, View, type GestureResponderEvent } from "react-native";
 
 import {
   AVATAR_FOOT_X_RATIO,
@@ -12,7 +12,7 @@ import {
   AvatarStage,
 } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
-import { DEFAULT_LOCAL_KEY_BY_SLOT } from "../localCatalog";
+import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
 import {
   INTERACTIVE_FURNITURE_TYPES,
@@ -57,6 +57,15 @@ const MIN_WALK_DURATION_MS = 300;
 // 그 8로 나눠야 AvatarSleepStage의 scale prop과 단위가 맞는다.
 const SLEEP_RAW_PX_PER_DOT = 8;
 
+// 펫: 프레임 애니메이션 없는 정지 이미지라, 강아지 원본(18x13도트)을 기준 상자로 두고
+// contain으로 맞춘다(거북이는 더 납작해서 상자 안에서 살짝 작게 보인다 — 의도된 동작).
+const PET_BOX_WIDTH_DOTS = 18;
+const PET_BOX_HEIGHT_DOTS = 13;
+// 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
+const PET_FOLLOW_DELAY_MS = 220;
+// 아바타 발밑 기준 왼쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
+const PET_FOLLOW_OFFSET_CELLS = 0.55;
+
 function isWithinRect(
   rect: { left: number; top: number; right: number; bottom: number },
   x: number,
@@ -97,6 +106,23 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const isMovingRef = useRef(false);
   const hopLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
+  // 펫: 장착 저장이 아직 없어 다른 선택 부위처럼 DEFAULT_LOCAL_KEY_BY_SLOT을 그대로
+  // 쓴다 — 지금은 기본값이 없어 아무것도 설정 안 하면 방에 펫이 안 보인다.
+  const petKey = DEFAULT_LOCAL_KEY_BY_SLOT.PET;
+  const petItem = petKey ? LOCAL_CATALOG_BY_KEY.get(petKey) : undefined;
+  const petX = useRef(new Animated.Value(0)).current;
+  const petY = useRef(new Animated.Value(0)).current;
+  const petCurrentPosRef = useRef({ x: 0, y: 0 });
+  const petFollowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (petFollowTimeoutRef.current) {
+        clearTimeout(petFollowTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const frame = useFrameSequence(IDLE_SEQUENCE, occupancy !== "bed");
   const handFrame = useFrameSequence(SIT_HAND_SEQUENCE, occupancy === "desk");
   const sleepFrame = useFrameSequence(SLEEP_SEQUENCE, occupancy === "bed");
@@ -109,6 +135,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
   const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
   const feetOffsetY = avatarRenderHeight * AVATAR_FOOT_Y_RATIO;
+  // 배경·가구와 같은 world 스케일(dotPx)로 그려서 크기가 어색하게 따로 놀지 않게 한다.
+  const petBoxWidth = layout ? PET_BOX_WIDTH_DOTS * layout.dotPx : 0;
+  const petBoxHeight = layout ? PET_BOX_HEIGHT_DOTS * layout.dotPx : 0;
+  const petOffsetX = layout ? -PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
 
   const bedPlacement = placements.bed;
   const bedLayout =
@@ -118,7 +148,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const sleepLeft = bedLayout ? bedLayout.containerLeft + 4 * bedLayout.scale : 0;
   const sleepTop = bedLayout ? bedLayout.containerTop - 12 * bedLayout.scale : 0;
 
-  // 바닥 크기를 알게 되면 아바타 시작 위치를 한 번만 잡는다.
+  // 바닥 크기를 알게 되면 아바타(와 펫) 시작 위치를 한 번만 잡는다.
   useEffect(() => {
     if (width > 0 && !hasPositioned) {
       const startX = width / 2;
@@ -126,9 +156,13 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       posX.setValue(startX);
       posY.setValue(startY);
       currentPosRef.current = { x: startX, y: startY };
+      const petStartX = Math.max(0, startX + petOffsetX);
+      petX.setValue(petStartX);
+      petY.setValue(startY);
+      petCurrentPosRef.current = { x: petStartX, y: startY };
       setHasPositioned(true);
     }
-  }, [width, floorHeight, hasPositioned, posX, posY]);
+  }, [width, floorHeight, hasPositioned, posX, posY, petX, petY, petOffsetX]);
 
   const startWalk = (
     from: { x: number; y: number },
@@ -184,6 +218,27 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       } else {
         setFacing("front");
       }
+    });
+  };
+
+  // 아바타보다 살짝 늦게, 아바타 옆자리(petOffsetX)를 향해 단순히 미끄러져 온다 —
+  // 통통 튀는 연출 없이 straight glide. 도착 지점만 맞추면 되므로 아바타의 실시간
+  // 좌표를 계속 추적할 필요 없이(리스너 없이) 목표점 하나만 넘기면 충분하다.
+  const startPetWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
+    const distance = Math.hypot(targetX - from.x, targetY - from.y);
+    if (distance < 4) {
+      petCurrentPosRef.current = { x: targetX, y: targetY };
+      return;
+    }
+    const duration = Math.max(MIN_WALK_DURATION_MS, (distance / WALK_SPEED_PX_PER_SEC) * 1000);
+    Animated.parallel([
+      Animated.timing(petX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(petY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (!finished) {
+        return;
+      }
+      petCurrentPosRef.current = { x: targetX, y: targetY };
     });
   };
 
@@ -254,6 +309,17 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
         Math.max(width - (avatarRenderWidth - feetOffsetX), feetOffsetX),
       );
       targetY = Math.min(Math.max(locationY, 0), floorHeight);
+    }
+
+    if (petItem) {
+      if (petFollowTimeoutRef.current) {
+        clearTimeout(petFollowTimeoutRef.current);
+      }
+      const petTargetX = Math.min(Math.max(targetX + petOffsetX, 0), width);
+      const petTargetY = targetY;
+      petFollowTimeoutRef.current = setTimeout(() => {
+        startPetWalk(petCurrentPosRef.current, petTargetX, petTargetY);
+      }, PET_FOLLOW_DELAY_MS);
     }
 
     if (!isMovingRef.current) {
@@ -355,6 +421,23 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 )}
               </Animated.View>
             </View>
+            {petItem ? (
+              <Animated.View
+                style={[
+                  styles.petWrap,
+                  {
+                    width: petBoxWidth,
+                    height: petBoxHeight,
+                    transform: [
+                      { translateX: Animated.subtract(petX, petBoxWidth / 2) },
+                      { translateY: Animated.subtract(petY, petBoxHeight) },
+                    ],
+                  },
+                ]}
+              >
+                <Image resizeMode="contain" source={petItem.source} style={styles.petImage} />
+              </Animated.View>
+            ) : null}
           </>
         ) : null
       }
@@ -375,5 +458,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
+  },
+  petWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+  },
+  petImage: {
+    width: "100%",
+    height: "100%",
   },
 });

@@ -16,6 +16,7 @@ export type { FurnitureSet, FurnitureType } from "./roomFurniture";
 export {
   DEFAULT_LOCAL_KEY_BY_SLOT,
   LOCAL_AVATAR_CATALOG,
+  LOCAL_CATALOG_BY_KEY,
   LOCAL_SLOT_LABEL,
   LOCAL_SLOT_ORDER,
   REQUIRED_LOCAL_SLOTS,
