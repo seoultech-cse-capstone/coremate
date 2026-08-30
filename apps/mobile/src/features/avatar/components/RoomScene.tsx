@@ -118,8 +118,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const hairKey = rawHairKey !== undefined ? rawHairKey : DEFAULT_LOCAL_KEY_BY_SLOT.HAIR;
   const petX = useRef(new Animated.Value(0)).current;
   const petY = useRef(new Animated.Value(0)).current;
+  const petHopPhase = useRef(new Animated.Value(0)).current;
   const petCurrentPosRef = useRef({ x: 0, y: 0 });
   const petFollowTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const petHopLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     return () => {
@@ -238,16 +240,33 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     });
   };
 
-  // 아바타보다 살짝 늦게, 아바타 옆자리(petOffsetX)를 향해 단순히 미끄러져 온다 —
-  // 통통 튀는 연출 없이 straight glide. 도착 지점만 맞추면 되므로 아바타의 실시간
-  // 좌표를 계속 추적할 필요 없이(리스너 없이) 목표점 하나만 넘기면 충분하다.
+  // 아바타보다 살짝 늦게, 아바타 옆자리(petOffsetX)를 향해 걸어온다. 사람과 같은
+  // 통통 튐(HOP_PERIOD_MS/HOP_AMPLITUDE_PX)을 그대로 쓴다. 도착 지점만 맞추면
+  // 되므로 아바타의 실시간 좌표를 계속 추적할 필요 없이(리스너 없이) 목표점
+  // 하나만 넘기면 충분하다.
   const startPetWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
     const distance = Math.hypot(targetX - from.x, targetY - from.y);
     if (distance < 4) {
+      // startWalk의 같은 조기 리턴 경로와 같은 이유로, hopPhase 잔여값도
+      // 같이 0으로 되돌린다 — 안 그러면 멈춘 순간의 임의의 튐 높이가 남는다.
+      petHopPhase.setValue(0);
       petCurrentPosRef.current = { x: targetX, y: targetY };
       return;
     }
     const duration = Math.max(MIN_WALK_DURATION_MS, (distance / WALK_SPEED_PX_PER_SEC) * 1000);
+
+    petHopPhase.setValue(0);
+    const hopLoop = Animated.loop(
+      Animated.timing(petHopPhase, {
+        toValue: 1,
+        duration: HOP_PERIOD_MS,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    petHopLoopRef.current = hopLoop;
+    hopLoop.start();
+
     Animated.parallel([
       Animated.timing(petX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
       Animated.timing(petY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
@@ -255,6 +274,8 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       if (!finished) {
         return;
       }
+      petHopLoopRef.current?.stop();
+      petHopPhase.setValue(0);
       petCurrentPosRef.current = { x: targetX, y: targetY };
     });
   };
@@ -380,6 +401,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     inputRange: [0, 0.25, 0.5, 0.75, 1],
     outputRange: [0, -HOP_AMPLITUDE_PX * 0.71, -HOP_AMPLITUDE_PX, -HOP_AMPLITUDE_PX * 0.71, 0],
   });
+  // 펫도 아바타와 같은 높이·주기로 통통 튄다.
+  const petHopOffset = petHopPhase.interpolate({
+    inputRange: [0, 0.25, 0.5, 0.75, 1],
+    outputRange: [0, -HOP_AMPLITUDE_PX * 0.71, -HOP_AMPLITUDE_PX, -HOP_AMPLITUDE_PX * 0.71, 0],
+  });
 
   return (
     <RoomBackdrop
@@ -452,7 +478,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                     height: petBoxHeight,
                     transform: [
                       { translateX: Animated.subtract(petX, petBoxWidth / 2) },
-                      { translateY: Animated.subtract(petY, petBoxHeight) },
+                      { translateY: Animated.add(Animated.subtract(petY, petBoxHeight), petHopOffset) },
                     ],
                   },
                 ]}
