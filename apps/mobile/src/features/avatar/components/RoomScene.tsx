@@ -19,7 +19,11 @@ import {
 } from "./AvatarStage";
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout } from "../roomGrid";
 import { useRoomTheme } from "../RoomThemeContext";
-import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThemes";
+import {
+  FLOOR_DOT_HEIGHT,
+  WALL_DOT_HEIGHT,
+  WALL_EXTEND_COLOR,
+} from "../roomThemes";
 
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 // 아바타 너비 기준: 타일 몇 칸 크기로 보일지.
@@ -34,8 +38,8 @@ const IDLE_SEQUENCE: { frame: 1 | 2 | 3; duration: number }[] = [
 ];
 
 // AVATAR_FE.md 6절: 이동 중 offsetY = -|sin(t)| x 진폭(2~3도트), 주기 ~250ms.
-const HOP_PERIOD_MS = 320;
-const HOP_AMPLITUDE_PX = 8;
+const HOP_PERIOD_MS = 250;
+const HOP_AMPLITUDE_PX = 12;
 const WALK_SPEED_PX_PER_SEC = 220;
 const MIN_WALK_DURATION_MS = 300;
 
@@ -56,7 +60,11 @@ type RoomSceneProps = {
  * 흔들리고(idle), 바닥을 탭하면 그 자리로 통통 튀며 걸어가고(위로 이동하면
  * 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
  */
-export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
+export function RoomScene({
+  height,
+  bottomOverflow = 0,
+  showGridLines = true,
+}: RoomSceneProps) {
   const { theme } = useRoomTheme();
   const [width, setWidth] = useState(0);
   const [hasPositioned, setHasPositioned] = useState(false);
@@ -74,8 +82,14 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     setWidth(event.nativeEvent.layout.width);
   };
 
-  const { cellWidth, rowHeight, gridHeight, floorHeight: baseFloorHeight, wallHeight, dotPx } =
-    getRoomGridLayout(width, height);
+  const {
+    cellWidth,
+    rowHeight,
+    gridHeight,
+    floorHeight: baseFloorHeight,
+    wallHeight,
+    dotPx,
+  } = getRoomGridLayout(width, height);
   const floorHeight = baseFloorHeight + bottomOverflow;
   // 아바타 너비를 타일 2칸 크기로 고정한다(dotPx 그대로 쓰면 약 1.8칸이라 요청대로 조정).
   const avatarScale = (AVATAR_WIDTH_IN_CELLS * cellWidth) / AVATAR_STAGE_WIDTH;
@@ -120,7 +134,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     }
   }, [width, floorHeight, hasPositioned, posX, posY]);
 
-  const startWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
+  const startWalk = (
+    from: { x: number; y: number },
+    targetX: number,
+    targetY: number,
+  ) => {
     const distance = Math.hypot(targetX - from.x, targetY - from.y);
     if (distance < 6) {
       isMovingRef.current = false;
@@ -131,7 +149,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     setFacing(movingUp ? "back" : "front");
     isMovingRef.current = true;
 
-    const duration = Math.max(MIN_WALK_DURATION_MS, (distance / WALK_SPEED_PX_PER_SEC) * 1000);
+    const duration = Math.max(
+      MIN_WALK_DURATION_MS,
+      (distance / WALK_SPEED_PX_PER_SEC) * 1000,
+    );
 
     hopPhase.setValue(0);
     const hopLoop = Animated.loop(
@@ -146,8 +167,18 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     hopLoop.start();
 
     Animated.parallel([
-      Animated.timing(posX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
-      Animated.timing(posY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(posX, {
+        toValue: targetX,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+      Animated.timing(posY, {
+        toValue: targetY,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
     ]).start(({ finished }) => {
       // 이동 도중 다시 탭해서 끊긴 애니메이션(finished=false)의 콜백은 여기서 멈춘다.
       // 그대로 두면 이미 시작된 "다음" 이동의 hopLoop를 멈추고 위치·상태를 옛 목적지로
@@ -218,13 +249,28 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
 
   const hopOffset = hopPhase.interpolate({
     inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [0, -HOP_AMPLITUDE_PX * 0.71, -HOP_AMPLITUDE_PX, -HOP_AMPLITUDE_PX * 0.71, 0],
+    outputRange: [
+      0,
+      -HOP_AMPLITUDE_PX * 0.71,
+      -HOP_AMPLITUDE_PX,
+      -HOP_AMPLITUDE_PX * 0.71,
+      0,
+    ],
   });
 
   return (
-    <View onLayout={onLayout} style={[styles.card, { height: height + bottomOverflow }]}>
+    <View
+      onLayout={onLayout}
+      style={[styles.card, { height: height + bottomOverflow }]}
+    >
       {/* 벽: 벽 경계(바닥 시작선)에 아래를 맞추고, 위로 모자라면 벽 상단색으로 이어붙인다. */}
-      <View style={{ height: wallHeight, backgroundColor: WALL_EXTEND_COLOR, overflow: "hidden" }}>
+      <View
+        style={{
+          height: wallHeight,
+          backgroundColor: WALL_EXTEND_COLOR,
+          overflow: "hidden",
+        }}
+      >
         <Image
           resizeMode="stretch"
           source={theme.wallSource}
@@ -270,7 +316,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
           ? Array.from({ length: ROOM_GRID_ROWS }, (_, index) => (
               <View
                 key={`row-${index}`}
-                style={[styles.gridLineHorizontal, { top: (index + 1) * rowHeight }]}
+                style={[
+                  styles.gridLineHorizontal,
+                  { top: (index + 1) * rowHeight },
+                ]}
               />
             ))
           : null}
@@ -280,7 +329,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
           걸려 있어서, 안에 있으면 벽 쪽으로 머리가 살짝 넘어갈 때 잘려 보인다.
           여기서는 벽·바닥 다음(맨 나중)에 그려서 항상 그 위에 보이고, 잘리지도 않는다. */}
       {hasPositioned ? (
-        <View pointerEvents="none" style={[styles.avatarLayer, { top: wallHeight, height: floorHeight }]}>
+        <View
+          pointerEvents="none"
+          style={[styles.avatarLayer, { top: wallHeight, height: floorHeight }]}
+        >
           {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
               아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
           <Animated.View
@@ -290,8 +342,18 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 width: avatarRenderWidth * 0.6,
                 height: avatarRenderWidth * 0.6 * 0.35,
                 transform: [
-                  { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
-                  { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
+                  {
+                    translateX: Animated.subtract(
+                      posX,
+                      (avatarRenderWidth * 0.6) / 2,
+                    ),
+                  },
+                  {
+                    translateY: Animated.subtract(
+                      posY,
+                      (avatarRenderWidth * 0.6 * 0.35) / 2,
+                    ),
+                  },
                 ],
               },
             ]}
@@ -302,7 +364,12 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
               {
                 transform: [
                   { translateX: Animated.subtract(posX, feetOffsetX) },
-                  { translateY: Animated.add(Animated.subtract(posY, feetOffsetY), hopOffset) },
+                  {
+                    translateY: Animated.add(
+                      Animated.subtract(posY, feetOffsetY),
+                      hopOffset,
+                    ),
+                  },
                 ],
               },
             ]}
