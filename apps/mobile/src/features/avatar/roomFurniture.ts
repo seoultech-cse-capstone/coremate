@@ -206,13 +206,12 @@ export function getFurnitureLayout(
   cellWidth: number,
   rowHeight: number,
   avatarDotPx: number,
-  gridLeft: number,
 ): FurnitureLayout {
   const set = FURNITURE_SETS[type];
   const scale = avatarDotPx;
   const setWidthPx = set.widthDots * scale;
   const setHeightPx = set.heightDots * scale;
-  const footprintCenterX = gridLeft + (position.col + set.footprintCols / 2) * cellWidth;
+  const footprintCenterX = (position.col + set.footprintCols / 2) * cellWidth;
   const footprintGroundY = (position.row + 1) * rowHeight;
   const containerLeft = footprintCenterX - setWidthPx / 2;
   const containerTop = footprintGroundY - setHeightPx;
@@ -253,13 +252,12 @@ export function getFurnitureFootprintRect(
   position: FurniturePosition,
   cellWidth: number,
   rowHeight: number,
-  gridLeft: number,
 ) {
   const footprintCols = FURNITURE_SETS[type].footprintCols;
   return {
-    left: gridLeft + position.col * cellWidth,
+    left: position.col * cellWidth,
     top: position.row * rowHeight,
-    right: gridLeft + (position.col + footprintCols) * cellWidth,
+    right: (position.col + footprintCols) * cellWidth,
     bottom: (position.row + 1) * rowHeight,
   };
 }
@@ -274,17 +272,16 @@ export function getFurnitureInteractionAnchor(
   cellWidth: number,
   rowHeight: number,
   avatarDotPx: number,
-  gridLeft: number,
 ): { x: number; y: number } {
   if (type === "desk") {
-    const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight, avatarDotPx, gridLeft);
+    const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight, avatarDotPx);
     const chair = pieces.find((piece) => piece.role === "back") ?? pieces[0];
     return { x: chair.left + chair.width / 2, y: chair.top + chair.height };
   }
 
   const footprintCols = FURNITURE_SETS[type].footprintCols;
   return {
-    x: gridLeft + (position.col + footprintCols / 2) * cellWidth,
+    x: (position.col + footprintCols / 2) * cellWidth,
     y: (position.row + 1) * rowHeight,
   };
 }

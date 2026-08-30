@@ -12,10 +12,6 @@ export const ROOM_GRID_ROWS = 5;
 const ROW_HEIGHT_RATIO = 0.75;
 // 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 한 칸만큼 남겨둔다.
 const GRID_BOTTOM_MARGIN_ROWS = 1;
-// 격자가 화면 양옆에 딱 붙어 보이지 않도록, 셀 폭의 1/4만큼씩 좌우 여백을 둔다.
-// 전체 폭(width)은 그대로 여백 2개 + 7칸으로 나뉘므로, 칸 자체는 그만큼 살짝
-// 좁아진다(7칸 대신 7.5칸 몫으로 width를 나눔).
-const GRID_SIDE_MARGIN_IN_CELLS = 0.25;
 // assets_template.md 1절: 한 칸 = 16x12도트(16*0.75=12, ROW_HEIGHT_RATIO와 정확히 일치).
 // dotPx = cellWidth/16 이 배경·아바타·가구 전체가 공유하는 화면 표시 스케일이다.
 const DOTS_PER_CELL_WIDTH = 16;
@@ -29,14 +25,11 @@ export type RoomGridLayout = {
   wallHeight: number;
   /** 도트 하나를 화면에서 몇 px로 그릴지. 배경·아바타·가구가 전부 이 값으로 스케일을 맞춘다. */
   dotPx: number;
-  /** 격자 0번 칸이 시작하는 x좌표(좌측 여백 폭). col*cellWidth 계산에 항상 더해야 한다. */
-  gridLeft: number;
 };
 
 /** 방 너비·전체 높이가 주어졌을 때 격자/바닥/벽 치수를 계산한다. */
 export function getRoomGridLayout(width: number, roomHeight: number): RoomGridLayout {
-  const cellWidth = width / (ROOM_GRID_COLS + GRID_SIDE_MARGIN_IN_CELLS * 2);
-  const gridLeft = cellWidth * GRID_SIDE_MARGIN_IN_CELLS;
+  const cellWidth = width / ROOM_GRID_COLS;
   const rowHeight = cellWidth * ROW_HEIGHT_RATIO;
   const gridHeight = rowHeight * ROOM_GRID_ROWS;
   const gridBottomMargin = rowHeight * GRID_BOTTOM_MARGIN_ROWS;
@@ -44,13 +37,13 @@ export function getRoomGridLayout(width: number, roomHeight: number): RoomGridLa
   const wallHeight = roomHeight - floorHeight;
   const dotPx = cellWidth / DOTS_PER_CELL_WIDTH;
 
-  return { cellWidth, rowHeight, gridHeight, gridBottomMargin, floorHeight, wallHeight, dotPx, gridLeft };
+  return { cellWidth, rowHeight, gridHeight, gridBottomMargin, floorHeight, wallHeight, dotPx };
 }
 
 /** row·col(0부터 시작) 칸의 바닥 기준 좌상단 좌표와 크기. 가구 배치 좌표 변환에 쓴다. */
 export function getRoomGridCellRect(row: number, col: number, layout: RoomGridLayout) {
   return {
-    left: layout.gridLeft + col * layout.cellWidth,
+    left: col * layout.cellWidth,
     top: row * layout.rowHeight,
     width: layout.cellWidth,
     height: layout.rowHeight,

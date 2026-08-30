@@ -52,7 +52,6 @@ function FurniturePieces({
   cellWidth,
   rowHeight,
   avatarDotPx,
-  gridLeft,
   role,
 }: {
   type: FurnitureType;
@@ -60,10 +59,9 @@ function FurniturePieces({
   cellWidth: number;
   rowHeight: number;
   avatarDotPx: number;
-  gridLeft: number;
   role: "back" | "front" | "all";
 }) {
-  const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight, avatarDotPx, gridLeft);
+  const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight, avatarDotPx);
 
   return (
     <>
@@ -110,7 +108,7 @@ export function RoomBackdrop({
   };
 
   const layout = getRoomGridLayout(width, height);
-  const { cellWidth, rowHeight, gridHeight, floorHeight: baseFloorHeight, wallHeight, dotPx, gridLeft } = layout;
+  const { cellWidth, rowHeight, gridHeight, floorHeight: baseFloorHeight, wallHeight, dotPx } = layout;
   const floorHeight = baseFloorHeight + bottomOverflow;
   // 가구는 배경(dotPx)이 아니라 아바타와 같은 도트당 화면 px를 쓴다 — roomFurniture.ts 참고.
   const avatarDotPx = getAvatarDotPx(cellWidth);
@@ -143,7 +141,6 @@ export function RoomBackdrop({
             key={`${type}-back`}
             avatarDotPx={avatarDotPx}
             cellWidth={cellWidth}
-            gridLeft={gridLeft}
             position={placements[type]!}
             role="back"
             rowHeight={rowHeight}
@@ -157,7 +154,6 @@ export function RoomBackdrop({
             key={`${type}-front`}
             avatarDotPx={avatarDotPx}
             cellWidth={cellWidth}
-            gridLeft={gridLeft}
             position={placements[type]!}
             role="front"
             rowHeight={rowHeight}
@@ -170,7 +166,6 @@ export function RoomBackdrop({
             key={type}
             avatarDotPx={avatarDotPx}
             cellWidth={cellWidth}
-            gridLeft={gridLeft}
             position={placements[type]!}
             role="all"
             rowHeight={rowHeight}
@@ -223,7 +218,7 @@ export function RoomBackdrop({
                 key={`col-${index}`}
                 style={[
                   styles.gridLineVertical,
-                  { left: gridLeft + (index + 1) * cellWidth, height: gridHeight },
+                  { left: (index + 1) * cellWidth, height: gridHeight },
                 ]}
               />
             ))
