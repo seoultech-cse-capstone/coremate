@@ -25,6 +25,8 @@ type RoomBackdropProps = {
   showGridLines?: boolean;
   /** 배치된 가구(침대·책상)를 같이 그릴지. 마이페이지 미리보기에서도 재사용. */
   showFurniture?: boolean;
+  /** 지금 앉거나 누워서 쓰고 있는 가구. 이 가구만 back/front를 나눠 아바타를 사이에 끼운다. */
+  occupiedFurniture?: FurnitureType | null;
   onFloorPress?: (event: GestureResponderEvent) => void;
   /** 폭이 측정될 때마다(및 height 변경 시) 격자 치수를 올려보낸다. */
   onLayoutChange?: (layout: RoomLayoutInfo) => void;
@@ -33,10 +35,9 @@ type RoomBackdropProps = {
 };
 
 /**
- * 가구 한 세트에서 role(기본 "back"/"front")이 일치하는 조각만 그린다. 책상의
- * 책상 상판·침대의 이불처럼 늘 아바타보다 앞이어야 하는 조각(front)과, 의자·침대
- * 프레임처럼 늘 뒤여야 하는 조각(back)을 나눠서 — 상호작용 여부와 무관하게 항상
- * 같은 순서로 그린다. 그래야 앉거나 누울 때 가구 z가 튀어 보이지 않는다.
+ * 가구 한 세트의 조각을 그린다. role="back"/"front"면 그 역할의 조각만(앉기·수면 중
+ * chair→아바타→desk, 침대→아바타→이불 순서를 지키기 위해), "all"이면 세트 전체를
+ * 한 덩어리로 그린다(격자 줄 기준 앞뒤 배치용).
  */
 function FurniturePieces({
   type,
@@ -49,14 +50,14 @@ function FurniturePieces({
   position: FurniturePosition;
   cellWidth: number;
   rowHeight: number;
-  role: "back" | "front";
+  role: "back" | "front" | "all";
 }) {
   const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight);
 
   return (
     <>
       {pieces
-        .filter((piece) => piece.role === role)
+        .filter((piece) => role === "all" || piece.role === role)
         .map((piece, index) => (
           <Image
             key={index}
@@ -84,6 +85,7 @@ export function RoomBackdrop({
   bottomOverflow = 0,
   showGridLines = true,
   showFurniture = true,
+  occupiedFurniture = null,
   onFloorPress,
   onLayoutChange,
   overlay,
@@ -91,13 +93,6 @@ export function RoomBackdrop({
   const { theme } = useRoomTheme();
   const { placements } = useRoomFurniture();
   const [width, setWidth] = useState(0);
-
-  // 배치된 가구를 격자 줄(row) 기준으로 정렬 — 가구끼리는 이 순서로 뒤→앞이 겹친다.
-  // 상호작용(앉기/눕기) 여부와 무관하게 항상 같은 순서다: 가구의 z는 고정, 아바타가
-  // back(의자·침대 프레임)과 front(책상 상판·이불) 사이로 섞여 들어간다.
-  const orderedFurnitureTypes = FURNITURE_TYPES.filter((type) => placements[type]).sort(
-    (a, b) => placements[a]!.row - placements[b]!.row,
-  );
 
   const onLayout = (event: LayoutChangeEvent) => {
     setWidth(event.nativeEvent.layout.width);
@@ -174,35 +169,44 @@ export function RoomBackdrop({
           걸려 있어서, 안에 있으면 벽 쪽으로 살짝 넘어갈 때 잘려 보인다. */}
       {width > 0 ? (
         <View pointerEvents="none" style={[styles.overlayLayer, { top: wallHeight, height: floorHeight }]}>
-          {/* back 조각(의자·침대 프레임)은 항상 아바타보다 뒤. 가구끼리는 격자 줄(row)이
-              작을수록 먼저 그려서 줄이 큰 쪽이 자연스럽게 위에 겹치도록 정렬한다. */}
+          {/* 상호작용 중이 아닌 가구는 전부 아바타보다 뒤(무조건 아바타가 위)에 그린다.
+              가구끼리는 격자 줄(row)이 작을수록(안쪽) 먼저 그려서, 줄이 큰(바깥쪽)
+              가구가 그 위에 자연스럽게 겹치도록 정렬한다. */}
           {showFurniture
-            ? orderedFurnitureTypes.map((type) => (
-                <FurniturePieces
-                  key={`${type}-back`}
-                  cellWidth={cellWidth}
-                  position={placements[type]!}
-                  role="back"
-                  rowHeight={rowHeight}
-                  type={type}
-                />
-              ))
+            ? FURNITURE_TYPES.filter((type) => type !== occupiedFurniture && placements[type])
+                .sort((a, b) => placements[a]!.row - placements[b]!.row)
+                .map((type) => (
+                  <FurniturePieces
+                    key={type}
+                    cellWidth={cellWidth}
+                    position={placements[type]!}
+                    role="all"
+                    rowHeight={rowHeight}
+                    type={type}
+                  />
+                ))
             : null}
+          {/* 지금 앉거나 누워서 쓰고 있는 가구만 뒤쪽 조각(의자·침대 프레임)을 여기서 그린다. */}
+          {showFurniture && occupiedFurniture && placements[occupiedFurniture] ? (
+            <FurniturePieces
+              cellWidth={cellWidth}
+              position={placements[occupiedFurniture]!}
+              role="back"
+              rowHeight={rowHeight}
+              type={occupiedFurniture}
+            />
+          ) : null}
           {overlay}
-          {/* front 조각(책상 상판·이불)은 항상 아바타보다 앞 — 상호작용 여부와 무관하게
-              고정이라, 앉거나 누울 때 가구 z가 튀지 않고 아바타가 이 사이로 섞여 들어간다. */}
-          {showFurniture
-            ? orderedFurnitureTypes.map((type) => (
-                <FurniturePieces
-                  key={`${type}-front`}
-                  cellWidth={cellWidth}
-                  position={placements[type]!}
-                  role="front"
-                  rowHeight={rowHeight}
-                  type={type}
-                />
-              ))
-            : null}
+          {/* 그 가구의 앞쪽 조각(책상 상판·이불)만 아바타 위에 그린다. */}
+          {showFurniture && occupiedFurniture && placements[occupiedFurniture] ? (
+            <FurniturePieces
+              cellWidth={cellWidth}
+              position={placements[occupiedFurniture]!}
+              role="front"
+              rowHeight={rowHeight}
+              type={occupiedFurniture}
+            />
+          ) : null}
         </View>
       ) : null}
     </View>

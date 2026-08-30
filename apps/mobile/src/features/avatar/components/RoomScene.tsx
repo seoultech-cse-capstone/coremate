@@ -293,6 +293,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     <RoomBackdrop
       bottomOverflow={bottomOverflow}
       height={height}
+      occupiedFurniture={occupancy}
       onFloorPress={handleFloorPress}
       onLayoutChange={setLayout}
       overlay={
