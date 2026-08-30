@@ -34,8 +34,8 @@ const IDLE_SEQUENCE: { frame: 1 | 2 | 3; duration: number }[] = [
 ];
 
 // AVATAR_FE.md 6절: 이동 중 offsetY = -|sin(t)| x 진폭(2~3도트), 주기 ~250ms.
-const HOP_PERIOD_MS = 250;
-const HOP_AMPLITUDE_PX = 20;
+const HOP_PERIOD_MS = 320;
+const HOP_AMPLITUDE_PX = 8;
 const WALK_SPEED_PX_PER_SEC = 220;
 const MIN_WALK_DURATION_MS = 300;
 
