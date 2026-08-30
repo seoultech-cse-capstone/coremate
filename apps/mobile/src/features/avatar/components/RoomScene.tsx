@@ -175,8 +175,15 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       hopPhase.setValue(0);
       currentPosRef.current = { x: targetX, y: targetY };
       isMovingRef.current = false;
-      setFacing("front");
-      onArrive?.();
+      if (onArrive) {
+        // 가구에 도착한 거라면 곧바로 앉기/수면 렌더링으로 바뀌어서 facing 값은
+        // 더 이상 안 쓰인다. 여기서 굳이 setFacing까지 같이 부르면(둘 다 이 Animated
+        // 콜백 안이라 리액트가 하나로 묶어주지 못할 수 있음) "정면으로 선 채 도착"
+        // 프레임이 한 번 그려졌다가 바로 앉는 모습으로 바뀌면서 깜빡여 보인다.
+        onArrive();
+      } else {
+        setFacing("front");
+      }
     });
   };
 
