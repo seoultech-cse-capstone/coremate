@@ -1,5 +1,13 @@
 import { router } from "expo-router";
-import { Bookmark, CalendarCheck, Gift, Home, PackageOpen, ShoppingBag } from "lucide-react-native";
+import {
+  Bookmark,
+  CalendarCheck,
+  Gift,
+  Home,
+  PackageOpen,
+  Sofa,
+  ShoppingBag,
+} from "lucide-react-native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
@@ -55,6 +63,11 @@ const actionItems = [
     label: "방 테마",
     Icon: Home,
     route: "/room-theme",
+  },
+  {
+    label: "가구 배치",
+    Icon: Sofa,
+    route: "/room-furniture",
   },
 ] as const;
 

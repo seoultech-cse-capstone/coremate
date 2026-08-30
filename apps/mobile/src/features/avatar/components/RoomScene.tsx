@@ -1,31 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  Easing,
-  Image,
-  Pressable,
-  StyleSheet,
-  View,
-  type GestureResponderEvent,
-  type LayoutChangeEvent,
-} from "react-native";
+import { Animated, Easing, StyleSheet, type GestureResponderEvent } from "react-native";
 
-import {
-  AVATAR_FOOT_X_RATIO,
-  AVATAR_FOOT_Y_RATIO,
-  AVATAR_STAGE_HEIGHT,
-  AVATAR_STAGE_WIDTH,
-  AvatarStage,
-} from "./AvatarStage";
-import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout } from "../roomGrid";
-import { useRoomTheme } from "../RoomThemeContext";
-import {
-  FLOOR_DOT_HEIGHT,
-  WALL_DOT_HEIGHT,
-  WALL_EXTEND_COLOR,
-} from "../roomThemes";
+import { AVATAR_FOOT_X_RATIO, AVATAR_FOOT_Y_RATIO, AVATAR_STAGE_HEIGHT, AVATAR_STAGE_WIDTH, AvatarStage } from "./AvatarStage";
+import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 
-const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 // 아바타 너비 기준: 타일 몇 칸 크기로 보일지.
 const AVATAR_WIDTH_IN_CELLS = 1;
 
@@ -56,17 +34,12 @@ type RoomSceneProps = {
 };
 
 /**
- * 방(벽+바닥) 위에 아바타를 세워 보여준다. 가만히 있을 땐 숨쉬듯 미세하게
- * 흔들리고(idle), 바닥을 탭하면 그 자리로 통통 튀며 걸어가고(위로 이동하면
- * 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
+ * 방(벽+바닥+배치된 가구) 위에 아바타를 세워 보여준다. 가만히 있을 땐 숨쉬듯
+ * 미세하게 흔들리고(idle), 바닥을 탭하면 그 자리로 통통 튀며 걸어가고(위로
+ * 이동하면 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
  */
-export function RoomScene({
-  height,
-  bottomOverflow = 0,
-  showGridLines = true,
-}: RoomSceneProps) {
-  const { theme } = useRoomTheme();
-  const [width, setWidth] = useState(0);
+export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
+  const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
   const [hasPositioned, setHasPositioned] = useState(false);
   const [frame, setFrame] = useState<1 | 2 | 3>(1);
   const [facing, setFacing] = useState<"front" | "back">("front");
@@ -78,21 +51,10 @@ export function RoomScene({
   const isMovingRef = useRef(false);
   const hopLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  const onLayout = (event: LayoutChangeEvent) => {
-    setWidth(event.nativeEvent.layout.width);
-  };
-
-  const {
-    cellWidth,
-    rowHeight,
-    gridHeight,
-    floorHeight: baseFloorHeight,
-    wallHeight,
-    dotPx,
-  } = getRoomGridLayout(width, height);
-  const floorHeight = baseFloorHeight + bottomOverflow;
+  const width = layout?.width ?? 0;
+  const floorHeight = (layout?.floorHeight ?? 0) + bottomOverflow;
   // 아바타 너비를 타일 2칸 크기로 고정한다(dotPx 그대로 쓰면 약 1.8칸이라 요청대로 조정).
-  const avatarScale = (AVATAR_WIDTH_IN_CELLS * cellWidth) / AVATAR_STAGE_WIDTH;
+  const avatarScale = layout ? (AVATAR_WIDTH_IN_CELLS * layout.cellWidth) / AVATAR_STAGE_WIDTH : 0;
   const avatarRenderWidth = AVATAR_STAGE_WIDTH * avatarScale;
   const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
   const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
@@ -134,11 +96,7 @@ export function RoomScene({
     }
   }, [width, floorHeight, hasPositioned, posX, posY]);
 
-  const startWalk = (
-    from: { x: number; y: number },
-    targetX: number,
-    targetY: number,
-  ) => {
+  const startWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
     const distance = Math.hypot(targetX - from.x, targetY - from.y);
     if (distance < 6) {
       isMovingRef.current = false;
@@ -149,10 +107,7 @@ export function RoomScene({
     setFacing(movingUp ? "back" : "front");
     isMovingRef.current = true;
 
-    const duration = Math.max(
-      MIN_WALK_DURATION_MS,
-      (distance / WALK_SPEED_PX_PER_SEC) * 1000,
-    );
+    const duration = Math.max(MIN_WALK_DURATION_MS, (distance / WALK_SPEED_PX_PER_SEC) * 1000);
 
     hopPhase.setValue(0);
     const hopLoop = Animated.loop(
@@ -167,18 +122,8 @@ export function RoomScene({
     hopLoop.start();
 
     Animated.parallel([
-      Animated.timing(posX, {
-        toValue: targetX,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-      Animated.timing(posY, {
-        toValue: targetY,
-        duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
+      Animated.timing(posX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
+      Animated.timing(posY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
     ]).start(({ finished }) => {
       // 이동 도중 다시 탭해서 끊긴 애니메이션(finished=false)의 콜백은 여기서 멈춘다.
       // 그대로 두면 이미 시작된 "다음" 이동의 hopLoop를 멈추고 위치·상태를 옛 목적지로
@@ -249,148 +194,55 @@ export function RoomScene({
 
   const hopOffset = hopPhase.interpolate({
     inputRange: [0, 0.25, 0.5, 0.75, 1],
-    outputRange: [
-      0,
-      -HOP_AMPLITUDE_PX * 0.71,
-      -HOP_AMPLITUDE_PX,
-      -HOP_AMPLITUDE_PX * 0.71,
-      0,
-    ],
+    outputRange: [0, -HOP_AMPLITUDE_PX * 0.71, -HOP_AMPLITUDE_PX, -HOP_AMPLITUDE_PX * 0.71, 0],
   });
 
   return (
-    <View
-      onLayout={onLayout}
-      style={[styles.card, { height: height + bottomOverflow }]}
-    >
-      {/* 벽: 벽 경계(바닥 시작선)에 아래를 맞추고, 위로 모자라면 벽 상단색으로 이어붙인다. */}
-      <View
-        style={{
-          height: wallHeight,
-          backgroundColor: WALL_EXTEND_COLOR,
-          overflow: "hidden",
-        }}
-      >
-        <Image
-          resizeMode="stretch"
-          source={theme.wallSource}
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            width: "100%",
-            height: WALL_DOT_HEIGHT * dotPx,
-          }}
-        />
-      </View>
-      <Pressable
-        accessibilityLabel="방 바닥"
-        style={{ height: floorHeight, overflow: "hidden" }}
-        onPress={handleFloorPress}
-      >
-        {/* 바닥: 위(벽 경계)를 기준으로 맞추고, 아래로 넘치는 부분은 잘라낸다. 바닥 아트가
-            격자+여백+패널 겹침분까지 감안한 여유(9줄)로 나와 있어 항상 다 덮는다. */}
-        <Image
-          resizeMode="stretch"
-          source={theme.floorSource}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: FLOOR_DOT_HEIGHT * dotPx,
-          }}
-        />
-        {showGridLines
-          ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
-              <View
-                key={`col-${index}`}
-                style={[
-                  styles.gridLineVertical,
-                  { left: (index + 1) * cellWidth, height: gridHeight },
-                ]}
-              />
-            ))
-          : null}
-        {showGridLines
-          ? Array.from({ length: ROOM_GRID_ROWS }, (_, index) => (
-              <View
-                key={`row-${index}`}
-                style={[
-                  styles.gridLineHorizontal,
-                  { top: (index + 1) * rowHeight },
-                ]}
-              />
-            ))
-          : null}
-      </Pressable>
-
-      {/* 아바타는 바닥 Pressable 밖의 별도 레이어다 — 바닥은 크롭(overflow hidden)이
-          걸려 있어서, 안에 있으면 벽 쪽으로 머리가 살짝 넘어갈 때 잘려 보인다.
-          여기서는 벽·바닥 다음(맨 나중)에 그려서 항상 그 위에 보이고, 잘리지도 않는다. */}
-      {hasPositioned ? (
-        <View
-          pointerEvents="none"
-          style={[styles.avatarLayer, { top: wallHeight, height: floorHeight }]}
-        >
-          {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
-              아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
-          <Animated.View
-            style={[
-              styles.shadow,
-              {
-                width: avatarRenderWidth * 0.6,
-                height: avatarRenderWidth * 0.6 * 0.35,
-                transform: [
-                  {
-                    translateX: Animated.subtract(
-                      posX,
-                      (avatarRenderWidth * 0.6) / 2,
-                    ),
-                  },
-                  {
-                    translateY: Animated.subtract(
-                      posY,
-                      (avatarRenderWidth * 0.6 * 0.35) / 2,
-                    ),
-                  },
-                ],
-              },
-            ]}
-          />
-          <Animated.View
-            style={[
-              styles.avatarWrap,
-              {
-                transform: [
-                  { translateX: Animated.subtract(posX, feetOffsetX) },
-                  {
-                    translateY: Animated.add(
-                      Animated.subtract(posY, feetOffsetY),
-                      hopOffset,
-                    ),
-                  },
-                ],
-              },
-            ]}
-          >
-            <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
-          </Animated.View>
-        </View>
-      ) : null}
-    </View>
+    <RoomBackdrop
+      bottomOverflow={bottomOverflow}
+      height={height}
+      onFloorPress={handleFloorPress}
+      onLayoutChange={setLayout}
+      overlay={
+        hasPositioned ? (
+          <>
+            {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
+                아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
+            <Animated.View
+              style={[
+                styles.shadow,
+                {
+                  width: avatarRenderWidth * 0.6,
+                  height: avatarRenderWidth * 0.6 * 0.35,
+                  transform: [
+                    { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
+                    { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
+                  ],
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.avatarWrap,
+                {
+                  transform: [
+                    { translateX: Animated.subtract(posX, feetOffsetX) },
+                    { translateY: Animated.add(Animated.subtract(posY, feetOffsetY), hopOffset) },
+                  ],
+                },
+              ]}
+            >
+              <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
+            </Animated.View>
+          </>
+        ) : null
+      }
+      showGridLines={showGridLines}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    width: "100%",
-  },
-  avatarLayer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-  },
   shadow: {
     position: "absolute",
     top: 0,
@@ -402,18 +254,5 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     left: 0,
-  },
-  gridLineVertical: {
-    position: "absolute",
-    top: 0,
-    width: 1,
-    backgroundColor: GRID_LINE_COLOR,
-  },
-  gridLineHorizontal: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: GRID_LINE_COLOR,
   },
 });
