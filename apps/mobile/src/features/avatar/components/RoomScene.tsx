@@ -217,23 +217,12 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
         style={{ height: floorHeight }}
         onPress={handleFloorPress}
       >
-        {/* 격자(5줄) 영역엔 타일이 정확히 그 크기에 맞게 꽉 차야 해서 stretch로 딱 맞춘다.
-            그 아래 빈 여백(가구 못 놓는 구역)만 같은 이미지를 cover로 이어붙인다. */}
+        {/* 바닥 이미지 자체가 격자 여유분 + 패널 겹침분까지 감안해서 나온 크기라,
+            따로 나누지 않고 맨 위에서부터 floorHeight 전체에 그대로 맞춘다. */}
         <Image
           resizeMode="stretch"
           source={theme.floorSource}
-          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: gridHeight }}
-        />
-        <Image
-          resizeMode="cover"
-          source={theme.floorSource}
-          style={{
-            position: "absolute",
-            top: gridHeight,
-            left: 0,
-            width: "100%",
-            height: floorHeight - gridHeight,
-          }}
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: floorHeight }}
         />
         {showGridLines
           ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
