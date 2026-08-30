@@ -59,12 +59,11 @@
 - **서기(앞)·이동**: 아바타 프레임 → shoes → bottom → top → bag → hair → eyes → mouth → glasses → hat
 - **서기(뒤)**: 아바타(back) → shoes → bottom → top → hair → bag → hat _(가방 본체가 머리카락 위로 오는 게 자연스러움)_
 - **앉기(책상 씬)**: chair → 아바타 프레임 → shoes → bottom(\_sit) → top(\_sit) → hair → eyes → mouth → glasses → hat → **avatar_sit_hands_N** → desk
-- **수면(침대 씬)**: bed_basic → 수면 아바타 프레임 → hair(\_sleep) → eyes_closed_sleep → mouth_sleep → bed_blanket_N
+- **수면(침대 씬)**: bed_basic → 수면 아바타 프레임 → hair(\_sleep) → eyes_closed_sleep → mouth_sleep → bed_blanket
 
 ## 5. 씬 동기화 규칙
 
 - **앉기 손 오버레이**: 상의를 입히면 베이스 프레임에 그려진 타이핑 손이 옷에 가려진다. 그래서 손만 있는 오버레이 `avatar_sit_hands_1~3.png`(41×54, 아바타와 (0,0) 정렬)를 제공한다. 항상 아바타 프레임 번호와 **같은 번호**의 손 오버레이를 코디 위에 그린다 (상의 미착용이어도 그려도 무방 — 같은 픽셀이라 차이 없음).
-- **이불 동기화**: 수면 아바타 프레임 1·4(몸 올라감)일 때 `bed_blanket_2`, 프레임 2·3일 때 `bed_blanket_1`. 빈 침대는 `bed_basic + bed_blanket_flat`.
 - **책상 씬**은 항상 정면 포즈만 사용한다.
 
 ## 6. 이동 연출 (걷기 프레임 없음)
