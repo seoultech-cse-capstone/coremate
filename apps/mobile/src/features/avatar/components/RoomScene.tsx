@@ -14,6 +14,7 @@ import {
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 import { DEFAULT_LOCAL_KEY_BY_SLOT } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
+import { ROOM_GRID_ROWS } from "../roomGrid";
 import {
   FURNITURE_TYPES,
   getFurnitureFootprintRect,
@@ -89,6 +90,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const [hasPositioned, setHasPositioned] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("front");
   const [occupancy, setOccupancy] = useState<FurnitureType | null>(null);
+  // 아바타가 지금 몇 번째 줄(row)에 있는지 — 가구보다 앞(아래 줄)이면 가구 위에,
+  // 뒤(위 줄)면 가구 아래에 그리는 데 쓴다. 이동 중에도 실시간으로 갱신돼야 해서
+  // posY를 리스너로 지켜보다가 "줄이 바뀔 때만" 다시 그린다.
+  const [avatarRow, setAvatarRow] = useState(0);
 
   const posX = useRef(new Animated.Value(0)).current;
   const posY = useRef(new Animated.Value(0)).current;
@@ -129,6 +134,34 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       setHasPositioned(true);
     }
   }, [width, floorHeight, hasPositioned, posX, posY]);
+
+  // posY(발 접지 y)가 바뀔 때마다 지금 몇 번째 줄인지 다시 계산한다. 값이 아니라
+  // "줄"이 실제로 바뀔 때만 setState해서 매 프레임 리렌더되지 않게 한다.
+  useEffect(() => {
+    if (!layout) {
+      return;
+    }
+    const rowHeight = layout.rowHeight;
+    const listenerId = posY.addListener(({ value }) => {
+      const row = Math.max(0, Math.min(ROOM_GRID_ROWS - 1, Math.floor(value / rowHeight)));
+      setAvatarRow((prev) => (prev === row ? prev : row));
+    });
+    return () => posY.removeListener(listenerId);
+  }, [posY, layout]);
+
+  // 상호작용 중인 가구는 뒤(뒤쪽 조각) 앞(앞쪽 조각) 규칙을 그대로 쓰고, 나머지
+  // 가구는 격자 줄로 비교해서 아바타보다 앞(아래 줄)인지 뒤(위 줄)인지 정한다.
+  const furnitureDepth: Partial<Record<FurnitureType, "front" | "back">> = {};
+  for (const type of FURNITURE_TYPES) {
+    if (type === occupancy) {
+      continue;
+    }
+    const position = placements[type];
+    if (!position) {
+      continue;
+    }
+    furnitureDepth[type] = avatarRow >= position.row ? "back" : "front";
+  }
 
   const startWalk = (
     from: { x: number; y: number },
@@ -285,7 +318,9 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   return (
     <RoomBackdrop
       bottomOverflow={bottomOverflow}
+      furnitureDepth={furnitureDepth}
       height={height}
+      occupiedFurniture={occupancy}
       onFloorPress={handleFloorPress}
       onLayoutChange={setLayout}
       overlay={

@@ -25,6 +25,13 @@ type RoomBackdropProps = {
   showGridLines?: boolean;
   /** 배치된 가구(침대·책상)를 같이 그릴지. 마이페이지 미리보기에서도 재사용. */
   showFurniture?: boolean;
+  /** 지금 앉거나 누워서 쓰고 있는 가구. 이 가구만 back/front를 나눠 아바타를 사이에 끼운다. */
+  occupiedFurniture?: FurnitureType | null;
+  /**
+   * occupiedFurniture가 아닌 가구가 아바타보다 화면 앞(위, "front")인지 뒤(아래, "back")인지.
+   * 격자 줄(row)로 비교해서 정하며, 안 준 가구는 기본 "back"(아바타가 위)으로 그린다.
+   */
+  furnitureDepth?: Partial<Record<FurnitureType, "front" | "back">>;
   onFloorPress?: (event: GestureResponderEvent) => void;
   /** 폭이 측정될 때마다(및 height 변경 시) 격자 치수를 올려보낸다. */
   onLayoutChange?: (layout: RoomLayoutInfo) => void;
@@ -33,9 +40,9 @@ type RoomBackdropProps = {
 };
 
 /**
- * 가구 한 세트의 조각 중 role이 일치하는 것만 그린다. "back"(의자, 침대 프레임)은
- * overlay(아바타) 이전에, "front"(책상 상판, 이불)는 overlay 이후에 그려서 —
- * 앉기/수면 중엔 항상 chair→아바타→desk, 침대→아바타→이불 순서가 유지된다.
+ * 가구 한 세트의 조각을 그린다. role="back"/"front"면 그 역할의 조각만(앉기·수면 중
+ * chair→아바타→desk, 침대→아바타→이불 순서를 지키기 위해), "all"이면 세트 전체를
+ * 한 덩어리로 그린다(격자 줄 기준 앞뒤 배치용).
  */
 function FurniturePieces({
   type,
@@ -48,14 +55,14 @@ function FurniturePieces({
   position: FurniturePosition;
   cellWidth: number;
   rowHeight: number;
-  role: "back" | "front";
+  role: "back" | "front" | "all";
 }) {
   const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight);
 
   return (
     <>
       {pieces
-        .filter((piece) => piece.role === role)
+        .filter((piece) => role === "all" || piece.role === role)
         .map((piece, index) => (
           <Image
             key={index}
@@ -83,6 +90,8 @@ export function RoomBackdrop({
   bottomOverflow = 0,
   showGridLines = true,
   showFurniture = true,
+  occupiedFurniture = null,
+  furnitureDepth = {},
   onFloorPress,
   onLayoutChange,
   overlay,
@@ -166,10 +175,16 @@ export function RoomBackdrop({
           걸려 있어서, 안에 있으면 벽 쪽으로 살짝 넘어갈 때 잘려 보인다. */}
       {width > 0 ? (
         <View pointerEvents="none" style={[styles.overlayLayer, { top: wallHeight, height: floorHeight }]}>
+          {/* 아바타보다 뒤(back)인 가구: 상호작용 중인 가구는 뒤쪽 조각만(의자·침대 프레임),
+              나머지는 격자 줄 비교 결과가 "back"인 것만 세트 전체를 그린다. */}
           {showFurniture
             ? FURNITURE_TYPES.map((type) => {
                 const position = placements[type];
                 if (!position) {
+                  return null;
+                }
+                const role = type === occupiedFurniture ? "back" : (furnitureDepth[type] ?? "back");
+                if (type !== occupiedFurniture && role === "front") {
                   return null;
                 }
                 return (
@@ -177,7 +192,7 @@ export function RoomBackdrop({
                     key={type}
                     cellWidth={cellWidth}
                     position={position}
-                    role="back"
+                    role={type === occupiedFurniture ? "back" : "all"}
                     rowHeight={rowHeight}
                     type={type}
                   />
@@ -185,10 +200,16 @@ export function RoomBackdrop({
               })
             : null}
           {overlay}
+          {/* 아바타보다 앞(front)인 가구: 상호작용 중인 가구의 앞쪽 조각(책상 상판·이불),
+              나머지는 격자 줄 비교 결과가 "front"인 것. */}
           {showFurniture
             ? FURNITURE_TYPES.map((type) => {
                 const position = placements[type];
                 if (!position) {
+                  return null;
+                }
+                const isOccupied = type === occupiedFurniture;
+                if (!isOccupied && (furnitureDepth[type] ?? "back") !== "front") {
                   return null;
                 }
                 return (
@@ -196,7 +217,7 @@ export function RoomBackdrop({
                     key={`${type}-front`}
                     cellWidth={cellWidth}
                     position={position}
-                    role="front"
+                    role={isOccupied ? "front" : "all"}
                     rowHeight={rowHeight}
                     type={type}
                   />
