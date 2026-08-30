@@ -18,9 +18,10 @@ import { RoomScene } from "../../src/features/avatar";
 import { useAuth } from "../../src/features/auth";
 import { dailyQuizApi } from "../../src/features/dailyQuiz";
 import { useMyCurrency } from "../../src/features/currency";
+import { NightSkyBackground } from "../../src/features/home/components/NightSkyBackground";
+import { YourProgress } from "../../src/features/home/components/YourProgress";
 import { useUnreadCountQuery } from "../../src/features/notification";
 import { getLevelProgress, useMyProfile } from "../../src/features/user";
-import { YourProgress } from "../../src/features/home/components/YourProgress";
 import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -104,15 +105,21 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView
-      bounces
-      onScroll={handleScroll}
-      ref={scrollRef}
-      scrollEventThrottle={16}
-      style={[styles.container, { backgroundColor: bounceBackground }]}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-    >
+    <View style={styles.root}>
+      {/* 맨 위로 계속 당기면(overscroll) 이 아래 밤하늘이 드러난다. */}
+      <NightSkyBackground />
+      <ScrollView
+        bounces
+        onScroll={handleScroll}
+        ref={scrollRef}
+        scrollEventThrottle={16}
+        style={[
+          styles.container,
+          { backgroundColor: bounceBackground === PANEL_GRAY ? PANEL_GRAY : "transparent" },
+        ]}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
       <View style={{ height: panelTopOffset }}>
         {/* 방을 패널 시작선보다 더 길게 그려서, 패널의 둥근 모서리 안쪽으로 방 배경이 살짝 보이게 한다. */}
         <View style={{ height: panelTopOffset + ROOM_OVERLAP }}>
@@ -224,7 +231,8 @@ export default function HomeScreen() {
             <YourProgress />
           </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -286,6 +294,9 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 10,
     fontWeight: "700",
+  },
+  root: {
+    flex: 1,
   },
   container: {
     flex: 1,
