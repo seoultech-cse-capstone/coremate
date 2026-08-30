@@ -81,7 +81,7 @@ export default function InventoryScreen() {
       return;
     }
     const { locationX, locationY } = event.nativeEvent;
-    const col = Math.floor(locationX / layout.cellWidth);
+    const col = Math.floor((locationX - layout.gridLeft) / layout.cellWidth);
     const row = Math.floor(locationY / layout.rowHeight);
     if (row < 0 || row >= ROOM_GRID_ROWS) {
       // 격자 아래 빈 여백을 탭한 것 — 가구를 놓을 수 없는 구역이라 무시한다.

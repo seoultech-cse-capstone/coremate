@@ -153,7 +153,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const bedPlacement = placements.bed;
   const bedLayout =
     bedPlacement && layout
-      ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight, avatarDotPx)
+      ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight, avatarDotPx, layout.gridLeft)
       : null;
   // AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
   const sleepScale = bedLayout ? bedLayout.scale / SLEEP_RAW_PX_PER_DOT : 0;
@@ -289,7 +289,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       return;
     }
     const { locationX, locationY } = event.nativeEvent;
-    const { cellWidth, rowHeight } = layout;
+    const { cellWidth, rowHeight, gridLeft } = layout;
 
     // 앉아/누워 있으면 먼저 일어난다. 같은 가구를 다시 탭한 거면 그걸로 끝.
     let justStoodUp = false;
@@ -297,7 +297,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       const currentPlacement = placements[occupancy];
       const withinCurrent = currentPlacement
         ? isWithinRect(
-            getFurnitureFootprintRect(occupancy, currentPlacement, cellWidth, rowHeight),
+            getFurnitureFootprintRect(occupancy, currentPlacement, cellWidth, rowHeight, gridLeft),
             locationX,
             locationY,
           )
@@ -329,7 +329,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       if (!position) {
         return false;
       }
-      return isWithinRect(getFurnitureFootprintRect(type, position, cellWidth, rowHeight), locationX, locationY);
+      return isWithinRect(
+        getFurnitureFootprintRect(type, position, cellWidth, rowHeight, gridLeft),
+        locationX,
+        locationY,
+      );
     });
 
     let targetX: number;
@@ -341,7 +345,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       if (!position) {
         return;
       }
-      const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight, avatarDotPx);
+      const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight, avatarDotPx, gridLeft);
       targetX = anchor.x;
       targetY = anchor.y;
       onArrive = () => setOccupancy(hitType);
