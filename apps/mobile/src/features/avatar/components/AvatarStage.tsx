@@ -174,7 +174,7 @@ export function AvatarStage({
   }
 
   const layers = resolveLayers(layerOrder, keyBySlot, mode, frame);
-  const baseSource = mode === "back" ? AVATAR_BASE_STAND_BACK : AVATAR_SIT_BASE;
+  const baseStyle = { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale };
 
   return (
     <View style={{ width: visibleWidth, height: visibleHeight, overflow: "hidden" }}>
@@ -187,36 +187,28 @@ export function AvatarStage({
           height: rawHeight,
         }}
       >
-        {/* 프레임 애니메이션은 source를 바꿔치기하지 않고, 모든 프레임을 겹쳐 그려둔 채
-            opacity만 바꾼다 — 이미지 소스를 매번 바꾸면 네이티브에서 다시 디코드하며
-            한 프레임씩 깜빡이는 게 눈에 띈다(특히 손 오버레이처럼 120ms로 빠를 때). */}
-        {mode === "front" ? (
-          AVATAR_BASE_STAND_FRAMES.map((source, index) => (
-            <Image
-              key={`base-${index}`}
-              resizeMode="contain"
-              source={source}
-              style={[
-                styles.layer,
-                {
-                  top: RAW_BASE_TOP_OFFSET * scale,
-                  width: rawWidth,
-                  height: RAW_BASE_HEIGHT * scale,
-                  opacity: index + 1 === frame ? 1 : 0,
-                },
-              ]}
-            />
-          ))
-        ) : (
+        {/* 서기/뒷모습/앉기 베이스와 손 오버레이를 mode·frame에 상관없이 전부 항상
+            마운트해두고 opacity만 바꾼다. mode가 바뀔 때(예: 앉기→서기)만 마운트하면
+            그 순간 처음 보여지는 이미지가 디코드되며 한 프레임 깜빡인다 — 상호작용을
+            끝내고 나올 때 깜빡였던 게 이 경우였다. */}
+        {AVATAR_BASE_STAND_FRAMES.map((source, index) => (
           <Image
+            key={`base-${index}`}
             resizeMode="contain"
-            source={baseSource}
-            style={[
-              styles.layer,
-              { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale },
-            ]}
+            source={source}
+            style={[styles.layer, baseStyle, { opacity: mode === "front" && index + 1 === frame ? 1 : 0 }]}
           />
-        )}
+        ))}
+        <Image
+          resizeMode="contain"
+          source={AVATAR_BASE_STAND_BACK}
+          style={[styles.layer, baseStyle, { opacity: mode === "back" ? 1 : 0 }]}
+        />
+        <Image
+          resizeMode="contain"
+          source={AVATAR_SIT_BASE}
+          style={[styles.layer, baseStyle, { opacity: mode === "sit" ? 1 : 0 }]}
+        />
         {layers.map((layer) => (
           <Image
             key={layer.key}
@@ -225,24 +217,14 @@ export function AvatarStage({
             style={[styles.layer, { top: layer.dyPx * scale, width: rawWidth, height: rawHeight }]}
           />
         ))}
-        {mode === "sit"
-          ? AVATAR_SIT_HANDS.map((source, index) => (
-              <Image
-                key={`hand-${index}`}
-                resizeMode="contain"
-                source={source}
-                style={[
-                  styles.layer,
-                  {
-                    top: RAW_BASE_TOP_OFFSET * scale,
-                    width: rawWidth,
-                    height: RAW_BASE_HEIGHT * scale,
-                    opacity: index + 1 === handFrame ? 1 : 0,
-                  },
-                ]}
-              />
-            ))
-          : null}
+        {AVATAR_SIT_HANDS.map((source, index) => (
+          <Image
+            key={`hand-${index}`}
+            resizeMode="contain"
+            source={source}
+            style={[styles.layer, baseStyle, { opacity: mode === "sit" && index + 1 === handFrame ? 1 : 0 }]}
+          />
+        ))}
       </View>
     </View>
   );

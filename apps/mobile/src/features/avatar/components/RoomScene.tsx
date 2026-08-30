@@ -298,8 +298,12 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       onLayoutChange={setLayout}
       overlay={
         hasPositioned ? (
-          occupancy === "bed" ? (
-            bedLayout ? (
+          <>
+            {/* 수면 중이 아닐 때도 항상 마운트해두고 opacity만 바꾼다 — occupancy가
+                바뀔 때마다 이 서브트리(AvatarSleepStage)와 아래 서기/앉기 서브트리
+                (AvatarStage)를 통째로 교체하면, 그 순간 처음 마운트되는 쪽 이미지가
+                디코드되며 깜빡인다. 둘 다 항상 그려두고 안 보이는 쪽만 투명하게 둔다. */}
+            {bedLayout ? (
               <View
                 style={{
                   position: "absolute",
@@ -307,6 +311,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                   top: sleepTop,
                   width: AVATAR_SLEEP_STAGE_WIDTH * sleepScale,
                   height: AVATAR_SLEEP_STAGE_HEIGHT * sleepScale,
+                  opacity: occupancy === "bed" ? 1 : 0,
                 }}
               >
                 <AvatarSleepStage
@@ -315,9 +320,8 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                   scale={sleepScale}
                 />
               </View>
-            ) : null
-          ) : (
-            <>
+            ) : null}
+            <View style={{ opacity: occupancy === "bed" ? 0 : 1 }}>
               {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
                   아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
               <Animated.View
@@ -350,8 +354,8 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                   <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
                 )}
               </Animated.View>
-            </>
-          )
+            </View>
+          </>
         ) : null
       }
       showGridLines={showGridLines}
