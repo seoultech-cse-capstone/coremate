@@ -281,6 +281,21 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
           여기서는 벽·바닥 다음(맨 나중)에 그려서 항상 그 위에 보이고, 잘리지도 않는다. */}
       {hasPositioned ? (
         <View pointerEvents="none" style={[styles.avatarLayer, { top: wallHeight, height: floorHeight }]}>
+          {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
+              아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
+          <Animated.View
+            style={[
+              styles.shadow,
+              {
+                width: avatarRenderWidth * 0.6,
+                height: avatarRenderWidth * 0.6 * 0.35,
+                transform: [
+                  { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
+                  { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
+                ],
+              },
+            ]}
+          />
           <Animated.View
             style={[
               styles.avatarWrap,
@@ -308,6 +323,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
+  },
+  shadow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    borderRadius: 999,
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
   },
   avatarWrap: {
     position: "absolute",
