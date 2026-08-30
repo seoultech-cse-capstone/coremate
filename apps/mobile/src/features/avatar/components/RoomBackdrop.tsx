@@ -218,13 +218,13 @@ export function RoomBackdrop({
           }}
         />
         {showGridLines
-          ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
+          ? // 칸 사이 구분선(1~6번째)뿐 아니라 양 끝(0번째, 7번째)에도 선을 그어서
+            // 격자 경계 자체를 보여준다 — 좌우 여백(gridLeft)이 생긴 뒤로는 화면
+            // 끝과 격자 끝이 다르므로, 끝선이 없으면 격자가 어디서 끝나는지 안 보인다.
+            Array.from({ length: ROOM_GRID_COLS + 1 }, (_, index) => (
               <View
                 key={`col-${index}`}
-                style={[
-                  styles.gridLineVertical,
-                  { left: gridLeft + (index + 1) * cellWidth, height: gridHeight },
-                ]}
+                style={[styles.gridLineVertical, { left: gridLeft + index * cellWidth, height: gridHeight }]}
               />
             ))
           : null}
