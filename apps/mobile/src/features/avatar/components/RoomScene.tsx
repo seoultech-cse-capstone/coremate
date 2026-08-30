@@ -62,11 +62,6 @@ const SLEEP_RAW_PX_PER_DOT = 8;
 // contain으로 맞춘다(거북이는 더 납작해서 상자 안에서 살짝 작게 보인다 — 의도된 동작).
 const PET_BOX_WIDTH_DOTS = 18;
 const PET_BOX_HEIGHT_DOTS = 13;
-// 펫 너비 기준: 아바타 렌더 폭(픽셀)의 몇 배로 보일지. 원본 도트 수를 그대로
-// dotPx에 곱하면 안 된다 — 아바타 자체가 dotPx가 아니라 "너비=1칸" 기준으로 축소돼
-// 있어서(원본 41도트 → cellWidth px), 그 기준과 안 맞으면 축소된 아바타보다 커
-// 보인다. 그래서 아바타의 실제 렌더 폭을 기준 삼아 그 절반 크기로 맞춘다.
-const PET_WIDTH_TO_AVATAR_RATIO = 0.5;
 // 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
 const PET_FOLLOW_DELAY_MS = 220;
 // 아바타 발밑 기준 오른쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
@@ -147,10 +142,15 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
   const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
   const feetOffsetY = avatarRenderHeight * AVATAR_FOOT_Y_RATIO;
-  // 아바타의 실제 렌더 폭(px)을 기준으로 삼는다 — dotPx를 그대로 쓰면 아바타의
-  // 칸 축소 비율과 안 맞아서 아바타보다 커 보인다.
-  const petBoxWidth = avatarRenderWidth * PET_WIDTH_TO_AVATAR_RATIO;
-  const petBoxHeight = petBoxWidth * (PET_BOX_HEIGHT_DOTS / PET_BOX_WIDTH_DOTS);
+  // 펫은 아바타와 "도트당 화면 px"이 같아야 같은 굵기의 픽셀아트로 보인다.
+  // avatarScale은 원본 asset px(8px=1도트) 기준 배율이라 8을 곱하면 아바타
+  // 기준 1도트가 몇 화면 px인지 나온다 — 공통 dotPx가 아니라 이 값을 써야
+  // 아바타와 나란히 있을 때 도트 크기가 어긋나지 않는다. 원본 도트 수가 펫이
+  // 아바타보다 적어서(18 < 아바타 렌더 폭에 해당하는 도트 수) 같은 도트 배율을
+  // 써도 자연히 더 작게 보인다 — 별도 축소 비율이 필요 없다.
+  const avatarDotPx = avatarScale * 8;
+  const petBoxWidth = PET_BOX_WIDTH_DOTS * avatarDotPx;
+  const petBoxHeight = PET_BOX_HEIGHT_DOTS * avatarDotPx;
   const petOffsetX = layout ? PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
 
   const bedPlacement = placements.bed;
