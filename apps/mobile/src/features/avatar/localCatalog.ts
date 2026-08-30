@@ -21,6 +21,10 @@ export type LocalCatalogItem = {
   source: ImageSourcePropType;
   /** 뒷모습 전용 파일(있는 아이템만). 없으면 뒷모습에서도 정면 파일을 그대로 재사용한다. */
   backSource?: ImageSourcePropType;
+  /** 책상 앉기 전용 파일(top/bottom만 있음). 없으면 앉기에서도 정면 파일을 그대로 재사용한다. */
+  sitSource?: ImageSourcePropType;
+  /** 수면 전용 파일(hair만 있음). 없으면 수면 중엔 그리지 않는다. */
+  sleepSource?: ImageSourcePropType;
 };
 
 // 항상 무언가 착용돼 있어야 하는 부위. 나머지(HAT/EYEWEAR/SHOES/BAG)는 "없음"이 가능하다.
@@ -57,6 +61,7 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     label: "기본 머리",
     source: require("../../../assets/avatar/items/hair_basic.png"),
     backSource: require("../../../assets/avatar/items/hair_basic_back.png"),
+    sleepSource: require("../../../assets/avatar/items/hair_basic_sleep.png"),
   },
   {
     key: "hair_long_black",
@@ -64,6 +69,7 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     label: "긴 검은 머리",
     source: require("../../../assets/avatar/items/hair_long_black.png"),
     backSource: require("../../../assets/avatar/items/hair_long_black_back.png"),
+    sleepSource: require("../../../assets/avatar/items/hair_long_black_sleep.png"),
   },
   {
     key: "eyes_basic",
@@ -94,6 +100,7 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     slot: "TOP",
     label: "기본 상의",
     source: require("../../../assets/avatar/items/top_basic.png"),
+    sitSource: require("../../../assets/avatar/items/top_basic_sit.png"),
   },
   {
     key: "top_hoodie",
@@ -101,18 +108,21 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     label: "후드티",
     source: require("../../../assets/avatar/items/top_hoodie.png"),
     backSource: require("../../../assets/avatar/items/top_hoodie_back.png"),
+    sitSource: require("../../../assets/avatar/items/top_hoodie_sit.png"),
   },
   {
     key: "bottom_basic",
     slot: "BOTTOM",
     label: "기본 하의",
     source: require("../../../assets/avatar/items/bottom_basic.png"),
+    sitSource: require("../../../assets/avatar/items/bottom_basic_sit.png"),
   },
   {
     key: "bottom_jeans",
     slot: "BOTTOM",
     label: "청바지",
     source: require("../../../assets/avatar/items/bottom_jeans.png"),
+    sitSource: require("../../../assets/avatar/items/bottom_jeans_sit.png"),
   },
   {
     key: "hat_cap",

@@ -10,12 +10,11 @@ import {
 } from "react";
 
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS } from "./roomGrid";
-import { FURNITURE_SETS, type FurnitureType } from "./roomFurniture";
+import { FURNITURE_SETS, type FurniturePosition, type FurnitureType } from "./roomFurniture";
 
 const STORAGE_KEY = "coremate.roomFurniturePlacements";
 
-/** 격자에서 가구가 차지하는 좌상단 셀(0부터 시작). */
-export type FurniturePosition = { row: number; col: number };
+export type { FurniturePosition };
 
 type Placements = Partial<Record<FurnitureType, FurniturePosition>>;
 

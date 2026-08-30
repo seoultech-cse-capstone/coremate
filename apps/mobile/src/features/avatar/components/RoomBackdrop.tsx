@@ -12,7 +12,7 @@ import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, type RoomGridLayout 
 import { useRoomTheme } from "../RoomThemeContext";
 import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThemes";
 import { useRoomFurniture, type FurniturePosition } from "../RoomFurnitureContext";
-import { FURNITURE_SETS, FURNITURE_TYPES, type FurnitureType } from "../roomFurniture";
+import { FURNITURE_TYPES, getFurnitureLayout, type FurnitureType } from "../roomFurniture";
 
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 
@@ -32,47 +32,45 @@ type RoomBackdropProps = {
   overlay?: ReactNode;
 };
 
-function FurniturePiece({
+/**
+ * 가구 한 세트의 조각 중 role이 일치하는 것만 그린다. "back"(의자, 침대 프레임)은
+ * overlay(아바타) 이전에, "front"(책상 상판, 이불)는 overlay 이후에 그려서 —
+ * 앉기/수면 중엔 항상 chair→아바타→desk, 침대→아바타→이불 순서가 유지된다.
+ */
+function FurniturePieces({
   type,
   position,
   cellWidth,
   rowHeight,
+  role,
 }: {
   type: FurnitureType;
   position: FurniturePosition;
   cellWidth: number;
   rowHeight: number;
+  role: "back" | "front";
 }) {
-  const set = FURNITURE_SETS[type];
-  // dotPx(배경과 같은 스케일)를 그대로 쓰면 세트 폭이 footprintCols보다 훨씬 커진다
-  // (책상 세트 49도트 vs 2칸=32도트). 가로가 정확히 footprintCols칸에 맞도록
-  // 세트 전용 배율을 따로 구해서 쓴다 — 세로는 비율 그대로 따라온다(찌그러짐 없음).
-  const setScale = (set.footprintCols * cellWidth) / set.widthDots;
-  const setWidthPx = set.widthDots * setScale;
-  const setHeightPx = set.heightDots * setScale;
-  // 접지선(바닥 닿는 선) = 세트 바운딩박스의 맨 아래 — 그걸 칸의 바닥선에 맞춘다.
-  const footprintCenterX = (position.col + set.footprintCols / 2) * cellWidth;
-  const footprintGroundY = (position.row + 1) * rowHeight;
-  const containerLeft = footprintCenterX - setWidthPx / 2;
-  const containerTop = footprintGroundY - setHeightPx;
+  const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight);
 
   return (
-    <View style={{ position: "absolute", left: containerLeft, top: containerTop, width: setWidthPx, height: setHeightPx }}>
-      {set.pieces.map((piece, index) => (
-        <Image
-          key={index}
-          resizeMode="stretch"
-          source={piece.source}
-          style={{
-            position: "absolute",
-            left: (piece.offsetXDots - set.minXDots) * setScale,
-            top: (piece.offsetYDots - set.minYDots) * setScale,
-            width: piece.widthDots * setScale,
-            height: piece.heightDots * setScale,
-          }}
-        />
-      ))}
-    </View>
+    <>
+      {pieces
+        .filter((piece) => piece.role === role)
+        .map((piece, index) => (
+          <Image
+            key={index}
+            resizeMode="stretch"
+            source={piece.source}
+            style={{
+              position: "absolute",
+              left: piece.left,
+              top: piece.top,
+              width: piece.width,
+              height: piece.height,
+            }}
+          />
+        ))}
+    </>
   );
 }
 
@@ -175,10 +173,11 @@ export function RoomBackdrop({
                   return null;
                 }
                 return (
-                  <FurniturePiece
+                  <FurniturePieces
                     key={type}
                     cellWidth={cellWidth}
                     position={position}
+                    role="back"
                     rowHeight={rowHeight}
                     type={type}
                   />
@@ -186,6 +185,24 @@ export function RoomBackdrop({
               })
             : null}
           {overlay}
+          {showFurniture
+            ? FURNITURE_TYPES.map((type) => {
+                const position = placements[type];
+                if (!position) {
+                  return null;
+                }
+                return (
+                  <FurniturePieces
+                    key={`${type}-front`}
+                    cellWidth={cellWidth}
+                    position={position}
+                    role="front"
+                    rowHeight={rowHeight}
+                    type={type}
+                  />
+                );
+              })
+            : null}
         </View>
       ) : null}
     </View>

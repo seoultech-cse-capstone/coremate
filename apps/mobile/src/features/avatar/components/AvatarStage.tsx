@@ -40,6 +40,15 @@ const AVATAR_BASE_STAND_FRAMES: ImageSourcePropType[] = [
   require("../../../../assets/avatar/base/avatar_base_stand_3.png"),
 ];
 const AVATAR_BASE_STAND_BACK: ImageSourcePropType = require("../../../../assets/avatar/base/avatar_base_stand_back.png");
+// 책상 씬 전용. avatar_sit.png는 서있는 포즈와 같은 41x54 캔버스를 쓴다.
+const AVATAR_SIT_BASE: ImageSourcePropType = require("../../../../assets/avatar/base/avatar_sit.png");
+// 타이핑 손 오버레이. 코디(528 캔버스)가 아니라 베이스(432)와 같은 캔버스라
+// top 오프셋도 베이스와 동일하게 RAW_BASE_TOP_OFFSET을 쓴다.
+const AVATAR_SIT_HANDS: ImageSourcePropType[] = [
+  require("../../../../assets/avatar/base/avatar_sit_hands_1.png"),
+  require("../../../../assets/avatar/base/avatar_sit_hands_2.png"),
+  require("../../../../assets/avatar/base/avatar_sit_hands_3.png"),
+];
 
 // 머리에 붙는 코디(모자·머리·눈·입·안경)는 idle 프레임마다 미세하게 위아래로
 // 흔들린다(head_dy, 도트 단위 → x8 = px). 몸에 붙는 코디(상의·하의·신발·가방)는 항상 0.
@@ -47,6 +56,10 @@ const HEAD_ATTACH_SLOTS: LocalAvatarSlot[] = ["HAT", "HAIR", "EYES", "MOUTH", "E
 const HEAD_DY_PX_BY_FRAME: Record<1 | 2 | 3, number> = { 1: 8, 2: 0, 3: -8 };
 // 뒷모습에서 전용(_back) 파일이 없어 정면 파일을 재사용하는 머리 코디에 주는 보정.
 const HEAD_DY_PX_BACK_FALLBACK = 8;
+// 앉기 중엔 프레임 변화가 없어 머리 부착 코디는 고정 +1도트만 준다.
+const HEAD_DY_PX_SIT = 8;
+// 앉기 중 신발은 (0, -3도트) 시프트해서 재사용한다(다리 각도가 바뀌어서).
+const SHOES_DY_PX_SIT = -24;
 
 // 서있는 정면: 아바타 → 신발 → 하의 → 상의 → 가방 → 머리 → 눈 → 입 → 안경 → 모자.
 const FRONT_LAYER_ORDER: LocalAvatarSlot[] = [
@@ -62,26 +75,43 @@ const FRONT_LAYER_ORDER: LocalAvatarSlot[] = [
 ];
 // 서있는 뒷모습: 눈·입·안경은 그리지 않는다. 가방이 머리카락 위로 오는 순서.
 const BACK_LAYER_ORDER: LocalAvatarSlot[] = ["SHOES", "BOTTOM", "TOP", "HAIR", "BAG", "HAT"];
+// 책상 앉기: 가방은 앉는 동안 숨긴다.
+const SIT_LAYER_ORDER: LocalAvatarSlot[] = [
+  "SHOES",
+  "BOTTOM",
+  "TOP",
+  "HAIR",
+  "EYES",
+  "MOUTH",
+  "EYEWEAR",
+  "HAT",
+];
+
+type AvatarMode = "front" | "back" | "sit";
 
 type AvatarStageProps = {
   scale?: number;
   /** 부위별로 입힐 로컬 카탈로그 아이템 key. 생략한 부위는 기본값(필수 부위) 또는 미착용(선택 부위). */
   equipped?: Partial<Record<LocalAvatarSlot, string | null>>;
-  /** 서있는 정면 idle 프레임(1~3). facing="back"일 땐 무시된다(뒷모습은 정지된 한 장뿐). */
+  /** 서있는 정면 idle 프레임(1~3). facing="back"이거나 activity="sit"일 땐 무시된다. */
   frame?: 1 | 2 | 3;
   facing?: "front" | "back";
+  /** "sit"이면 책상 앉기 포즈(항상 정면)로 그린다 — facing보다 우선한다. */
+  activity?: "stand" | "sit";
+  /** 앉기 중 타이핑 손 오버레이 프레임(1~3). activity="sit"일 때만 쓴다. */
+  handFrame?: 1 | 2 | 3;
 };
 
 type ResolvedLayer = {
   key: string;
   source: ImageSourcePropType;
-  headDyPx: number;
+  dyPx: number;
 };
 
 function resolveLayers(
   order: LocalAvatarSlot[],
   keyBySlot: Partial<Record<LocalAvatarSlot, string>>,
-  facing: "front" | "back",
+  mode: AvatarMode,
   frame: 1 | 2 | 3,
 ): ResolvedLayer[] {
   return order
@@ -91,34 +121,47 @@ function resolveLayers(
     .filter((item): item is LocalCatalogItem => Boolean(item))
     .map((item) => {
       const isHeadAttach = HEAD_ATTACH_SLOTS.includes(item.slot);
-      if (facing === "back") {
+
+      if (mode === "back") {
         if (item.backSource) {
-          return { key: item.key, source: item.backSource, headDyPx: 0 };
+          return { key: item.key, source: item.backSource, dyPx: 0 };
         }
         // 뒷모습 전용 파일이 없으면 정면 파일을 그대로 재사용한다(폴백).
-        return {
-          key: item.key,
-          source: item.source,
-          headDyPx: isHeadAttach ? HEAD_DY_PX_BACK_FALLBACK : 0,
-        };
+        return { key: item.key, source: item.source, dyPx: isHeadAttach ? HEAD_DY_PX_BACK_FALLBACK : 0 };
       }
+
+      if (mode === "sit") {
+        const source = item.sitSource ?? item.source;
+        const dyPx = isHeadAttach ? HEAD_DY_PX_SIT : item.slot === "SHOES" ? SHOES_DY_PX_SIT : 0;
+        return { key: item.key, source, dyPx };
+      }
+
       return {
         key: item.key,
         source: item.source,
-        headDyPx: isHeadAttach ? HEAD_DY_PX_BY_FRAME[frame] : 0,
+        dyPx: isHeadAttach ? HEAD_DY_PX_BY_FRAME[frame] : 0,
       };
     });
 }
 
 /** 여백을 잘라낸 캔버스에 아바타를 합성해 보여준다. */
-export function AvatarStage({ scale = 1, equipped, frame = 1, facing = "front" }: AvatarStageProps) {
+export function AvatarStage({
+  scale = 1,
+  equipped,
+  frame = 1,
+  facing = "front",
+  activity = "stand",
+  handFrame = 1,
+}: AvatarStageProps) {
   const visibleWidth = AVATAR_STAGE_WIDTH * scale;
   const visibleHeight = AVATAR_STAGE_HEIGHT * scale;
   const rawWidth = RAW_WIDTH * scale;
   const rawHeight = RAW_HEIGHT * scale;
 
+  const mode: AvatarMode = activity === "sit" ? "sit" : facing;
+  const layerOrder = mode === "back" ? BACK_LAYER_ORDER : mode === "sit" ? SIT_LAYER_ORDER : FRONT_LAYER_ORDER;
+
   const keyBySlot: Partial<Record<LocalAvatarSlot, string>> = { ...DEFAULT_LOCAL_KEY_BY_SLOT };
-  const layerOrder = facing === "back" ? BACK_LAYER_ORDER : FRONT_LAYER_ORDER;
   for (const slot of layerOrder) {
     if (equipped && slot in equipped) {
       const key = equipped[slot];
@@ -130,8 +173,9 @@ export function AvatarStage({ scale = 1, equipped, frame = 1, facing = "front" }
     }
   }
 
-  const layers = resolveLayers(layerOrder, keyBySlot, facing, frame);
-  const baseSource = facing === "back" ? AVATAR_BASE_STAND_BACK : AVATAR_BASE_STAND_FRAMES[frame - 1];
+  const layers = resolveLayers(layerOrder, keyBySlot, mode, frame);
+  const baseSource =
+    mode === "back" ? AVATAR_BASE_STAND_BACK : mode === "sit" ? AVATAR_SIT_BASE : AVATAR_BASE_STAND_FRAMES[frame - 1];
 
   return (
     <View style={{ width: visibleWidth, height: visibleHeight, overflow: "hidden" }}>
@@ -157,10 +201,59 @@ export function AvatarStage({ scale = 1, equipped, frame = 1, facing = "front" }
             key={layer.key}
             resizeMode="contain"
             source={layer.source}
-            style={[styles.layer, { top: layer.headDyPx * scale, width: rawWidth, height: rawHeight }]}
+            style={[styles.layer, { top: layer.dyPx * scale, width: rawWidth, height: rawHeight }]}
           />
         ))}
+        {mode === "sit" ? (
+          <Image
+            resizeMode="contain"
+            source={AVATAR_SIT_HANDS[handFrame - 1]}
+            style={[
+              styles.layer,
+              { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale },
+            ]}
+          />
+        ) : null}
       </View>
+    </View>
+  );
+}
+
+// 수면 캔버스는 서있기·앉기(41x54도트)와 전혀 다른 48x27도트(384x216px) 캔버스라
+// 별도로 다룬다. 모든 레이어가 같은 원점(0,0)에 겹치므로 오프셋 계산이 필요 없다.
+export const AVATAR_SLEEP_STAGE_WIDTH = 384;
+export const AVATAR_SLEEP_STAGE_HEIGHT = 216;
+
+const AVATAR_SLEEP_BASE_FRAMES: ImageSourcePropType[] = [
+  require("../../../../assets/avatar/base/avatar_sleep_1.png"),
+  require("../../../../assets/avatar/base/avatar_sleep_2.png"),
+  require("../../../../assets/avatar/base/avatar_sleep_3.png"),
+];
+// 눈·입은 장착 아이템과 무관하게 공용 파일로 대체한다(자는 동안은 표정이 고정).
+const AVATAR_SLEEP_EYES: ImageSourcePropType = require("../../../../assets/avatar/items/eyes_basic_closed_sleep.png");
+const AVATAR_SLEEP_MOUTH: ImageSourcePropType = require("../../../../assets/avatar/items/mouth_smile_open_sleep.png");
+
+type AvatarSleepStageProps = {
+  scale?: number;
+  frame?: 1 | 2 | 3;
+  /** 착용 중인 머리 key. _sleep 전용 파일이 있는 머리만 그린다(없으면 생략). */
+  hairKey?: string;
+};
+
+/** 침대에 누운 모습. 모자·안경·상의·하의·신발·가방은 이불이 덮으므로 그리지 않는다. */
+export function AvatarSleepStage({ scale = 1, frame = 1, hairKey }: AvatarSleepStageProps) {
+  const width = AVATAR_SLEEP_STAGE_WIDTH * scale;
+  const height = AVATAR_SLEEP_STAGE_HEIGHT * scale;
+  const hairSleepSource = hairKey ? LOCAL_CATALOG_BY_KEY.get(hairKey)?.sleepSource : undefined;
+
+  return (
+    <View style={{ width, height }}>
+      <Image resizeMode="contain" source={AVATAR_SLEEP_BASE_FRAMES[frame - 1]} style={[styles.layer, { top: 0, width, height }]} />
+      {hairSleepSource ? (
+        <Image resizeMode="contain" source={hairSleepSource} style={[styles.layer, { top: 0, width, height }]} />
+      ) : null}
+      <Image resizeMode="contain" source={AVATAR_SLEEP_EYES} style={[styles.layer, { top: 0, width, height }]} />
+      <Image resizeMode="contain" source={AVATAR_SLEEP_MOUTH} style={[styles.layer, { top: 0, width, height }]} />
     </View>
   );
 }

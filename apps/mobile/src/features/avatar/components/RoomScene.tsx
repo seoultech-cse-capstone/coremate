@@ -1,18 +1,51 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, type GestureResponderEvent } from "react-native";
+import { Animated, Easing, StyleSheet, View, type GestureResponderEvent } from "react-native";
 
-import { AVATAR_FOOT_X_RATIO, AVATAR_FOOT_Y_RATIO, AVATAR_STAGE_HEIGHT, AVATAR_STAGE_WIDTH, AvatarStage } from "./AvatarStage";
+import {
+  AVATAR_FOOT_X_RATIO,
+  AVATAR_FOOT_Y_RATIO,
+  AVATAR_SLEEP_STAGE_HEIGHT,
+  AVATAR_SLEEP_STAGE_WIDTH,
+  AVATAR_STAGE_HEIGHT,
+  AVATAR_STAGE_WIDTH,
+  AvatarSleepStage,
+  AvatarStage,
+} from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
+import { DEFAULT_LOCAL_KEY_BY_SLOT } from "../localCatalog";
+import { useRoomFurniture } from "../RoomFurnitureContext";
+import {
+  FURNITURE_TYPES,
+  getFurnitureFootprintRect,
+  getFurnitureInteractionAnchor,
+  getFurnitureLayout,
+  type FurnitureType,
+} from "../roomFurniture";
+import { useFrameSequence } from "../useFrameSequence";
 
 // 아바타 너비 기준: 타일 몇 칸 크기로 보일지.
 const AVATAR_WIDTH_IN_CELLS = 1;
 
 // AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
-const IDLE_SEQUENCE: { frame: 1 | 2 | 3; duration: number }[] = [
-  { frame: 1, duration: 400 },
-  { frame: 2, duration: 150 },
-  { frame: 3, duration: 400 },
-  { frame: 2, duration: 150 },
+const IDLE_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
+  { value: 1, duration: 400 },
+  { value: 2, duration: 150 },
+  { value: 3, duration: 400 },
+  { value: 2, duration: 150 },
+];
+// 책상 앉기: 타이핑 손 오버레이 1→2→1→3 루프, 120ms 균일.
+const SIT_HAND_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
+  { value: 1, duration: 120 },
+  { value: 2, duration: 120 },
+  { value: 1, duration: 120 },
+  { value: 3, duration: 120 },
+];
+// 수면: 1→2→3→2 루프(원래 스펙은 4프레임이지만 에셋이 3장이라 idle과 같은 방식으로 재사용).
+const SLEEP_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
+  { value: 1, duration: 400 },
+  { value: 2, duration: 250 },
+  { value: 3, duration: 550 },
+  { value: 2, duration: 250 },
 ];
 
 // AVATAR_FE.md 6절: 이동 중 offsetY = -|sin(t)| x 진폭(2~3도트), 주기 ~250ms.
@@ -20,6 +53,17 @@ const HOP_PERIOD_MS = 250;
 const HOP_AMPLITUDE_PX = 12;
 const WALK_SPEED_PX_PER_SEC = 220;
 const MIN_WALK_DURATION_MS = 300;
+// 수면 캔버스(384x216, 48x27도트)는 원본이 1도트=8px라, 세트 배율(도트당 실제 px)을
+// 그 8로 나눠야 AvatarSleepStage의 scale prop과 단위가 맞는다.
+const SLEEP_RAW_PX_PER_DOT = 8;
+
+function isWithinRect(
+  rect: { left: number; top: number; right: number; bottom: number },
+  x: number,
+  y: number,
+): boolean {
+  return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+}
 
 type RoomSceneProps = {
   height: number;
@@ -37,12 +81,14 @@ type RoomSceneProps = {
  * 방(벽+바닥+배치된 가구) 위에 아바타를 세워 보여준다. 가만히 있을 땐 숨쉬듯
  * 미세하게 흔들리고(idle), 바닥을 탭하면 그 자리로 통통 튀며 걸어가고(위로
  * 이동하면 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
+ * 배치된 책상·침대를 탭하면 거기로 걸어가서 앉거나 눕고, 다시 탭하면 일어난다.
  */
 export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
+  const { placements } = useRoomFurniture();
   const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
   const [hasPositioned, setHasPositioned] = useState(false);
-  const [frame, setFrame] = useState<1 | 2 | 3>(1);
   const [facing, setFacing] = useState<"front" | "back">("front");
+  const [occupancy, setOccupancy] = useState<FurnitureType | null>(null);
 
   const posX = useRef(new Animated.Value(0)).current;
   const posY = useRef(new Animated.Value(0)).current;
@@ -50,6 +96,10 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const currentPosRef = useRef({ x: 0, y: 0 });
   const isMovingRef = useRef(false);
   const hopLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const frame = useFrameSequence(IDLE_SEQUENCE, occupancy !== "bed");
+  const handFrame = useFrameSequence(SIT_HAND_SEQUENCE, occupancy === "desk");
+  const sleepFrame = useFrameSequence(SLEEP_SEQUENCE, occupancy === "bed");
 
   const width = layout?.width ?? 0;
   const floorHeight = (layout?.floorHeight ?? 0) + bottomOverflow;
@@ -60,29 +110,13 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
   const feetOffsetY = avatarRenderHeight * AVATAR_FOOT_Y_RATIO;
 
-  // 서기(앞) idle 프레임 루프. 이동 중에도 그대로 재생한다(#AVATAR_FE.md: 걷기 전용
-  // 프레임 없이 idle 스택을 그대로 통통 튀겨서 이동시킨다).
-  useEffect(() => {
-    let cancelled = false;
-    let index = 0;
-    let timeoutId: ReturnType<typeof setTimeout>;
-
-    const tick = () => {
-      if (cancelled) {
-        return;
-      }
-      const step = IDLE_SEQUENCE[index % IDLE_SEQUENCE.length];
-      setFrame(step.frame);
-      index += 1;
-      timeoutId = setTimeout(tick, step.duration);
-    };
-
-    tick();
-    return () => {
-      cancelled = true;
-      clearTimeout(timeoutId);
-    };
-  }, []);
+  const bedPlacement = placements.bed;
+  const bedLayout =
+    bedPlacement && layout ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight) : null;
+  // AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
+  const sleepScale = bedLayout ? bedLayout.scale / SLEEP_RAW_PX_PER_DOT : 0;
+  const sleepLeft = bedLayout ? bedLayout.containerLeft + 4 * bedLayout.scale : 0;
+  const sleepTop = bedLayout ? bedLayout.containerTop - 12 * bedLayout.scale : 0;
 
   // 바닥 크기를 알게 되면 아바타 시작 위치를 한 번만 잡는다.
   useEffect(() => {
@@ -96,10 +130,16 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     }
   }, [width, floorHeight, hasPositioned, posX, posY]);
 
-  const startWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
+  const startWalk = (
+    from: { x: number; y: number },
+    targetX: number,
+    targetY: number,
+    onArrive?: () => void,
+  ) => {
     const distance = Math.hypot(targetX - from.x, targetY - from.y);
     if (distance < 6) {
       isMovingRef.current = false;
+      onArrive?.();
       return;
     }
 
@@ -136,18 +176,40 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       currentPosRef.current = { x: targetX, y: targetY };
       isMovingRef.current = false;
       setFacing("front");
+      onArrive?.();
     });
   };
 
   const handleFloorPress = (event: GestureResponderEvent) => {
-    if (!hasPositioned) {
+    if (!hasPositioned || !layout) {
       return;
     }
     const { locationX, locationY } = event.nativeEvent;
+    const { cellWidth, rowHeight } = layout;
+
+    // 앉아/누워 있으면 먼저 일어난다. 같은 가구를 다시 탭한 거면 그걸로 끝.
+    let justStoodUp = false;
+    if (occupancy) {
+      const currentPlacement = placements[occupancy];
+      const withinCurrent = currentPlacement
+        ? isWithinRect(
+            getFurnitureFootprintRect(occupancy, currentPlacement, cellWidth, rowHeight),
+            locationX,
+            locationY,
+          )
+        : false;
+      setOccupancy(null);
+      justStoodUp = true;
+      if (withinCurrent) {
+        return;
+      }
+    }
+
     const restPos = currentPosRef.current;
 
     const tappedAvatar =
       !isMovingRef.current &&
+      !justStoodUp &&
       locationX >= restPos.x - feetOffsetX &&
       locationX <= restPos.x + (avatarRenderWidth - feetOffsetX) &&
       locationY >= restPos.y - feetOffsetY &&
@@ -158,15 +220,38 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       return;
     }
 
-    const targetX = Math.min(
-      Math.max(locationX, feetOffsetX),
-      Math.max(width - (avatarRenderWidth - feetOffsetX), feetOffsetX),
-    );
-    const targetY = Math.min(Math.max(locationY, 0), floorHeight);
+    const hitType = FURNITURE_TYPES.find((type) => {
+      const position = placements[type];
+      if (!position) {
+        return false;
+      }
+      return isWithinRect(getFurnitureFootprintRect(type, position, cellWidth, rowHeight), locationX, locationY);
+    });
+
+    let targetX: number;
+    let targetY: number;
+    let onArrive: (() => void) | undefined;
+
+    if (hitType) {
+      const position = placements[hitType];
+      if (!position) {
+        return;
+      }
+      const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight);
+      targetX = anchor.x;
+      targetY = anchor.y;
+      onArrive = () => setOccupancy(hitType);
+    } else {
+      targetX = Math.min(
+        Math.max(locationX, feetOffsetX),
+        Math.max(width - (avatarRenderWidth - feetOffsetX), feetOffsetX),
+      );
+      targetY = Math.min(Math.max(locationY, 0), floorHeight);
+    }
 
     if (!isMovingRef.current) {
       // 서있는 중이면 지금 위치가 곧 restPos이니 브릿지 왕복 없이 바로 출발한다.
-      startWalk(restPos, targetX, targetY);
+      startWalk(restPos, targetX, targetY, onArrive);
       return;
     }
 
@@ -180,7 +265,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       if (resolvedX === null || resolvedY === null) {
         return;
       }
-      startWalk({ x: resolvedX, y: resolvedY }, targetX, targetY);
+      startWalk({ x: resolvedX, y: resolvedY }, targetX, targetY, onArrive);
     };
     posX.stopAnimation((value) => {
       resolvedX = value;
@@ -205,36 +290,60 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       onLayoutChange={setLayout}
       overlay={
         hasPositioned ? (
-          <>
-            {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
-                아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
-            <Animated.View
-              style={[
-                styles.shadow,
-                {
-                  width: avatarRenderWidth * 0.6,
-                  height: avatarRenderWidth * 0.6 * 0.35,
-                  transform: [
-                    { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
-                    { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
-                  ],
-                },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.avatarWrap,
-                {
-                  transform: [
-                    { translateX: Animated.subtract(posX, feetOffsetX) },
-                    { translateY: Animated.add(Animated.subtract(posY, feetOffsetY), hopOffset) },
-                  ],
-                },
-              ]}
-            >
-              <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
-            </Animated.View>
-          </>
+          occupancy === "bed" ? (
+            bedLayout ? (
+              <View
+                style={{
+                  position: "absolute",
+                  left: sleepLeft,
+                  top: sleepTop,
+                  width: AVATAR_SLEEP_STAGE_WIDTH * sleepScale,
+                  height: AVATAR_SLEEP_STAGE_HEIGHT * sleepScale,
+                }}
+              >
+                <AvatarSleepStage
+                  frame={sleepFrame}
+                  hairKey={DEFAULT_LOCAL_KEY_BY_SLOT.HAIR}
+                  scale={sleepScale}
+                />
+              </View>
+            ) : null
+          ) : (
+            <>
+              {/* 그림자는 발밑 접지점(posX, posY)에 고정 — hopOffset을 안 더해서
+                  아바타가 튀어올라도 그림자는 바닥에 그대로 남는다. */}
+              <Animated.View
+                style={[
+                  styles.shadow,
+                  {
+                    width: avatarRenderWidth * 0.6,
+                    height: avatarRenderWidth * 0.6 * 0.35,
+                    transform: [
+                      { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
+                      { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
+                    ],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.avatarWrap,
+                  {
+                    transform: [
+                      { translateX: Animated.subtract(posX, feetOffsetX) },
+                      { translateY: Animated.add(Animated.subtract(posY, feetOffsetY), hopOffset) },
+                    ],
+                  },
+                ]}
+              >
+                {occupancy === "desk" ? (
+                  <AvatarStage activity="sit" handFrame={handFrame} scale={avatarScale} />
+                ) : (
+                  <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
+                )}
+              </Animated.View>
+            </>
+          )
         ) : null
       }
       showGridLines={showGridLines}
