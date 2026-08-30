@@ -217,7 +217,24 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
         style={{ height: floorHeight }}
         onPress={handleFloorPress}
       >
-        <Image resizeMode="cover" source={theme.floorSource} style={StyleSheet.absoluteFillObject} />
+        {/* 격자(5줄) 영역엔 타일이 정확히 그 크기에 맞게 꽉 차야 해서 stretch로 딱 맞춘다.
+            그 아래 빈 여백(가구 못 놓는 구역)만 같은 이미지를 cover로 이어붙인다. */}
+        <Image
+          resizeMode="stretch"
+          source={theme.floorSource}
+          style={{ position: "absolute", top: 0, left: 0, width: "100%", height: gridHeight }}
+        />
+        <Image
+          resizeMode="cover"
+          source={theme.floorSource}
+          style={{
+            position: "absolute",
+            top: gridHeight,
+            left: 0,
+            width: "100%",
+            height: floorHeight - gridHeight,
+          }}
+        />
         {showGridLines
           ? Array.from({ length: ROOM_GRID_COLS - 1 }, (_, index) => (
               <View
