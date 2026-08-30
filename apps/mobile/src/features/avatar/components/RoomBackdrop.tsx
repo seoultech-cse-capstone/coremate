@@ -27,11 +27,6 @@ type RoomBackdropProps = {
   showFurniture?: boolean;
   /** 지금 앉거나 누워서 쓰고 있는 가구. 이 가구만 back/front를 나눠 아바타를 사이에 끼운다. */
   occupiedFurniture?: FurnitureType | null;
-  /**
-   * occupiedFurniture가 아닌 가구가 아바타보다 화면 앞(위, "front")인지 뒤(아래, "back")인지.
-   * 격자 줄(row)로 비교해서 정하며, 안 준 가구는 기본 "back"(아바타가 위)으로 그린다.
-   */
-  furnitureDepth?: Partial<Record<FurnitureType, "front" | "back">>;
   onFloorPress?: (event: GestureResponderEvent) => void;
   /** 폭이 측정될 때마다(및 height 변경 시) 격자 치수를 올려보낸다. */
   onLayoutChange?: (layout: RoomLayoutInfo) => void;
@@ -91,7 +86,6 @@ export function RoomBackdrop({
   showGridLines = true,
   showFurniture = true,
   occupiedFurniture = null,
-  furnitureDepth = {},
   onFloorPress,
   onLayoutChange,
   overlay,
@@ -175,55 +169,44 @@ export function RoomBackdrop({
           걸려 있어서, 안에 있으면 벽 쪽으로 살짝 넘어갈 때 잘려 보인다. */}
       {width > 0 ? (
         <View pointerEvents="none" style={[styles.overlayLayer, { top: wallHeight, height: floorHeight }]}>
-          {/* 아바타보다 뒤(back)인 가구: 상호작용 중인 가구는 뒤쪽 조각만(의자·침대 프레임),
-              나머지는 격자 줄 비교 결과가 "back"인 것만 세트 전체를 그린다. */}
+          {/* 상호작용 중이 아닌 가구는 전부 아바타보다 뒤(무조건 아바타가 위)에 그린다.
+              가구끼리는 격자 줄(row)이 작을수록(안쪽) 먼저 그려서, 줄이 큰(바깥쪽)
+              가구가 그 위에 자연스럽게 겹치도록 정렬한다. */}
           {showFurniture
-            ? FURNITURE_TYPES.map((type) => {
-                const position = placements[type];
-                if (!position) {
-                  return null;
-                }
-                const role = type === occupiedFurniture ? "back" : (furnitureDepth[type] ?? "back");
-                if (type !== occupiedFurniture && role === "front") {
-                  return null;
-                }
-                return (
+            ? FURNITURE_TYPES.filter((type) => type !== occupiedFurniture && placements[type])
+                .sort((a, b) => placements[a]!.row - placements[b]!.row)
+                .map((type) => (
                   <FurniturePieces
                     key={type}
                     cellWidth={cellWidth}
-                    position={position}
-                    role={type === occupiedFurniture ? "back" : "all"}
+                    position={placements[type]!}
+                    role="all"
                     rowHeight={rowHeight}
                     type={type}
                   />
-                );
-              })
+                ))
             : null}
+          {/* 지금 앉거나 누워서 쓰고 있는 가구만 뒤쪽 조각(의자·침대 프레임)을 여기서 그린다. */}
+          {showFurniture && occupiedFurniture && placements[occupiedFurniture] ? (
+            <FurniturePieces
+              cellWidth={cellWidth}
+              position={placements[occupiedFurniture]!}
+              role="back"
+              rowHeight={rowHeight}
+              type={occupiedFurniture}
+            />
+          ) : null}
           {overlay}
-          {/* 아바타보다 앞(front)인 가구: 상호작용 중인 가구의 앞쪽 조각(책상 상판·이불),
-              나머지는 격자 줄 비교 결과가 "front"인 것. */}
-          {showFurniture
-            ? FURNITURE_TYPES.map((type) => {
-                const position = placements[type];
-                if (!position) {
-                  return null;
-                }
-                const isOccupied = type === occupiedFurniture;
-                if (!isOccupied && (furnitureDepth[type] ?? "back") !== "front") {
-                  return null;
-                }
-                return (
-                  <FurniturePieces
-                    key={`${type}-front`}
-                    cellWidth={cellWidth}
-                    position={position}
-                    role={isOccupied ? "front" : "all"}
-                    rowHeight={rowHeight}
-                    type={type}
-                  />
-                );
-              })
-            : null}
+          {/* 그 가구의 앞쪽 조각(책상 상판·이불)만 아바타 위에 그린다. */}
+          {showFurniture && occupiedFurniture && placements[occupiedFurniture] ? (
+            <FurniturePieces
+              cellWidth={cellWidth}
+              position={placements[occupiedFurniture]!}
+              role="front"
+              rowHeight={rowHeight}
+              type={occupiedFurniture}
+            />
+          ) : null}
         </View>
       ) : null}
     </View>
