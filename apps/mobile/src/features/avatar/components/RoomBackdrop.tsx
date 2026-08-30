@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import {
   Image,
   Pressable,
@@ -25,7 +25,13 @@ type RoomBackdropProps = {
   showGridLines?: boolean;
   /** 배치된 가구(침대·책상)를 같이 그릴지. 마이페이지 미리보기에서도 재사용. */
   showFurniture?: boolean;
-  /** 지금 앉거나 누워서 쓰고 있는 가구. 이 가구만 back/front를 나눠 아바타를 사이에 끼운다. */
+  /**
+   * 지금 앉거나 누워서 쓰고 있는 가구. 가구는 항상 격자 줄(row) 순서로 정렬해서
+   * 그리는데, 이 가구만 그 정렬된 자리에서 back/front로 나눠 아바타를 사이에
+   * 끼운다 — 그래야 상호작용 중에도 다른 가구와의 앞뒤 관계가 바뀌지 않는다.
+   * null이면(상호작용 중이 아니면) 아바타는 정렬된 가구를 전부 그린 다음
+   * 맨 위에 그린다.
+   */
   occupiedFurniture?: FurnitureType | null;
   onFloorPress?: (event: GestureResponderEvent) => void;
   /** 폭이 측정될 때마다(및 height 변경 시) 격자 치수를 올려보낸다. */
@@ -111,6 +117,53 @@ export function RoomBackdrop({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, height, bottomOverflow]);
 
+  // 가구는 전부 격자 줄(row) 순서 하나로 정렬해서 그린다. 상호작용 중인 가구만 그
+  // 자리에서 back(의자·침대 프레임) → 아바타 → front(책상 상판·이불)로 쪼개
+  // 끼워 넣는다 — occupied 가구의 front 조각을 이 정렬에서 빼서 마지막에 따로
+  // 그리면, row가 더 작아도(뒤에 있어도) 다른 가구보다 항상 위로 튀어 보인다.
+  // 상호작용 중이 아니면(occupiedFurniture=null) 아바타는 기존 규칙대로 맨 위,
+  // 즉 정렬된 가구를 전부 그린 다음 마지막에 그린다.
+  const orderedFurnitureTypes = FURNITURE_TYPES.filter((type) => placements[type]).sort(
+    (a, b) => placements[a]!.row - placements[b]!.row,
+  );
+  const furnitureAndAvatarNodes: ReactNode[] = [];
+  let avatarInserted = false;
+  if (showFurniture) {
+    orderedFurnitureTypes.forEach((type) => {
+      if (type === occupiedFurniture) {
+        furnitureAndAvatarNodes.push(
+          <FurniturePieces
+            key={`${type}-back`}
+            cellWidth={cellWidth}
+            position={placements[type]!}
+            role="back"
+            rowHeight={rowHeight}
+            type={type}
+          />,
+        );
+        furnitureAndAvatarNodes.push(<Fragment key="avatar">{overlay}</Fragment>);
+        avatarInserted = true;
+        furnitureAndAvatarNodes.push(
+          <FurniturePieces
+            key={`${type}-front`}
+            cellWidth={cellWidth}
+            position={placements[type]!}
+            role="front"
+            rowHeight={rowHeight}
+            type={type}
+          />,
+        );
+      } else {
+        furnitureAndAvatarNodes.push(
+          <FurniturePieces key={type} cellWidth={cellWidth} position={placements[type]!} role="all" rowHeight={rowHeight} type={type} />,
+        );
+      }
+    });
+  }
+  if (!avatarInserted) {
+    furnitureAndAvatarNodes.push(<Fragment key="avatar">{overlay}</Fragment>);
+  }
+
   return (
     <View onLayout={onLayout} style={[styles.card, { height: height + bottomOverflow }]}>
       {/* 벽: 벽 경계(바닥 시작선)에 아래를 맞추고, 위로 모자라면 벽 상단색으로 이어붙인다. */}
@@ -169,44 +222,7 @@ export function RoomBackdrop({
           걸려 있어서, 안에 있으면 벽 쪽으로 살짝 넘어갈 때 잘려 보인다. */}
       {width > 0 ? (
         <View pointerEvents="none" style={[styles.overlayLayer, { top: wallHeight, height: floorHeight }]}>
-          {/* 상호작용 중이 아닌 가구는 전부 아바타보다 뒤(무조건 아바타가 위)에 그린다.
-              가구끼리는 격자 줄(row)이 작을수록(안쪽) 먼저 그려서, 줄이 큰(바깥쪽)
-              가구가 그 위에 자연스럽게 겹치도록 정렬한다. */}
-          {showFurniture
-            ? FURNITURE_TYPES.filter((type) => type !== occupiedFurniture && placements[type])
-                .sort((a, b) => placements[a]!.row - placements[b]!.row)
-                .map((type) => (
-                  <FurniturePieces
-                    key={type}
-                    cellWidth={cellWidth}
-                    position={placements[type]!}
-                    role="all"
-                    rowHeight={rowHeight}
-                    type={type}
-                  />
-                ))
-            : null}
-          {/* 지금 앉거나 누워서 쓰고 있는 가구만 뒤쪽 조각(의자·침대 프레임)을 여기서 그린다. */}
-          {showFurniture && occupiedFurniture && placements[occupiedFurniture] ? (
-            <FurniturePieces
-              cellWidth={cellWidth}
-              position={placements[occupiedFurniture]!}
-              role="back"
-              rowHeight={rowHeight}
-              type={occupiedFurniture}
-            />
-          ) : null}
-          {overlay}
-          {/* 그 가구의 앞쪽 조각(책상 상판·이불)만 아바타 위에 그린다. */}
-          {showFurniture && occupiedFurniture && placements[occupiedFurniture] ? (
-            <FurniturePieces
-              cellWidth={cellWidth}
-              position={placements[occupiedFurniture]!}
-              role="front"
-              rowHeight={rowHeight}
-              type={occupiedFurniture}
-            />
-          ) : null}
+          {furnitureAndAvatarNodes}
         </View>
       ) : null}
     </View>
