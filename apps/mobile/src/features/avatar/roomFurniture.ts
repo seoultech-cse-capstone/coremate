@@ -238,6 +238,21 @@ export function getFurnitureLayout(
   };
 }
 
+/** 두 배치가 격자에서 겹치는지(같은 줄에서 칸 범위가 겹치는지) 확인한다. */
+export function doFootprintsOverlap(
+  typeA: FurnitureType,
+  positionA: FurniturePosition,
+  typeB: FurnitureType,
+  positionB: FurniturePosition,
+): boolean {
+  if (positionA.row !== positionB.row) {
+    return false;
+  }
+  const colsA = FURNITURE_SETS[typeA].footprintCols;
+  const colsB = FURNITURE_SETS[typeB].footprintCols;
+  return positionA.col < positionB.col + colsB && positionB.col < positionA.col + colsA;
+}
+
 /** 배치된 가구가 격자에서 차지하는 화면 사각형(탭 판정용). */
 export function getFurnitureFootprintRect(
   type: FurnitureType,

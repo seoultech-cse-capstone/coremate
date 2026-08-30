@@ -10,7 +10,13 @@ import {
 } from "react";
 
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS } from "./roomGrid";
-import { FURNITURE_SETS, type FurniturePosition, type FurnitureType } from "./roomFurniture";
+import {
+  doFootprintsOverlap,
+  FURNITURE_SETS,
+  FURNITURE_TYPES,
+  type FurniturePosition,
+  type FurnitureType,
+} from "./roomFurniture";
 
 const STORAGE_KEY = "coremate.roomFurniturePlacements";
 
@@ -20,8 +26,11 @@ type Placements = Partial<Record<FurnitureType, FurniturePosition>>;
 
 type RoomFurnitureContextValue = {
   placements: Placements;
-  /** position이 null이면 치운다. 격자 범위를 벗어나면 안쪽으로 당겨서 놓는다. */
-  setPlacement: (type: FurnitureType, position: FurniturePosition | null) => void;
+  /**
+   * position이 null이면 치운다. 격자 범위를 벗어나면 안쪽으로 당겨서 놓는다.
+   * 다른 가구와 칸이 겹치면 놓지 않고 false를 돌려준다(치우기는 항상 true).
+   */
+  setPlacement: (type: FurnitureType, position: FurniturePosition | null) => boolean;
 };
 
 const RoomFurnitureContext = createContext<RoomFurnitureContextValue | null>(null);
@@ -65,20 +74,35 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const setPlacement = useCallback((type: FurnitureType, position: FurniturePosition | null) => {
-    setPlacements((prev) => {
-      const next = { ...prev };
+  const setPlacement = useCallback(
+    (type: FurnitureType, position: FurniturePosition | null): boolean => {
       if (position) {
-        next[type] = clampPosition(type, position);
-      } else {
-        delete next[type];
+        const clamped = clampPosition(type, position);
+        const overlaps = FURNITURE_TYPES.some((otherType) => {
+          const otherPosition = placements[otherType];
+          return otherType !== type && otherPosition && doFootprintsOverlap(type, clamped, otherType, otherPosition);
+        });
+        if (overlaps) {
+          return false;
+        }
       }
-      SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch((error) => {
-        console.error("[roomFurniture] 가구 배치 저장 실패", error);
+
+      setPlacements((prev) => {
+        const next = { ...prev };
+        if (position) {
+          next[type] = clampPosition(type, position);
+        } else {
+          delete next[type];
+        }
+        SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch((error) => {
+          console.error("[roomFurniture] 가구 배치 저장 실패", error);
+        });
+        return next;
       });
-      return next;
-    });
-  }, []);
+      return true;
+    },
+    [placements],
+  );
 
   const value = useMemo<RoomFurnitureContextValue>(
     () => ({ placements, setPlacement }),

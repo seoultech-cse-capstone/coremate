@@ -15,6 +15,8 @@ import {
   type FurnitureType,
   type RoomLayoutInfo,
 } from "../src/features/avatar";
+import { Toast } from "../src/shared/components/Toast";
+import { useToast } from "../src/shared/hooks/useToast";
 
 const ROOM_PREVIEW_HEIGHT = 380;
 
@@ -25,6 +27,7 @@ export default function RoomFurnitureScreen() {
   const { placements, setPlacement } = useRoomFurniture();
   const [mode, setMode] = useState<Mode>("bed");
   const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
+  const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
 
   const handleFloorPress = (event: GestureResponderEvent) => {
     if (!layout) {
@@ -53,7 +56,10 @@ export default function RoomFurnitureScreen() {
       return;
     }
 
-    setPlacement(mode, { row, col });
+    const placed = setPlacement(mode, { row, col });
+    if (!placed) {
+      showToast("이미 가구가 놓여져있어요");
+    }
   };
 
   return (
@@ -128,6 +134,8 @@ export default function RoomFurnitureScreen() {
           </View>
         </View>
       </SafeAreaView>
+
+      <Toast message={toastMessage} opacity={toastOpacity} />
     </View>
   );
 }
