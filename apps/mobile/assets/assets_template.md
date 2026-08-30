@@ -168,12 +168,12 @@
 
 | 파일                       | 크기(도트) | 비고                                                                     |
 | -------------------------- | ---------- | ------------------------------------------------------------------------- |
-| furn_clothes_rack_1.png    | 17×13      | 행거                                                                       |
-| furn_figure_cabinet.png    | 16×20      | 피규어 진열장                                                              |
-| furn_fridge_mini.png       | 12×16      | 미니 냉장고                                                                |
+| furn_drying_rack.png       | 17×13      | 빨래 건조대                                                                |
+| furn_shelf.png             | 16×20      | 선반                                                                       |
+| furn_fridge.png            | 16×22      | 냉장고                                                                     |
 | furn_pc_tower.png          | 10×17      | PC 본체 — 실제 폭의 2배(가상 20도트)로 계산해서 칸의 절반 크기로 왼쪽 정렬(축소 표시) |
 | furn_pet_cushion.png       | 15×7       | 반려동물 방석                                                              |
-| furn_washer.png            | 12×15      | 세탁기                                                                     |
+| furn_washer.png            | 16×20      | 세탁기                                                                     |
 
 ### 6-1. 펫(동행 스프라이트)
 
