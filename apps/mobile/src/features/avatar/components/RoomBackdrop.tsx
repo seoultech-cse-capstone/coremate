@@ -37,17 +37,19 @@ function FurniturePiece({
   position,
   cellWidth,
   rowHeight,
-  dotPx,
 }: {
   type: FurnitureType;
   position: FurniturePosition;
   cellWidth: number;
   rowHeight: number;
-  dotPx: number;
 }) {
   const set = FURNITURE_SETS[type];
-  const setWidthPx = set.widthDots * dotPx;
-  const setHeightPx = set.heightDots * dotPx;
+  // dotPx(배경과 같은 스케일)를 그대로 쓰면 세트 폭이 footprintCols보다 훨씬 커진다
+  // (책상 세트 49도트 vs 2칸=32도트). 가로가 정확히 footprintCols칸에 맞도록
+  // 세트 전용 배율을 따로 구해서 쓴다 — 세로는 비율 그대로 따라온다(찌그러짐 없음).
+  const setScale = (set.footprintCols * cellWidth) / set.widthDots;
+  const setWidthPx = set.widthDots * setScale;
+  const setHeightPx = set.heightDots * setScale;
   // 접지선(바닥 닿는 선) = 세트 바운딩박스의 맨 아래 — 그걸 칸의 바닥선에 맞춘다.
   const footprintCenterX = (position.col + set.footprintCols / 2) * cellWidth;
   const footprintGroundY = (position.row + 1) * rowHeight;
@@ -63,10 +65,10 @@ function FurniturePiece({
           source={piece.source}
           style={{
             position: "absolute",
-            left: (piece.offsetXDots - set.minXDots) * dotPx,
-            top: (piece.offsetYDots - set.minYDots) * dotPx,
-            width: piece.widthDots * dotPx,
-            height: piece.heightDots * dotPx,
+            left: (piece.offsetXDots - set.minXDots) * setScale,
+            top: (piece.offsetYDots - set.minYDots) * setScale,
+            width: piece.widthDots * setScale,
+            height: piece.heightDots * setScale,
           }}
         />
       ))}
@@ -176,7 +178,6 @@ export function RoomBackdrop({
                   <FurniturePiece
                     key={type}
                     cellWidth={cellWidth}
-                    dotPx={dotPx}
                     position={position}
                     rowHeight={rowHeight}
                     type={type}
