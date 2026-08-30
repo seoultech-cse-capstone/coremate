@@ -60,9 +60,8 @@ const SLEEP_RAW_PX_PER_DOT = 8;
 
 // 펫: 프레임 애니메이션 없는 정지 이미지라, 강아지 원본(18x13도트)을 기준 상자로 두고
 // contain으로 맞춘다(거북이는 더 납작해서 상자 안에서 살짝 작게 보인다 — 의도된 동작).
-// 원본 그대로 쓰면 아바타 옆에서 너무 커 보여서 절반 크기로 줄였다(비율 유지).
-const PET_BOX_WIDTH_DOTS = 9;
-const PET_BOX_HEIGHT_DOTS = 6.5;
+const PET_BOX_WIDTH_DOTS = 18;
+const PET_BOX_HEIGHT_DOTS = 13;
 // 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
 const PET_FOLLOW_DELAY_MS = 220;
 // 아바타 발밑 기준 오른쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
