@@ -322,6 +322,15 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       targetY = Math.min(Math.max(locationY, 0), floorHeight);
     }
 
+    // 의자/책상처럼 cellWidth÷7 같은 나눗셈에서 나온 목표 좌표는 168.428571...처럼
+    // 끝없는 소수다. 가구(chair/desk)는 일반 top/left 스타일이라 RN 레이아웃 엔진이
+    // 매 렌더 같은 값으로 정수 픽셀에 스냅하지만, 아바타는 useNativeDriver
+    // Animated.Value라 GPU 합성 단계에서 서브픽셀 그대로 그려진다 — 같은 논리값이라도
+    // 두 파이프라인의 반올림 방식이 달라서 가구와 아바타 사이 간격이 기기에 따라
+    // 1px 안팎으로 어긋나 보일 수 있다. 정수로 스냅해서 이 불일치를 없앤다.
+    targetX = Math.round(targetX);
+    targetY = Math.round(targetY);
+
     if (petItem) {
       if (petFollowTimeoutRef.current) {
         clearTimeout(petFollowTimeoutRef.current);
