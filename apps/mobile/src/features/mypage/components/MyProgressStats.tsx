@@ -1,12 +1,5 @@
 import { router } from "expo-router";
-import {
-  Bookmark,
-  CalendarCheck,
-  Gift,
-  Home,
-  PackageOpen,
-  ShoppingBag,
-} from "lucide-react-native";
+import { Bookmark, CalendarCheck, Gift, PackageOpen, ShoppingBag } from "lucide-react-native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
@@ -54,14 +47,9 @@ const actionItems = [
     route: "/avatar-shop",
   },
   {
-    label: "아바타 인벤토리",
+    label: "인벤토리",
     Icon: PackageOpen,
-    route: "/avatar-inventory",
-  },
-  {
-    label: "마이룸 인벤토리",
-    Icon: Home,
-    route: "/room-inventory",
+    route: "/inventory",
   },
 ] as const;
 

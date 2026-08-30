@@ -109,8 +109,8 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const isMovingRef = useRef(false);
   const hopLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // 아이템 보관함에서 고른 착용 상태(equipped)를 그대로 반영한다. 부위가 없으면
-  // (한 번도 안 바꿨으면) 기본 착용으로 폴백한다 — avatar-inventory.tsx와 동일한 규칙.
+  // 인벤토리 화면에서 고른 착용 상태(equipped)를 그대로 반영한다. 부위가 없으면
+  // (한 번도 안 바꿨으면) 기본 착용으로 폴백한다 — inventory.tsx와 동일한 규칙.
   const rawPetKey = equipped.PET;
   const petKey = rawPetKey !== undefined ? rawPetKey : (DEFAULT_LOCAL_KEY_BY_SLOT.PET ?? null);
   const petItem = petKey ? LOCAL_CATALOG_BY_KEY.get(petKey) : undefined;

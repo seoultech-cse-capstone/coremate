@@ -28,8 +28,9 @@ function isEquippedMap(value: unknown): value is EquippedMap {
   return typeof value === "object" && value !== null;
 }
 
-// 아이템 보관함(avatar-inventory)에서 고른 착용 상태를 앱 전체(홈 화면 아바타 등)에서
-// 같이 쓴다. 실제 장착 저장 API가 아직 없어서 지금은 기기 저장소에만 남기는 로컬 상태다.
+// 인벤토리 화면(inventory.tsx, 아바타 탭)에서 고른 착용 상태를 앱 전체(홈 화면
+// 아바타 등)에서 같이 쓴다. 실제 장착 저장 API가 아직 없어서 지금은 기기 저장소에만
+// 남기는 로컬 상태다.
 export function AvatarEquipProvider({ children }: { children: ReactNode }) {
   const [equipped, setEquipped] = useState<EquippedMap>({});
 

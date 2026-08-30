@@ -106,12 +106,8 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="avatar-shop" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="avatar-inventory"
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="inventory" options={{ headerShown: false }} />
         <Stack.Screen name="random-box" options={{ headerShown: false }} />
-        <Stack.Screen name="room-inventory" options={{ headerShown: false }} />
         <Stack.Screen
           name="mistake-exam-review"
           options={{ headerShown: false }}
