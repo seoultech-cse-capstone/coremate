@@ -23,7 +23,7 @@ import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThe
 
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 // 아바타 너비 기준: 타일 몇 칸 크기로 보일지.
-const AVATAR_WIDTH_IN_CELLS = 1.5;
+const AVATAR_WIDTH_IN_CELLS = 1;
 
 // AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
 const IDLE_SEQUENCE: { frame: 1 | 2 | 3; duration: number }[] = [
