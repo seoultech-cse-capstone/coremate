@@ -65,7 +65,7 @@ const PET_BOX_WIDTH_DOTS = 9;
 const PET_BOX_HEIGHT_DOTS = 6.5;
 // 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
 const PET_FOLLOW_DELAY_MS = 220;
-// 아바타 발밑 기준 왼쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
+// 아바타 발밑 기준 오른쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
 const PET_FOLLOW_OFFSET_CELLS = 0.55;
 
 function isWithinRect(
@@ -144,7 +144,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   // 배경·가구와 같은 world 스케일(dotPx)로 그려서 크기가 어색하게 따로 놀지 않게 한다.
   const petBoxWidth = layout ? PET_BOX_WIDTH_DOTS * layout.dotPx : 0;
   const petBoxHeight = layout ? PET_BOX_HEIGHT_DOTS * layout.dotPx : 0;
-  const petOffsetX = layout ? -PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
+  const petOffsetX = layout ? PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
 
   const bedPlacement = placements.bed;
   const bedLayout =
