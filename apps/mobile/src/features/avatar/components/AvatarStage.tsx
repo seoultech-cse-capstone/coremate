@@ -174,8 +174,7 @@ export function AvatarStage({
   }
 
   const layers = resolveLayers(layerOrder, keyBySlot, mode, frame);
-  const baseSource =
-    mode === "back" ? AVATAR_BASE_STAND_BACK : mode === "sit" ? AVATAR_SIT_BASE : AVATAR_BASE_STAND_FRAMES[frame - 1];
+  const baseSource = mode === "back" ? AVATAR_BASE_STAND_BACK : AVATAR_SIT_BASE;
 
   return (
     <View style={{ width: visibleWidth, height: visibleHeight, overflow: "hidden" }}>
@@ -188,14 +187,36 @@ export function AvatarStage({
           height: rawHeight,
         }}
       >
-        <Image
-          resizeMode="contain"
-          source={baseSource}
-          style={[
-            styles.layer,
-            { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale },
-          ]}
-        />
+        {/* 프레임 애니메이션은 source를 바꿔치기하지 않고, 모든 프레임을 겹쳐 그려둔 채
+            opacity만 바꾼다 — 이미지 소스를 매번 바꾸면 네이티브에서 다시 디코드하며
+            한 프레임씩 깜빡이는 게 눈에 띈다(특히 손 오버레이처럼 120ms로 빠를 때). */}
+        {mode === "front" ? (
+          AVATAR_BASE_STAND_FRAMES.map((source, index) => (
+            <Image
+              key={`base-${index}`}
+              resizeMode="contain"
+              source={source}
+              style={[
+                styles.layer,
+                {
+                  top: RAW_BASE_TOP_OFFSET * scale,
+                  width: rawWidth,
+                  height: RAW_BASE_HEIGHT * scale,
+                  opacity: index + 1 === frame ? 1 : 0,
+                },
+              ]}
+            />
+          ))
+        ) : (
+          <Image
+            resizeMode="contain"
+            source={baseSource}
+            style={[
+              styles.layer,
+              { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale },
+            ]}
+          />
+        )}
         {layers.map((layer) => (
           <Image
             key={layer.key}
@@ -204,16 +225,24 @@ export function AvatarStage({
             style={[styles.layer, { top: layer.dyPx * scale, width: rawWidth, height: rawHeight }]}
           />
         ))}
-        {mode === "sit" ? (
-          <Image
-            resizeMode="contain"
-            source={AVATAR_SIT_HANDS[handFrame - 1]}
-            style={[
-              styles.layer,
-              { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale },
-            ]}
-          />
-        ) : null}
+        {mode === "sit"
+          ? AVATAR_SIT_HANDS.map((source, index) => (
+              <Image
+                key={`hand-${index}`}
+                resizeMode="contain"
+                source={source}
+                style={[
+                  styles.layer,
+                  {
+                    top: RAW_BASE_TOP_OFFSET * scale,
+                    width: rawWidth,
+                    height: RAW_BASE_HEIGHT * scale,
+                    opacity: index + 1 === handFrame ? 1 : 0,
+                  },
+                ]}
+              />
+            ))
+          : null}
       </View>
     </View>
   );
@@ -248,7 +277,16 @@ export function AvatarSleepStage({ scale = 1, frame = 1, hairKey }: AvatarSleepS
 
   return (
     <View style={{ width, height }}>
-      <Image resizeMode="contain" source={AVATAR_SLEEP_BASE_FRAMES[frame - 1]} style={[styles.layer, { top: 0, width, height }]} />
+      {/* source를 바꿔치기하지 않고 세 프레임을 다 겹쳐 그린 뒤 opacity만 바꾼다 —
+          AvatarStage의 서있기 프레임과 같은 이유(이미지 재디코드로 인한 깜빡임 방지). */}
+      {AVATAR_SLEEP_BASE_FRAMES.map((source, index) => (
+        <Image
+          key={index}
+          resizeMode="contain"
+          source={source}
+          style={[styles.layer, { top: 0, width, height, opacity: index + 1 === frame ? 1 : 0 }]}
+        />
+      ))}
       {hairSleepSource ? (
         <Image resizeMode="contain" source={hairSleepSource} style={[styles.layer, { top: 0, width, height }]} />
       ) : null}
