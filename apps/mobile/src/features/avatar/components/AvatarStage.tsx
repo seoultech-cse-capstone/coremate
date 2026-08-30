@@ -86,6 +86,18 @@ const SIT_LAYER_ORDER: LocalAvatarSlot[] = [
   "EYEWEAR",
   "HAT",
 ];
+// PET은 몸에 겹쳐 그리는 부위가 아니라(방에서 따로 렌더) 여기 포함하지 않는다.
+const ALL_BODY_SLOTS: LocalAvatarSlot[] = [
+  "HAT",
+  "HAIR",
+  "EYES",
+  "EYEWEAR",
+  "MOUTH",
+  "TOP",
+  "BOTTOM",
+  "SHOES",
+  "BAG",
+];
 
 type AvatarMode = "front" | "back" | "sit";
 
@@ -106,42 +118,70 @@ type ResolvedLayer = {
   key: string;
   source: ImageSourcePropType;
   dyPx: number;
+  visible: boolean;
 };
 
-function resolveLayers(
-  order: LocalAvatarSlot[],
+function getEquippedItem(
+  keyBySlot: Partial<Record<LocalAvatarSlot, string>>,
+  slot: LocalAvatarSlot,
+): LocalCatalogItem | undefined {
+  const key = keyBySlot[slot];
+  return key ? LOCAL_CATALOG_BY_KEY.get(key) : undefined;
+}
+
+/**
+ * 착용 중인 코디를 front/back/sit 세 변형 모두 항상 마운트해두고, 지금 mode에
+ * 해당하는 것만 opacity 1로 보여준다. mode가 바뀔 때마다 source를 바꿔치기하면
+ * (예: top_basic.png ↔ top_basic_sit.png) 그 파일이 새로 디코드되며 깜빡인다 —
+ * 베이스 프레임·손 오버레이에 적용했던 것과 같은 이유로 코디에도 같은 패턴을 쓴다.
+ * 같은 mode 안에서의 상대 순서(z)는 그대로 유지해야 해서, mode별로 통째로 이어
+ * 붙인다 — 어차피 다른 mode의 레이어는 전부 opacity 0이라 서로 겹쳐도 무관하다.
+ */
+function resolveAllLayers(
   keyBySlot: Partial<Record<LocalAvatarSlot, string>>,
   mode: AvatarMode,
   frame: 1 | 2 | 3,
 ): ResolvedLayer[] {
-  return order
-    .map((slot) => keyBySlot[slot])
-    .filter((key): key is string => Boolean(key))
-    .map((key) => LOCAL_CATALOG_BY_KEY.get(key))
-    .filter((item): item is LocalCatalogItem => Boolean(item))
-    .map((item) => {
-      const isHeadAttach = HEAD_ATTACH_SLOTS.includes(item.slot);
+  const layers: ResolvedLayer[] = [];
 
-      if (mode === "back") {
-        if (item.backSource) {
-          return { key: item.key, source: item.backSource, dyPx: 0 };
-        }
-        // 뒷모습 전용 파일이 없으면 정면 파일을 그대로 재사용한다(폴백).
-        return { key: item.key, source: item.source, dyPx: isHeadAttach ? HEAD_DY_PX_BACK_FALLBACK : 0 };
-      }
-
-      if (mode === "sit") {
-        const source = item.sitSource ?? item.source;
-        const dyPx = isHeadAttach ? HEAD_DY_PX_SIT : item.slot === "SHOES" ? SHOES_DY_PX_SIT : 0;
-        return { key: item.key, source, dyPx };
-      }
-
-      return {
-        key: item.key,
-        source: item.source,
-        dyPx: isHeadAttach ? HEAD_DY_PX_BY_FRAME[frame] : 0,
-      };
+  for (const slot of FRONT_LAYER_ORDER) {
+    const item = getEquippedItem(keyBySlot, slot);
+    if (!item) {
+      continue;
+    }
+    const isHeadAttach = HEAD_ATTACH_SLOTS.includes(item.slot);
+    layers.push({
+      key: `${item.key}-front`,
+      source: item.source,
+      dyPx: isHeadAttach ? HEAD_DY_PX_BY_FRAME[frame] : 0,
+      visible: mode === "front",
     });
+  }
+
+  for (const slot of BACK_LAYER_ORDER) {
+    const item = getEquippedItem(keyBySlot, slot);
+    if (!item) {
+      continue;
+    }
+    const isHeadAttach = HEAD_ATTACH_SLOTS.includes(item.slot);
+    // 뒷모습 전용 파일이 없으면 정면 파일을 그대로 재사용한다(폴백).
+    const source = item.backSource ?? item.source;
+    const dyPx = item.backSource ? 0 : isHeadAttach ? HEAD_DY_PX_BACK_FALLBACK : 0;
+    layers.push({ key: `${item.key}-back`, source, dyPx, visible: mode === "back" });
+  }
+
+  for (const slot of SIT_LAYER_ORDER) {
+    const item = getEquippedItem(keyBySlot, slot);
+    if (!item) {
+      continue;
+    }
+    const isHeadAttach = HEAD_ATTACH_SLOTS.includes(item.slot);
+    const source = item.sitSource ?? item.source;
+    const dyPx = isHeadAttach ? HEAD_DY_PX_SIT : item.slot === "SHOES" ? SHOES_DY_PX_SIT : 0;
+    layers.push({ key: `${item.key}-sit`, source, dyPx, visible: mode === "sit" });
+  }
+
+  return layers;
 }
 
 /** 여백을 잘라낸 캔버스에 아바타를 합성해 보여준다. */
@@ -159,10 +199,12 @@ export function AvatarStage({
   const rawHeight = RAW_HEIGHT * scale;
 
   const mode: AvatarMode = activity === "sit" ? "sit" : facing;
-  const layerOrder = mode === "back" ? BACK_LAYER_ORDER : mode === "sit" ? SIT_LAYER_ORDER : FRONT_LAYER_ORDER;
 
+  // mode(현재 layerOrder)와 무관하게 착용 상태 자체는 항상 전체 부위 기준으로
+  // 반영한다 — 특정 mode의 layerOrder에 없는 부위(예: 앉기 중 BAG)라도 착용
+  // 여부는 정확히 추적해둬야, 그 부위가 다시 보이는 mode로 돌아왔을 때 맞게 그려진다.
   const keyBySlot: Partial<Record<LocalAvatarSlot, string>> = { ...DEFAULT_LOCAL_KEY_BY_SLOT };
-  for (const slot of layerOrder) {
+  for (const slot of ALL_BODY_SLOTS) {
     if (equipped && slot in equipped) {
       const key = equipped[slot];
       if (key) {
@@ -173,7 +215,7 @@ export function AvatarStage({
     }
   }
 
-  const layers = resolveLayers(layerOrder, keyBySlot, mode, frame);
+  const layers = resolveAllLayers(keyBySlot, mode, frame);
   const baseStyle = { top: RAW_BASE_TOP_OFFSET * scale, width: rawWidth, height: RAW_BASE_HEIGHT * scale };
 
   return (
@@ -214,7 +256,10 @@ export function AvatarStage({
             key={layer.key}
             resizeMode="contain"
             source={layer.source}
-            style={[styles.layer, { top: layer.dyPx * scale, width: rawWidth, height: rawHeight }]}
+            style={[
+              styles.layer,
+              { top: layer.dyPx * scale, width: rawWidth, height: rawHeight, opacity: layer.visible ? 1 : 0 },
+            ]}
           />
         ))}
         {AVATAR_SIT_HANDS.map((source, index) => (
