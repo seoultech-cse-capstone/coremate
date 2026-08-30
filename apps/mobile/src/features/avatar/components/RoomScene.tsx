@@ -172,6 +172,12 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   ) => {
     const distance = Math.hypot(targetX - from.x, targetY - from.y);
     if (distance < 6) {
+      // 이미 목표 근처라 걷는 애니메이션 없이 바로 도착 처리한다 — 그렇다고 위치를
+      // 그대로 두면(from) 가구 앵커처럼 정확히 고정돼야 하는 좌표가 매번 "거의
+      // 비슷하지만 조금씩 다른" 값으로 남는다. 무조건 targetX/Y로 스냅해야 한다.
+      posX.setValue(targetX);
+      posY.setValue(targetY);
+      currentPosRef.current = { x: targetX, y: targetY };
       isMovingRef.current = false;
       onArrive?.();
       return;
