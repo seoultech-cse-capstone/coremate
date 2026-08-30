@@ -14,14 +14,14 @@ export const ROOM_THEMES: RoomTheme[] = [
   {
     key: "basic",
     label: "베이직",
-    wallSource: require("../../../assets/room/room_wall_basic.png"),
-    floorSource: require("../../../assets/room/room_floor_basic.png"),
+    wallSource: require("../../../assets/room/room_basic_wall.png"),
+    floorSource: require("../../../assets/room/room_basic_floor.png"),
   },
   {
     key: "herringbone",
     label: "헤링본",
-    wallSource: require("../../../assets/room/room_wall_herringbone.png"),
-    floorSource: require("../../../assets/room/room_floor_herringbone.png"),
+    wallSource: require("../../../assets/room/room_herringbone_wall.png"),
+    floorSource: require("../../../assets/room/room_herringbone_floor.png"),
   },
 ];
 

@@ -21,8 +21,8 @@
 - 코디/캐릭터 아이템: `{부위}_{이름}.png` (예: `top_tshirt_graphic`, `hat_cap`, `hair_basic`). 포즈 전용 변형이 있는 아이템만 접미사를 붙인다 — `_back`(뒷모습) / `_sit`(앉기) / `_sleep`(수면). 예: `top_hoodie_back`, `bottom_jeans_sit`, `hair_basic_sleep`.
 - 장착 아이템과 무관하게 수면 중 강제로 쓰는 공용 파일: `eyes_basic_closed_sleep.png`, `mouth_smile_open_sleep.png`.
 - **주의**: 안경류는 슬롯 이름은 `EYEWEAR`지만 파일명 접두어는 `glasses_`를 쓴다(`glasses_horn`, `glasses_sun`) — 슬롯 이름과 파일 접두어가 다른 유일한 부위.
-- 가구: `{품목}_{종류}.png`(예: `desk_basic`, `bed_basic`, `bed_blanket_basic`). 장식용 가구는 `furn_{이름}.png` 접두어(예: `furn_pc_tower`, `furn_washer`).
-- 배경: `room_{wall|floor}_{테마이름}.png`(예: `room_wall_basic`, `room_floor_herringbone`).
+- 가구: 전부 `furn_{이름}.png` 접두어(예: `furn_desk_basic`, `furn_bed_basic`, `furn_bed_blanket_basic`, `furn_pc_tower`, `furn_washer`).
+- 배경: `room_{테마이름}_{wall|floor}.png`(예: `room_basic_wall`, `room_herringbone_floor`).
 - 아바타 베이스 포즈: `avatar_{포즈}_{번호}.png`(예: `avatar_base_stand_1`, `avatar_sleep_1`). 앉기 손 오버레이만 예외로 `avatar_sit_hands_{번호}.png`.
 - 펫: `pet_{이름}.png`(예: `pet_dog`, `pet_turtle`).
 - 배율 접미사(`@1x`)는 쓰지 않는다 — 전체 에셋이 1도트=8px로 통일.
@@ -54,12 +54,12 @@
 
 **벽지+바닥은 항상 같은 테마 세트로만 쓴다(따로 조합하지 않음)** — 방 하나를 "테마" 단위로 고른다. 현재 2개 테마가 있고, 각각 벽+바닥 한 쌍이다.
 
-| 파일                       | 크기(도트) | 내용             |
-| -------------------------- | ---------- | ---------------- |
-| room_wall_basic.png        | 112×96     | 베이직 테마 벽    |
-| room_floor_basic.png       | 112×108    | 베이직 테마 바닥(9줄) |
-| room_wall_herringbone.png  | 112×96     | 헤링본 테마 벽    |
-| room_floor_herringbone.png | 112×108    | 헤링본 테마 바닥(9줄) |
+| 파일                         | 크기(도트) | 내용                  |
+| ---------------------------- | ---------- | --------------------- |
+| room_basic_wall.png          | 112×96     | 베이직 테마 벽         |
+| room_basic_floor.png         | 112×108    | 베이직 테마 바닥(9줄)  |
+| room_herringbone_wall.png    | 112×96     | 헤링본 테마 벽         |
+| room_herringbone_floor.png   | 112×108    | 헤링본 테마 바닥(9줄)  |
 
 창문 변형, 벽+바닥 합본 파일, 창문 단독 데코 파일은 초안에 있었지만 **현재 에셋엔 없다.**
 
@@ -142,7 +142,7 @@
 - 서기(앞)·이동: 아바타 → shoes → bottom → top → bag → hair → eyes → mouth → glasses → hat
 - 서기(뒤): 아바타(back) → shoes → bottom → top → hair → bag → hat
 - 앉기: chair → 아바타 → shoes → bottom → top → hair → eyes → mouth → glasses → hat → **avatar_sit_hands_N** → desk
-- 수면: bed_basic → 수면 아바타 → hair → eyes_basic_closed_sleep → mouth_smile_open_sleep → bed_blanket_basic
+- 수면: furn_bed_basic → 수면 아바타 → hair → eyes_basic_closed_sleep → mouth_smile_open_sleep → furn_bed_blanket_basic
 
 ---
 
@@ -152,16 +152,16 @@
 
 **상호작용 가구(침대·책상)** — 탭하면 아바타가 걸어가서 앉거나 눕는다. 가로 2칸.
 
-| 파일                  | 크기(도트) | 배치(아바타 원점 기준) | role                          |
-| --------------------- | ---------- | ----------------------- | ------------------------------ |
-| desk_basic.png        | 49×17      | (−5, 33)                | front(책상 상판, 아바타 위)     |
-| chair_basic.png       | 31×26      | (4, 24)                 | back(항상 아바타 뒤)           |
-| bed_basic.png         | 58×28      | (0, 0)                  | back                           |
-| bed_blanket_basic.png | 58×28      | (0, 0)                  | front(이불, 자는 아바타 위)     |
+| 파일                       | 크기(도트) | 배치(아바타 원점 기준) | role                        |
+| -------------------------- | ---------- | ----------------------- | ---------------------------- |
+| furn_desk_basic.png        | 49×17      | (−5, 33)                 | front(책상 상판, 아바타 위)   |
+| furn_chair_basic.png       | 31×26      | (4, 24)                  | back(항상 아바타 뒤)         |
+| furn_bed_basic.png         | 58×28      | (0, 0)                   | back                         |
+| furn_bed_blanket_basic.png | 58×28      | (0, 0)                   | front(이불, 자는 아바타 위)   |
 
 - 책상 씬 레이어: chair → 아바타+코디 → sit_hands → desk. 항상 정면.
-- 침대 씬 레이어: bed_basic → 수면 아바타(침대 원점 기준 (4, −12)) → bed_blanket_basic.
-- 이불은 프레임별 변형 없이 `bed_blanket_basic.png` 한 장만 쓴다 — 수면 프레임에 따라 이불이 바뀌는 동기화는 하지 않기로 확정.
+- 침대 씬 레이어: furn_bed_basic → 수면 아바타(침대 원점 기준 (4, −12)) → furn_bed_blanket_basic.
+- 이불은 프레임별 변형 없이 `furn_bed_blanket_basic.png` 한 장만 쓴다 — 수면 프레임에 따라 이불이 바뀌는 동기화는 하지 않기로 확정.
 - **앉기 손 오버레이**: 상의가 베이스의 타이핑 손을 덮으므로, 아바타 프레임과 같은 번호의 `avatar_sit_hands_1~3.png`(41×54, (0,0) 정렬)를 코디 위에 그린다.
 
 **장식 가구(상호작용 없음)** — 전부 조각 1개, 가로 1칸.

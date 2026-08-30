@@ -75,14 +75,14 @@ function buildSet(
 // 책상 씬 레이어 순서(아래→위)는 chair → 아바타 → desk라, 여기서도 chair를 먼저 둔다.
 const DESK_SET = buildSet("desk", "책상", 2, [
   {
-    source: require("../../../assets/room/furniture/chair_basic.png"),
+    source: require("../../../assets/room/furniture/furn_chair_basic.png"),
     offsetXDots: 4,
     offsetYDots: 24,
     widthDots: 31,
     heightDots: 26,
   },
   {
-    source: require("../../../assets/room/furniture/desk_basic.png"),
+    source: require("../../../assets/room/furniture/furn_desk_basic.png"),
     offsetXDots: -5,
     offsetYDots: 33,
     widthDots: 49,
@@ -93,14 +93,14 @@ const DESK_SET = buildSet("desk", "책상", 2, [
 
 const BED_SET = buildSet("bed", "침대", 2, [
   {
-    source: require("../../../assets/room/furniture/bed_basic.png"),
+    source: require("../../../assets/room/furniture/furn_bed_basic.png"),
     offsetXDots: 0,
     offsetYDots: 0,
     widthDots: 58,
     heightDots: 28,
   },
   {
-    source: require("../../../assets/room/furniture/bed_blanket_basic.png"),
+    source: require("../../../assets/room/furniture/furn_bed_blanket_basic.png"),
     offsetXDots: 0,
     offsetYDots: 0,
     widthDots: 58,
