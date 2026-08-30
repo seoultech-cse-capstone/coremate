@@ -110,8 +110,7 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="random-box" options={{ headerShown: false }} />
-        <Stack.Screen name="room-theme" options={{ headerShown: false }} />
-        <Stack.Screen name="room-furniture" options={{ headerShown: false }} />
+        <Stack.Screen name="room-inventory" options={{ headerShown: false }} />
         <Stack.Screen
           name="mistake-exam-review"
           options={{ headerShown: false }}

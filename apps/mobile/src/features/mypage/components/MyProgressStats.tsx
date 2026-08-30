@@ -5,7 +5,6 @@ import {
   Gift,
   Home,
   PackageOpen,
-  Sofa,
   ShoppingBag,
 } from "lucide-react-native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -60,14 +59,9 @@ const actionItems = [
     route: "/avatar-inventory",
   },
   {
-    label: "방 테마",
+    label: "마이룸 인벤토리",
     Icon: Home,
-    route: "/room-theme",
-  },
-  {
-    label: "가구 배치",
-    Icon: Sofa,
-    route: "/room-furniture",
+    route: "/room-inventory",
   },
 ] as const;
 
