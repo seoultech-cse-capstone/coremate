@@ -3,7 +3,15 @@ import type { ImageSourcePropType } from "react-native";
 // assets_template.md 6절 기준. 좌표는 전부 "아바타 원점" 같은 공통 기준점 하나를
 // 공유한다고 보고 그대로 옮겨왔다 — 세트 내 상대 배치(바운딩박스)만 쓰므로
 // 기준점 자체가 어디든 결과는 같다.
-export type FurnitureType = "bed" | "desk";
+export type FurnitureType =
+  | "bed"
+  | "desk"
+  | "clothesRack"
+  | "figureCabinet"
+  | "fridge"
+  | "pcTower"
+  | "petCushion"
+  | "washer";
 
 export type FurniturePosition = { row: number; col: number };
 
@@ -95,12 +103,91 @@ const BED_SET = buildSet("bed", "침대", 2, [
   },
 ]);
 
+// 장식용 가구(상호작용 없음) — 전부 조각 1개, 가로 1칸.
+const CLOTHES_RACK_SET = buildSet("clothesRack", "행거", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_clothes_rack_1.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+    widthDots: 17,
+    heightDots: 13,
+  },
+]);
+
+const FIGURE_CABINET_SET = buildSet("figureCabinet", "피규어 진열장", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_figure_cabinet.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+    widthDots: 16,
+    heightDots: 20,
+  },
+]);
+
+const FRIDGE_SET = buildSet("fridge", "미니 냉장고", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_fridge_mini.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+    widthDots: 12,
+    heightDots: 16,
+  },
+]);
+
+const PC_TOWER_SET = buildSet("pcTower", "PC 본체", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_pc_tower.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+    widthDots: 10,
+    heightDots: 17,
+  },
+]);
+
+const PET_CUSHION_SET = buildSet("petCushion", "반려동물 방석", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_pet_cushion.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+    widthDots: 15,
+    heightDots: 7,
+  },
+]);
+
+const WASHER_SET = buildSet("washer", "세탁기", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_washer.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+    widthDots: 12,
+    heightDots: 15,
+  },
+]);
+
 export const FURNITURE_SETS: Record<FurnitureType, FurnitureSet> = {
   bed: BED_SET,
   desk: DESK_SET,
+  clothesRack: CLOTHES_RACK_SET,
+  figureCabinet: FIGURE_CABINET_SET,
+  fridge: FRIDGE_SET,
+  pcTower: PC_TOWER_SET,
+  petCushion: PET_CUSHION_SET,
+  washer: WASHER_SET,
 };
 
-export const FURNITURE_TYPES: FurnitureType[] = ["bed", "desk"];
+export const FURNITURE_TYPES: FurnitureType[] = [
+  "bed",
+  "desk",
+  "clothesRack",
+  "figureCabinet",
+  "fridge",
+  "pcTower",
+  "petCushion",
+  "washer",
+];
+
+/** 아바타가 걸어가서 앉거나 누울 수 있는(탭하면 상호작용하는) 가구. 나머지는 장식용이다. */
+export const INTERACTIVE_FURNITURE_TYPES: FurnitureType[] = ["bed", "desk"];
 
 export type FurnitureLayout = {
   /** 세트 전체(바운딩박스) 기준 도트→px 배율. 도트 좌표에 이 값을 곱하면 화면 px. */

@@ -15,7 +15,7 @@ import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 import { DEFAULT_LOCAL_KEY_BY_SLOT } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
 import {
-  FURNITURE_TYPES,
+  INTERACTIVE_FURNITURE_TYPES,
   getFurnitureFootprintRect,
   getFurnitureInteractionAnchor,
   getFurnitureLayout,
@@ -227,7 +227,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       return;
     }
 
-    const hitType = FURNITURE_TYPES.find((type) => {
+    const hitType = INTERACTIVE_FURNITURE_TYPES.find((type) => {
       const position = placements[type];
       if (!position) {
         return false;

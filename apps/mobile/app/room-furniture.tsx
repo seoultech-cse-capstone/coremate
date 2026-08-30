@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { ChevronLeft, Eraser } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -75,11 +75,15 @@ export default function RoomFurnitureScreen() {
           </View>
 
           <Text style={styles.helperText}>
-            아래에서 놓을 가구를 고르고, 바닥의 칸을 탭해서 놓아보세요. 침대·책상 모두 가로
-            2칸을 차지해요.
+            아래에서 놓을 가구를 고르고, 바닥의 칸을 탭해서 놓아보세요. 침대·책상은 앉거나
+            누울 수 있고, 나머지는 장식용이에요.
           </Text>
 
-          <View style={styles.modeRow}>
+          <ScrollView
+            horizontal
+            contentContainerStyle={styles.modeRow}
+            showsHorizontalScrollIndicator={false}
+          >
             {FURNITURE_TYPES.map((type) => {
               const isSelected = mode === type;
               return (
@@ -95,7 +99,7 @@ export default function RoomFurnitureScreen() {
               );
             })}
             <Pressable
-              style={[styles.modeButton, styles.removeButton, mode === "remove" && styles.modeButtonSelected]}
+              style={[styles.modeButton, mode === "remove" && styles.modeButtonSelected]}
               onPress={() => setMode("remove")}
             >
               <Eraser
@@ -113,7 +117,7 @@ export default function RoomFurnitureScreen() {
                 치우기
               </Text>
             </Pressable>
-          </View>
+          </ScrollView>
 
           <View style={styles.previewArea}>
             <RoomBackdrop
@@ -180,7 +184,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   modeButton: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -190,6 +193,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     backgroundColor: "#ffffff",
     paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   modeButtonSelected: {
     borderColor: "#6D5DFB",
@@ -203,9 +207,6 @@ const styles = StyleSheet.create({
   },
   modeButtonTextSelected: {
     color: "#ffffff",
-  },
-  removeButton: {
-    flex: 0.8,
   },
   removeButtonText: {
     color: "#6D5DFB",
