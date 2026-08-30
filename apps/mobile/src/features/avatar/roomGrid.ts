@@ -10,8 +10,8 @@ export const ROOM_GRID_COLS = 7;
 export const ROOM_GRID_ROWS = 5;
 // 칸을 정사각형이 아니라 납작한 직사각형으로 그려서 내려다본 듯한 입체감을 준다.
 const ROW_HEIGHT_RATIO = 0.75;
-// 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 두 칸만큼 남겨둔다.
-const GRID_BOTTOM_MARGIN_ROWS = 2;
+// 격자 마지막 줄 아래로 가구를 놓을 수 없는 빈 바닥을 한 칸만큼 남겨둔다.
+const GRID_BOTTOM_MARGIN_ROWS = 1;
 
 export type RoomGridLayout = {
   cellWidth: number;
