@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { CheckCircle2, ChevronLeft, Eraser } from "lucide-react-native";
+import { CheckCircle2, ChevronLeft } from "lucide-react-native";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,18 +23,18 @@ import { useToast } from "../src/shared/hooks/useToast";
 const ROOM_PREVIEW_HEIGHT = 320;
 
 type Tab = "theme" | "furniture";
-type FurnitureMode = FurnitureType | "remove";
 
 // 방 테마·가구 배치를 한 화면으로 합쳤다. 위 미리보기(RoomBackdrop)는 항상 지금
 // 상태(테마+배치된 가구)를 그대로 보여주고, 아래 탭에서 고르는 즉시 반영된다.
 // 가구는 종류를 먼저 고른 뒤 미리보기의 바닥을 탭해서 놓는 방식(칸 위치가
 // 필요해서 아바타 코디처럼 탭 한 번으로 끝낼 수 없다)은 기존과 동일하게 유지했다.
+// 치우기는 별도 도구 없이, 고른 가구가 이미 놓인 자리를 한 번 더 탭하면 된다.
 export default function RoomInventoryScreen() {
   useRequireMember();
   const { themeKey, setThemeKey } = useRoomTheme();
   const { placements, setPlacement } = useRoomFurniture();
   const [tab, setTab] = useState<Tab>("theme");
-  const [furnitureMode, setFurnitureMode] = useState<FurnitureMode>("bed");
+  const [selectedFurnitureType, setSelectedFurnitureType] = useState<FurnitureType>("bed");
   const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
 
@@ -50,22 +50,20 @@ export default function RoomInventoryScreen() {
       return;
     }
 
-    if (furnitureMode === "remove") {
-      const hit = FURNITURE_TYPES.find((type) => {
-        const position = placements[type];
-        if (!position || position.row !== row) {
-          return false;
-        }
-        const footprintCols = FURNITURE_SETS[type].footprintCols;
-        return col >= position.col && col < position.col + footprintCols;
-      });
-      if (hit) {
-        setPlacement(hit, null);
-      }
+    const currentPosition = placements[selectedFurnitureType];
+    const footprintCols = FURNITURE_SETS[selectedFurnitureType].footprintCols;
+    const tappedOwnFootprint =
+      currentPosition &&
+      currentPosition.row === row &&
+      col >= currentPosition.col &&
+      col < currentPosition.col + footprintCols;
+
+    if (tappedOwnFootprint) {
+      setPlacement(selectedFurnitureType, null);
       return;
     }
 
-    const placed = setPlacement(furnitureMode, { row, col });
+    const placed = setPlacement(selectedFurnitureType, { row, col });
     if (!placed) {
       showToast("이미 가구가 놓여져있어요");
     }
@@ -142,20 +140,21 @@ export default function RoomInventoryScreen() {
           ) : (
             <>
               <Text style={styles.helperText}>
-                놓을 가구를 고르고, 위 미리보기의 바닥을 탭해서 놓아보세요. 침대·책상은
-                앉거나 누울 수 있고, 나머지는 장식용이에요.
+                놓을 가구를 고르고, 위 미리보기의 바닥을 탭해서 놓아보세요. 이미 놓인
+                자리를 한 번 더 탭하면 치워져요. 침대·책상은 앉거나 누울 수 있고,
+                나머지는 장식용이에요.
               </Text>
 
               <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
                 {FURNITURE_TYPES.map((type) => {
-                  const isToolSelected = furnitureMode === type;
+                  const isToolSelected = selectedFurnitureType === type;
                   const isPlaced = Boolean(placements[type]);
 
                   return (
                     <Pressable
                       key={type}
                       style={[styles.card, isToolSelected && styles.cardSelected]}
-                      onPress={() => setFurnitureMode(type)}
+                      onPress={() => setSelectedFurnitureType(type)}
                     >
                       {isPlaced ? (
                         <View style={styles.selectedBadge}>
@@ -175,16 +174,6 @@ export default function RoomInventoryScreen() {
                     </Pressable>
                   );
                 })}
-
-                <Pressable
-                  style={[styles.card, furnitureMode === "remove" && styles.cardSelected]}
-                  onPress={() => setFurnitureMode("remove")}
-                >
-                  <View style={styles.thumbnailBox}>
-                    <Eraser color="#6D5DFB" size={28} strokeWidth={2.2} />
-                  </View>
-                  <Text style={styles.cardLabel}>치우기</Text>
-                </Pressable>
               </ScrollView>
             </>
           )}
