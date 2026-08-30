@@ -6,8 +6,8 @@ import type { ImageSourcePropType } from "react-native";
 export type FurnitureType =
   | "bed"
   | "desk"
-  | "clothesRack"
-  | "figureCabinet"
+  | "dryingRack"
+  | "shelf"
   | "fridge"
   | "pcTower"
   | "petCushion"
@@ -110,9 +110,9 @@ const BED_SET = buildSet("bed", "침대", 2, [
 ]);
 
 // 장식용 가구(상호작용 없음) — 전부 조각 1개, 가로 1칸.
-const CLOTHES_RACK_SET = buildSet("clothesRack", "행거", 1, [
+const DRYING_RACK_SET = buildSet("dryingRack", "빨래 건조대", 1, [
   {
-    source: require("../../../assets/room/furniture/furn_clothes_rack_1.png"),
+    source: require("../../../assets/room/furniture/furn_drying_rack.png"),
     offsetXDots: 0,
     offsetYDots: 0,
     widthDots: 17,
@@ -120,9 +120,9 @@ const CLOTHES_RACK_SET = buildSet("clothesRack", "행거", 1, [
   },
 ]);
 
-const FIGURE_CABINET_SET = buildSet("figureCabinet", "피규어 진열장", 1, [
+const SHELF_SET = buildSet("shelf", "선반", 1, [
   {
-    source: require("../../../assets/room/furniture/furn_figure_cabinet.png"),
+    source: require("../../../assets/room/furniture/furn_shelf.png"),
     offsetXDots: 0,
     offsetYDots: 0,
     widthDots: 16,
@@ -130,13 +130,13 @@ const FIGURE_CABINET_SET = buildSet("figureCabinet", "피규어 진열장", 1, [
   },
 ]);
 
-const FRIDGE_SET = buildSet("fridge", "미니 냉장고", 1, [
+const FRIDGE_SET = buildSet("fridge", "냉장고", 1, [
   {
-    source: require("../../../assets/room/furniture/furn_fridge_mini.png"),
+    source: require("../../../assets/room/furniture/furn_fridge.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 12,
-    heightDots: 16,
+    widthDots: 16,
+    heightDots: 22,
   },
 ]);
 
@@ -173,16 +173,16 @@ const WASHER_SET = buildSet("washer", "세탁기", 1, [
     source: require("../../../assets/room/furniture/furn_washer.png"),
     offsetXDots: 0,
     offsetYDots: 0,
-    widthDots: 12,
-    heightDots: 15,
+    widthDots: 16,
+    heightDots: 20,
   },
 ]);
 
 export const FURNITURE_SETS: Record<FurnitureType, FurnitureSet> = {
   bed: BED_SET,
   desk: DESK_SET,
-  clothesRack: CLOTHES_RACK_SET,
-  figureCabinet: FIGURE_CABINET_SET,
+  dryingRack: DRYING_RACK_SET,
+  shelf: SHELF_SET,
   fridge: FRIDGE_SET,
   pcTower: PC_TOWER_SET,
   petCushion: PET_CUSHION_SET,
@@ -192,8 +192,8 @@ export const FURNITURE_SETS: Record<FurnitureType, FurnitureSet> = {
 export const FURNITURE_TYPES: FurnitureType[] = [
   "bed",
   "desk",
-  "clothesRack",
-  "figureCabinet",
+  "dryingRack",
+  "shelf",
   "fridge",
   "pcTower",
   "petCushion",
