@@ -196,6 +196,13 @@ export const LOCAL_AVATAR_CATALOG: LocalCatalogItem[] = [
     backSource: require("../../../assets/avatar/items/hat_headset_back.png"),
   },
   {
+    key: "hat_backcap",
+    slot: "HAT",
+    label: "백캡",
+    source: require("../../../assets/avatar/items/hat_backcap.png"),
+    backSource: require("../../../assets/avatar/items/hat_backcap_back.png"),
+  },
+  {
     key: "glasses_horn",
     slot: "EYEWEAR",
     label: "뿔테 안경",
