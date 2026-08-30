@@ -5,6 +5,8 @@ export { RoomScene } from "./components/RoomScene";
 export { RoomBackdrop } from "./components/RoomBackdrop";
 export type { RoomLayoutInfo } from "./components/RoomBackdrop";
 export { RoomThemeProvider, useRoomTheme } from "./RoomThemeContext";
+export { AvatarEquipProvider, useAvatarEquip } from "./AvatarEquipContext";
+export type { EquippedMap } from "./AvatarEquipContext";
 export { ROOM_THEMES } from "./roomThemes";
 export type { RoomTheme, RoomThemeKey } from "./roomThemes";
 export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect } from "./roomGrid";

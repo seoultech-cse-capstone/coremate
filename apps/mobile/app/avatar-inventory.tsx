@@ -14,16 +14,18 @@ import {
   LOCAL_SLOT_LABEL,
   LOCAL_SLOT_ORDER,
   REQUIRED_LOCAL_SLOTS,
+  useAvatarEquip,
   type LocalAvatarSlot,
 } from "../src/features/avatar";
 
 // 백엔드 아이템 카탈로그가 아직 비어있어(#165 0단계 미확정) 실제 API로 착용 상태를
-// 저장할 수 없다. 받아둔 로컬 스프라이트로 조합만 미리 볼 수 있게 만든 테스트 화면.
-// 카탈로그가 정해지면 실제 인벤토리 API(useInventory) 연동으로 교체한다.
+// 저장할 수 없다. AvatarEquipContext(기기 저장소)에 임시로 남겨서, 홈 화면 등
+// 앱 전체에서 같은 착용 상태를 보게 만든 화면. 카탈로그가 정해지면 실제 인벤토리
+// API(useInventory) 연동으로 교체한다.
 export default function AvatarInventoryScreen() {
   useRequireMember();
   const [selectedSlot, setSelectedSlot] = useState<LocalAvatarSlot>("HAIR");
-  const [equipped, setEquipped] = useState<Partial<Record<LocalAvatarSlot, string | null>>>({});
+  const { equipped, setEquippedItem } = useAvatarEquip();
 
   const itemsBySlot = useMemo(() => {
     const map = new Map<LocalAvatarSlot, typeof LOCAL_AVATAR_CATALOG>();
@@ -99,9 +101,7 @@ export default function AvatarInventoryScreen() {
             {!isRequiredSlot ? (
               <Pressable
                 style={[styles.card, effectiveKey === null && styles.cardEquipped]}
-                onPress={() =>
-                  setEquipped((prev) => ({ ...prev, [selectedSlot]: null }))
-                }
+                onPress={() => setEquippedItem(selectedSlot, null)}
               >
                 {effectiveKey === null ? (
                   <View style={styles.equippedBadge}>
@@ -122,9 +122,7 @@ export default function AvatarInventoryScreen() {
                 <Pressable
                   key={item.key}
                   style={[styles.card, isEquipped && styles.cardEquipped]}
-                  onPress={() =>
-                    setEquipped((prev) => ({ ...prev, [selectedSlot]: item.key }))
-                  }
+                  onPress={() => setEquippedItem(selectedSlot, item.key)}
                 >
                   {isEquipped ? (
                     <View style={styles.equippedBadge}>

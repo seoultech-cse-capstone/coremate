@@ -12,6 +12,7 @@ import {
   AvatarStage,
 } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
+import { useAvatarEquip } from "../AvatarEquipContext";
 import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
 import {
@@ -94,6 +95,7 @@ type RoomSceneProps = {
  */
 export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
   const { placements } = useRoomFurniture();
+  const { equipped } = useAvatarEquip();
   const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
   const [hasPositioned, setHasPositioned] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("front");
@@ -106,10 +108,13 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const isMovingRef = useRef(false);
   const hopLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // 펫: 장착 저장이 아직 없어 다른 선택 부위처럼 DEFAULT_LOCAL_KEY_BY_SLOT을 그대로
-  // 쓴다 — 지금은 기본값이 없어 아무것도 설정 안 하면 방에 펫이 안 보인다.
-  const petKey = DEFAULT_LOCAL_KEY_BY_SLOT.PET;
+  // 아이템 보관함에서 고른 착용 상태(equipped)를 그대로 반영한다. 부위가 없으면
+  // (한 번도 안 바꿨으면) 기본 착용으로 폴백한다 — avatar-inventory.tsx와 동일한 규칙.
+  const rawPetKey = equipped.PET;
+  const petKey = rawPetKey !== undefined ? rawPetKey : (DEFAULT_LOCAL_KEY_BY_SLOT.PET ?? null);
   const petItem = petKey ? LOCAL_CATALOG_BY_KEY.get(petKey) : undefined;
+  const rawHairKey = equipped.HAIR;
+  const hairKey = rawHairKey !== undefined ? rawHairKey : DEFAULT_LOCAL_KEY_BY_SLOT.HAIR;
   const petX = useRef(new Animated.Value(0)).current;
   const petY = useRef(new Animated.Value(0)).current;
   const petCurrentPosRef = useRef({ x: 0, y: 0 });
@@ -400,11 +405,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                   opacity: occupancy === "bed" ? 1 : 0,
                 }}
               >
-                <AvatarSleepStage
-                  frame={sleepFrame}
-                  hairKey={DEFAULT_LOCAL_KEY_BY_SLOT.HAIR}
-                  scale={sleepScale}
-                />
+                <AvatarSleepStage frame={sleepFrame} hairKey={hairKey ?? undefined} scale={sleepScale} />
               </View>
             ) : null}
             <View style={{ opacity: occupancy === "bed" ? 0 : 1 }}>
@@ -435,9 +436,9 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 ]}
               >
                 {occupancy === "desk" ? (
-                  <AvatarStage activity="sit" handFrame={handFrame} scale={avatarScale} />
+                  <AvatarStage activity="sit" equipped={equipped} handFrame={handFrame} scale={avatarScale} />
                 ) : (
-                  <AvatarStage facing={facing} frame={frame} scale={avatarScale} />
+                  <AvatarStage equipped={equipped} facing={facing} frame={frame} scale={avatarScale} />
                 )}
               </Animated.View>
             </View>
