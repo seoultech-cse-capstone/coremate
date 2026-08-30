@@ -8,8 +8,10 @@ import {
   AVATAR_SLEEP_STAGE_WIDTH,
   AVATAR_STAGE_HEIGHT,
   AVATAR_STAGE_WIDTH,
+  AVATAR_WIDTH_IN_CELLS,
   AvatarSleepStage,
   AvatarStage,
+  getAvatarDotPx,
 } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 import { useAvatarEquip } from "../AvatarEquipContext";
@@ -23,9 +25,6 @@ import {
   type FurnitureType,
 } from "../roomFurniture";
 import { useFrameSequence } from "../useFrameSequence";
-
-// 아바타 너비 기준: 타일 몇 칸 크기로 보일지.
-const AVATAR_WIDTH_IN_CELLS = 1;
 
 // AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
 const IDLE_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
@@ -136,26 +135,26 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
 
   const width = layout?.width ?? 0;
   const floorHeight = (layout?.floorHeight ?? 0) + bottomOverflow;
-  // 아바타 너비를 타일 2칸 크기로 고정한다(dotPx 그대로 쓰면 약 1.8칸이라 요청대로 조정).
+  // 아바타 너비를 타일 1칸 크기로 고정한다(dotPx 그대로 쓰면 훨씬 커서 요청대로 조정).
   const avatarScale = layout ? (AVATAR_WIDTH_IN_CELLS * layout.cellWidth) / AVATAR_STAGE_WIDTH : 0;
   const avatarRenderWidth = AVATAR_STAGE_WIDTH * avatarScale;
   const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
   const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
   const feetOffsetY = avatarRenderHeight * AVATAR_FOOT_Y_RATIO;
-  // 펫은 아바타와 "도트당 화면 px"이 같아야 같은 굵기의 픽셀아트로 보인다.
-  // avatarScale은 원본 asset px(8px=1도트) 기준 배율이라 8을 곱하면 아바타
-  // 기준 1도트가 몇 화면 px인지 나온다 — 공통 dotPx가 아니라 이 값을 써야
-  // 아바타와 나란히 있을 때 도트 크기가 어긋나지 않는다. 원본 도트 수가 펫이
-  // 아바타보다 적어서(18 < 아바타 렌더 폭에 해당하는 도트 수) 같은 도트 배율을
-  // 써도 자연히 더 작게 보인다 — 별도 축소 비율이 필요 없다.
-  const avatarDotPx = avatarScale * 8;
+  // 펫·가구 전부 아바타와 같은 "도트당 화면 px"를 쓴다 — 공통 dotPx(배경 격자
+  // 기준)가 아니라 이 값이어야 아바타와 나란히 있을 때 도트 크기가 어긋나지
+  // 않는다. 각자 원본 도트 수만큼만 자연히 크거나 작게 보이므로 항목별 축소
+  // 비율이 따로 필요 없다.
+  const avatarDotPx = layout ? getAvatarDotPx(layout.cellWidth) : 0;
   const petBoxWidth = PET_BOX_WIDTH_DOTS * avatarDotPx;
   const petBoxHeight = PET_BOX_HEIGHT_DOTS * avatarDotPx;
   const petOffsetX = layout ? PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
 
   const bedPlacement = placements.bed;
   const bedLayout =
-    bedPlacement && layout ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight) : null;
+    bedPlacement && layout
+      ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight, avatarDotPx)
+      : null;
   // AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
   const sleepScale = bedLayout ? bedLayout.scale / SLEEP_RAW_PX_PER_DOT : 0;
   const sleepLeft = bedLayout ? bedLayout.containerLeft + 4 * bedLayout.scale : 0;
@@ -342,7 +341,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       if (!position) {
         return;
       }
-      const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight);
+      const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight, avatarDotPx);
       targetX = anchor.x;
       targetY = anchor.y;
       onArrive = () => setOccupancy(hitType);

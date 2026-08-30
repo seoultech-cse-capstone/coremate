@@ -24,6 +24,22 @@ const CONTENT_CROP = { x: 48, y: 64, width: 232, height: 432 };
 export const AVATAR_STAGE_WIDTH = CONTENT_CROP.width;
 export const AVATAR_STAGE_HEIGHT = CONTENT_CROP.height;
 
+// 아바타 너비 기준: 타일 몇 칸 크기로 보일지. 원본 그대로(dotPx) 그리면 화면에서
+// 너무 커서 이 기준으로 직접 축소한다 — 방의 다른 모든 것(펫·가구)이 아바타와
+// 같은 "도트당 화면 px"를 쓰려면 이 값을 거쳐야 한다.
+export const AVATAR_WIDTH_IN_CELLS = 1;
+
+/**
+ * 아바타 기준 "도트 하나 = 화면 몇 px"인지 계산한다. avatarScale은 원본 asset px
+ * (8px=1도트) 기준 배율이라 8을 곱해야 도트 단위 배율이 된다. 방 안의 펫·가구도
+ * 이 값을 그대로 쓰면 아바타와 같은 굵기의 픽셀아트로, 자연스럽게 원본 도트 수
+ * 비율대로 크기가 비교된다(별도 축소 비율이 필요 없다).
+ */
+export function getAvatarDotPx(cellWidth: number): number {
+  const avatarScale = (AVATAR_WIDTH_IN_CELLS * cellWidth) / AVATAR_STAGE_WIDTH;
+  return avatarScale * 8;
+}
+
 // assets_template.md 4절: 아바타(베이스) 캔버스는 41x54도트, 중심 x=20도트,
 // 발바닥 기준선 y=49도트(베이스 캔버스 자체 기준). 스테이지 좌표로 옮기면
 // RAW_BASE_TOP_OFFSET(96px)만큼 아래로 내려가 있다. AvatarStage가 실제로

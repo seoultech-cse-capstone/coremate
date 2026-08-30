@@ -200,17 +200,22 @@ export type FurnitureLayout = {
   }[];
 };
 
-/** 배치 좌표 + 격자 치수로 가구 세트의 화면 위치를 계산한다. RoomBackdrop과 상호작용 로직이 공유한다. */
+/**
+ * 배치 좌표 + 격자 치수로 가구 세트의 화면 위치를 계산한다. RoomBackdrop과
+ * 상호작용 로직이 공유한다. avatarDotPx(아바타 기준 도트당 화면 px, AvatarStage의
+ * getAvatarDotPx)를 그대로 써서, 가구도 아바타·펫과 같은 굵기의 픽셀아트로
+ * 보이고 원본 도트 수 비율대로 자연히 크기가 비교된다 — footprintCols에 맞춰
+ * 억지로 늘리거나 줄이지 않는다(칸보다 작거나 크게 보일 수 있음, 의도된 동작).
+ */
 export function getFurnitureLayout(
   type: FurnitureType,
   position: FurniturePosition,
   cellWidth: number,
   rowHeight: number,
+  avatarDotPx: number,
 ): FurnitureLayout {
   const set = FURNITURE_SETS[type];
-  // dotPx(배경과 같은 스케일)를 그대로 쓰면 세트 폭이 footprintCols칸보다 커진다 —
-  // 세트 너비가 정확히 footprintCols칸에 맞도록 세트 전용 배율을 쓴다.
-  const scale = (set.footprintCols * cellWidth) / set.widthDots;
+  const scale = avatarDotPx;
   const setWidthPx = set.widthDots * scale;
   const setHeightPx = set.heightDots * scale;
   const footprintCenterX = (position.col + set.footprintCols / 2) * cellWidth;
@@ -273,9 +278,10 @@ export function getFurnitureInteractionAnchor(
   position: FurniturePosition,
   cellWidth: number,
   rowHeight: number,
+  avatarDotPx: number,
 ): { x: number; y: number } {
   if (type === "desk") {
-    const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight);
+    const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight, avatarDotPx);
     const chair = pieces.find((piece) => piece.role === "back") ?? pieces[0];
     return { x: chair.left + chair.width / 2, y: chair.top + chair.height };
   }

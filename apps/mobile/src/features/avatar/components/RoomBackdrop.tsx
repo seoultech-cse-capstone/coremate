@@ -13,6 +13,7 @@ import { useRoomTheme } from "../RoomThemeContext";
 import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThemes";
 import { useRoomFurniture, type FurniturePosition } from "../RoomFurnitureContext";
 import { FURNITURE_TYPES, getFurnitureLayout, type FurnitureType } from "../roomFurniture";
+import { getAvatarDotPx } from "./AvatarStage";
 
 const GRID_LINE_COLOR = "rgba(255, 255, 255, 0.4)";
 
@@ -50,15 +51,17 @@ function FurniturePieces({
   position,
   cellWidth,
   rowHeight,
+  avatarDotPx,
   role,
 }: {
   type: FurnitureType;
   position: FurniturePosition;
   cellWidth: number;
   rowHeight: number;
+  avatarDotPx: number;
   role: "back" | "front" | "all";
 }) {
-  const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight);
+  const { pieces } = getFurnitureLayout(type, position, cellWidth, rowHeight, avatarDotPx);
 
   return (
     <>
@@ -107,6 +110,8 @@ export function RoomBackdrop({
   const layout = getRoomGridLayout(width, height);
   const { cellWidth, rowHeight, gridHeight, floorHeight: baseFloorHeight, wallHeight, dotPx } = layout;
   const floorHeight = baseFloorHeight + bottomOverflow;
+  // 가구는 배경(dotPx)이 아니라 아바타와 같은 도트당 화면 px를 쓴다 — roomFurniture.ts 참고.
+  const avatarDotPx = getAvatarDotPx(cellWidth);
 
   useEffect(() => {
     if (width > 0) {
@@ -134,6 +139,7 @@ export function RoomBackdrop({
         furnitureAndAvatarNodes.push(
           <FurniturePieces
             key={`${type}-back`}
+            avatarDotPx={avatarDotPx}
             cellWidth={cellWidth}
             position={placements[type]!}
             role="back"
@@ -146,6 +152,7 @@ export function RoomBackdrop({
         furnitureAndAvatarNodes.push(
           <FurniturePieces
             key={`${type}-front`}
+            avatarDotPx={avatarDotPx}
             cellWidth={cellWidth}
             position={placements[type]!}
             role="front"
@@ -155,7 +162,15 @@ export function RoomBackdrop({
         );
       } else {
         furnitureAndAvatarNodes.push(
-          <FurniturePieces key={type} cellWidth={cellWidth} position={placements[type]!} role="all" rowHeight={rowHeight} type={type} />,
+          <FurniturePieces
+            key={type}
+            avatarDotPx={avatarDotPx}
+            cellWidth={cellWidth}
+            position={placements[type]!}
+            role="all"
+            rowHeight={rowHeight}
+            type={type}
+          />,
         );
       }
     });
