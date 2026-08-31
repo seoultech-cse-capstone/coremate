@@ -104,7 +104,7 @@ class FriendRoomIntegrationTest {
         assertThat(profile.room().placements()).hasSize(1);
         assertThat(profile.room().placements().get(0).gridX()).isEqualTo(2);
         assertThat(profile.room().placements().get(0).gridY()).isEqualTo(3);
-        assertThat(profile.room().gridWidth()).isEqualTo(10);
+        assertThat(profile.room().gridWidth()).isEqualTo(7);
     }
 
     @Test

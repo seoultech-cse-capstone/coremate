@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,7 +18,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 // 상점, 랜덤박스, 보관함에서 공통으로 참조하는 아바타 아이템 마스터.
 @Entity
-@Table(name = "avatar_items")
+@Table(
+        name = "avatar_items",
+        // 시드가 매 기동 실행되므로 ON DUPLICATE KEY UPDATE 로 멱등해야 한다.
+        // 걸 키가 없으면 재시작마다 같은 아이템이 다시 쌓인다.
+        uniqueConstraints = @UniqueConstraint(name = "uq_avatar_items_name", columnNames = "item_name")
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)

@@ -118,8 +118,8 @@ class RoomQueryIntegrationTest {
 
             assertThat(room.userId()).isEqualTo(userId);
             assertThat(room.baseAvatarType()).isEqualTo("BASIC_01");
-            assertThat(room.gridWidth()).isEqualTo(10);
-            assertThat(room.gridHeight()).isEqualTo(7);
+            assertThat(room.gridWidth()).isEqualTo(7);
+            assertThat(room.gridHeight()).isEqualTo(5);
             assertThat(room.equippedItems()).hasSize(8);
             assertThat(room.placements()).hasSize(1);
         }

@@ -59,15 +59,17 @@ class AvatarSharedTypeTest {
     }
 
     @Nested
-    @DisplayName("필수 슬롯 5종은 해제할 수 없다")
+    @DisplayName("필수 슬롯 6종은 해제할 수 없다")
     class RequiredSlot {
 
+        // 2026-08-30 개정. 상의·하의가 비면 옷을 안 입은 아바타가 되고, 방 테마가 비면 방이 안 그려진다.
+        // FLOOR 는 WALLPAPER 테마에 흡수돼 더 이상 쓰지 않으므로 필수가 아니다.
         @Test
-        @DisplayName("필수 슬롯은 HAIR, EYES, MOUTH, WALLPAPER, FLOOR 뿐이다")
-        void requiredSlotsAreExactlyFive() {
+        @DisplayName("필수 슬롯은 HAIR, EYES, MOUTH, TOP, BOTTOM, WALLPAPER 뿐이다")
+        void requiredSlotsAreExactlySix() {
             assertThat(Arrays.stream(AvatarSlot.values()).filter(AvatarSlot::isRequired))
-                    .containsExactlyInAnyOrder(AvatarSlot.HAIR, AvatarSlot.EYES,
-                            AvatarSlot.MOUTH, AvatarSlot.WALLPAPER, AvatarSlot.FLOOR);
+                    .containsExactlyInAnyOrder(AvatarSlot.HAIR, AvatarSlot.EYES, AvatarSlot.MOUTH,
+                            AvatarSlot.TOP, AvatarSlot.BOTTOM, AvatarSlot.WALLPAPER);
         }
     }
 
