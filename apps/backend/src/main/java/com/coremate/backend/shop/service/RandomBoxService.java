@@ -1,8 +1,11 @@
 package com.coremate.backend.shop.service;
 
 import com.coremate.backend.avatar.catalog.AvatarItem;
+import com.coremate.backend.avatar.catalog.type.AcquiredSource;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
-import com.coremate.backend.avatar.inventory.service.InventoryService;
+import com.coremate.backend.avatar.inventory.repository.UserItemRepository;
+import com.coremate.backend.avatar.inventory.service.ItemGrantResult;
+import com.coremate.backend.avatar.inventory.service.ItemGrantService;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.reward.entity.CurrencyLog;
@@ -41,7 +44,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class RandomBoxService {
 
     private static final String REFERENCE_TYPE_RANDOM_BOX = "RANDOM_BOX";
-    private static final String ACQUIRED_SOURCE_RANDOM_BOX = "RANDOM_BOX";
     private static final BigDecimal MIN_PROBABILITY_SUM = BigDecimal.ONE;
 
     // 등급별 확률 공개용 버킷. 아이템 보상은 등급(COMMON/RARE/EPIC), 코인 보상은 COIN 으로 묶는다.
@@ -53,7 +55,8 @@ public class RandomBoxService {
     private final RandomBoxOpenLogRepository randomBoxOpenLogRepository;
     private final ShopProductRepository shopProductRepository;
     private final RewardService rewardService;
-    private final InventoryService inventoryService;
+    private final ItemGrantService itemGrantService;
+    private final UserItemRepository userItemRepository;
     private final UserRepository userRepository;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -142,13 +145,37 @@ public class RandomBoxService {
             if (item == null || !item.isActive()) {
                 throw new CoreMateException(ErrorCode.INVALID_RANDOM_BOX_POLICY);
             }
-            UserItem userItem = inventoryService.grantItemEntity(
+            // 지급은 avatar.inventory 의 단일 진입점에 맡긴다. 중복 분기(가구 수량 증가/그 외 환급)는
+            // grant() 안에 있어 여기서는 item_type / rarity 를 알 필요가 없다.
+            ItemGrantResult grantResult = itemGrantService.grant(
                     user.getUserId(),
                     item.getItemId(),
-                    1,
-                    ACQUIRED_SOURCE_RANDOM_BOX,
+                    AcquiredSource.RANDOM_BOX,
                     randomBox.getRandomBoxId()
             );
+            if (grantResult.isRefundable()) {
+                // 이미 가진 아이템이 또 나왔다. user_items 는 그대로 두고 등급별 코인만 환급한다.
+                // 환급액은 grant() 가 등급에서 계산해 내려준 값을 그대로 쓴다 — 여기서 다시 계산하지 않는다.
+                rewardService.earnCoin(
+                        user.getUserId(),
+                        grantResult.refundCoin(),
+                        CurrencyReason.DUPLICATE_ITEM_REFUND,
+                        REFERENCE_TYPE_RANDOM_BOX,
+                        randomBox.getRandomBoxId()
+                );
+                // 뽑힌 보상은 아이템이지만 새 user_items 행은 없다(환급으로 대체). rewardCoinAmount 로 환급액을 남긴다.
+                return randomBoxOpenLogRepository.save(new RandomBoxOpenLog(
+                        user,
+                        randomBox,
+                        spendLog.getCurrencyLogId(),
+                        RandomBoxItem.REWARD_TYPE_ITEM,
+                        item,
+                        null,
+                        grantResult.refundCoin()
+                ));
+            }
+            // 신규 지급 또는 가구 수량 증가. 생긴/늘어난 user_items 행을 로그에 연결한다.
+            UserItem userItem = userItemRepository.getReferenceById(grantResult.userItemId());
             return randomBoxOpenLogRepository.save(new RandomBoxOpenLog(
                     user,
                     randomBox,

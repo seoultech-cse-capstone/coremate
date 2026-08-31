@@ -21,4 +21,7 @@ public class PurchaseShopProductRequest {
     @Schema(example = "1")
     @Min(1)
     private Integer quantity;
+
+    @Schema(example = "코어2", description = "닉네임 변경권 구매 시 변경할 새 닉네임 (최대 6글자)")
+    private String newNickname;
 }
