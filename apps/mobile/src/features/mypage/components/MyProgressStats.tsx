@@ -47,9 +47,9 @@ const actionItems = [
     route: "/avatar-shop",
   },
   {
-    label: "아바타 인벤토리",
+    label: "인벤토리",
     Icon: PackageOpen,
-    route: "/avatar-inventory",
+    route: "/inventory",
   },
 ] as const;
 
