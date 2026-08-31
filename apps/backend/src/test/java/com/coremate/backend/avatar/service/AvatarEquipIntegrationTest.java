@@ -77,12 +77,12 @@ class AvatarEquipIntegrationTest {
     }
 
     @Nested
-    @DisplayName("필수 슬롯 5개는 해제할 수 없다 (EX-ITEM-007)")
+    @DisplayName("필수 슬롯 6개는 해제할 수 없다 (EX-ITEM-007)")
     class RequiredSlots {
 
         // 비우면 렌더가 깨진다. 교체만 허용한다.
         @ParameterizedTest(name = "{0} 은 해제 요청이 막힌다")
-        @ValueSource(strings = {"HAIR", "EYES", "MOUTH", "WALLPAPER", "FLOOR"})
+        @ValueSource(strings = {"HAIR", "EYES", "MOUTH", "TOP", "BOTTOM", "WALLPAPER"})
         void cannotUnequipRequiredSlot(String slot) {
             assertThatThrownBy(() -> update(slot, null))
                     .isInstanceOf(CoreMateException.class)
@@ -105,7 +105,7 @@ class AvatarEquipIntegrationTest {
     class OptionalSlots {
 
         @ParameterizedTest(name = "{0} 은 해제된다")
-        @ValueSource(strings = {"TOP", "BOTTOM", "SHOES"})
+        @ValueSource(strings = {"SHOES", "FLOOR"})
         void canUnequipOptionalSlot(String slot) {
             update(slot, null);
             entityManager.flush();
@@ -134,19 +134,19 @@ class AvatarEquipIntegrationTest {
         @Test
         @DisplayName("소문자와 공백은 정규화해서 받는다")
         void normalizesInput() {
-            update(" top ", null);
+            update(" shoes ", null);
             entityManager.flush();
 
             assertThat(userAvatarEquippedItemRepository
-                    .findByUser_UserIdAndSlot(userId, AvatarSlot.TOP)).isEmpty();
+                    .findByUser_UserIdAndSlot(userId, AvatarSlot.SHOES)).isEmpty();
         }
 
         @Test
         @DisplayName("한 요청에 같은 슬롯이 두 번 오면 거부한다")
         void rejectsDuplicateSlotInOneRequest() {
             UpdateEquippedItemsRequest request = new UpdateEquippedItemsRequest(List.of(
-                    new EquippedItemSlot("TOP", null),
-                    new EquippedItemSlot("TOP", null)));
+                    new EquippedItemSlot("SHOES", null),
+                    new EquippedItemSlot("SHOES", null)));
 
             assertThatThrownBy(() -> avatarService.updateEquippedItems(userId, request))
                     .isInstanceOf(CoreMateException.class)

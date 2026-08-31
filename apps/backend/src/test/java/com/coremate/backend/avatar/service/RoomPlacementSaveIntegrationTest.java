@@ -106,7 +106,7 @@ class RoomPlacementSaveIntegrationTest {
         @Test
         @DisplayName("배치를 통째로 교체한다")
         void replacesWholeRoom() {
-            save(new Placement(deskUserItemId, 0, 0), new Placement(chairUserItemId, 5, 5));
+            save(new Placement(deskUserItemId, 0, 0), new Placement(chairUserItemId, 5, 3));
             entityManager.flush();
 
             RoomResponse room = save(new Placement(chairUserItemId, 2, 2));
@@ -162,10 +162,11 @@ class RoomPlacementSaveIntegrationTest {
                     .isEqualTo(ErrorCode.FURNITURE_NOT_OWNED);
         }
 
+        // 격자는 가로 7 x 세로 5 다(2026-08-30 개정). x=7 은 이미 방 밖이다.
         @Test
         @DisplayName("② 격자 밖이면 거부 - EX-ITEM-004")
         void rejectsOutOfGrid() {
-            assertThatThrownBy(() -> save(new Placement(chairUserItemId, 10, 0)))
+            assertThatThrownBy(() -> save(new Placement(chairUserItemId, 7, 0)))
                     .extracting(e -> ((CoreMateException) e).getErrorCode())
                     .isEqualTo(ErrorCode.ROOM_PLACEMENT_OUT_OF_BOUNDS);
         }
@@ -174,7 +175,7 @@ class RoomPlacementSaveIntegrationTest {
         @Test
         @DisplayName("② footprint 를 펼쳤을 때 밖으로 나가면 거부 - EX-ITEM-004")
         void rejectsFootprintSpillingOut() {
-            assertThatThrownBy(() -> save(new Placement(deskUserItemId, 9, 0)))
+            assertThatThrownBy(() -> save(new Placement(deskUserItemId, 6, 0)))
                     .extracting(e -> ((CoreMateException) e).getErrorCode())
                     .isEqualTo(ErrorCode.ROOM_PLACEMENT_OUT_OF_BOUNDS);
         }
