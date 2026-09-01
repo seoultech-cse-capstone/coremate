@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Easing,
   Modal,
   Pressable,
   StyleSheet,
@@ -14,21 +13,11 @@ import {
 
 import { FONT } from "../../../constants/fonts";
 import { getApiErrorMessage } from "../../shared/utils/apiError";
-import { ChestAnimation } from "./ChestAnimation";
+import { ChestOpenCanvas } from "./ChestOpenCanvas";
 import type { RandomBoxOpenResult, ShopProduct } from "./types";
 import { useOpenRandomBoxMutation, useRandomBoxItems } from "./useShopQueries";
 
 type Phase = "idle" | "opening" | "revealed";
-
-// 등급별 상자에서 새어나오는 빛 색. 코인 보상은 COMMON 과 같은 색으로 취급한다.
-const RARITY_LIGHT: Record<string, string> = {
-  COMMON: "#B8C0CC",
-  RARE: "#3B82F6",
-  EPIC: "#A855F7",
-  LEGENDARY: "#F5B301",
-  COIN: "#B8C0CC",
-};
-const DEFAULT_RARITY_LIGHT = "#C4B5FD";
 
 type RandomBoxOpenModalProps = {
   /** 열 랜덤박스 상품. null 이면 모달이 닫혀 있고, 값이 들어오는 순간 자동으로 열기를 시작한다. */
@@ -94,58 +83,6 @@ export function RandomBoxOpenModal({ product, accessToken, onClose }: RandomBoxO
     return itemsQuery.data?.find((item) => item.itemId === result.rewardItemId)?.itemName ?? null;
   }, [result, itemsQuery.data]);
 
-  // 받침 글로우 맥동.
-  const glow = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, {
-          toValue: 1,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glow, {
-          toValue: 0,
-          duration: 1400,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [glow]);
-  const glowScale = glow.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.08] });
-  const glowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.8] });
-
-  // 등급 색 빛: 서버 결과(등급)를 알게 되면, 상자가 들썩이는 동안 서서히 밝아지며 커진다.
-  const rarityColor = result?.rewardRarity
-    ? (RARITY_LIGHT[result.rewardRarity.toUpperCase()] ?? DEFAULT_RARITY_LIGHT)
-    : DEFAULT_RARITY_LIGHT;
-  const rarityLight = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (phase === "idle") {
-      rarityLight.setValue(0);
-      return;
-    }
-    if (phase === "opening" && result) {
-      Animated.timing(rarityLight, {
-        toValue: 1,
-        duration: 1400,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [phase, result, rarityLight]);
-  const rarityLightOpacity = rarityLight.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const rarityLightScale = rarityLight.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.35] });
-  // 등급 빛이 밝아질수록 보라색 기본 글로우를 죽여, 등급 색이 배경에 묻히지 않게 한다.
-  const baseGlowOpacity = Animated.multiply(
-    glowOpacity,
-    rarityLight.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] }),
-  );
-
   // 보상 리빌 팝인.
   const reveal = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -189,30 +126,11 @@ export function RandomBoxOpenModal({ product, accessToken, onClose }: RandomBoxO
         ) : null}
 
         <View style={styles.stage}>
-          <Animated.View
-            style={[styles.stageGlow, { opacity: baseGlowOpacity, transform: [{ scale: glowScale }] }]}
-          >
-            <LinearGradient
-              colors={["rgba(167,139,250,0.9)", "rgba(139,92,246,0.15)", "transparent"]}
-              style={styles.stageGlowInner}
-            />
-          </Animated.View>
-
-          {/* 등급 색 빛 — 상자에서 새어나오듯 뒤에서 밝아진다 */}
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.rarityGlow,
-              { opacity: rarityLightOpacity, transform: [{ scale: rarityLightScale }] },
-            ]}
-          >
-            <LinearGradient
-              colors={[rarityColor, `${rarityColor}99`, `${rarityColor}00`]}
-              style={styles.rarityGlowInner}
-            />
-          </Animated.View>
-
-          <ChestAnimation size={220} playing={isOpening} onComplete={() => setAnimDone(true)} />
+          <ChestOpenCanvas
+            playing={isOpening}
+            rarity={result?.rewardRarity ?? null}
+            onComplete={() => setAnimDone(true)}
+          />
 
           <Text style={styles.stageHint}>
             {error ? " " : isOpening ? "두근두근…" : ""}
@@ -298,30 +216,6 @@ const styles = StyleSheet.create({
   stage: {
     alignItems: "center",
     justifyContent: "center",
-  },
-  stageGlow: {
-    position: "absolute",
-    width: 300,
-    height: 300,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stageGlowInner: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 150,
-  },
-  rarityGlow: {
-    position: "absolute",
-    width: 320,
-    height: 320,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rarityGlowInner: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 160,
   },
   stageHint: {
     marginTop: 18,
