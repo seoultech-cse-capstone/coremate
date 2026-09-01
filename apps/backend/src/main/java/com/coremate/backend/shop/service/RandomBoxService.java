@@ -293,6 +293,11 @@ public class RandomBoxService {
     }
 
     private RandomBoxOpenResponse toOpenResponse(RandomBoxOpenLog openLog) {
+        // 아이템 보상이면 그 아이템의 rarity 를, 코인 보상이면 "COIN" 을 등급으로 내려준다.
+        // (프론트가 상자 들썩임 연출에 등급 색을 입히는 데 쓴다)
+        String rewardRarity = openLog.getRewardItem() == null
+                ? RandomBoxItem.REWARD_TYPE_COIN
+                : openLog.getRewardItem().getRarity();
         return new RandomBoxOpenResponse(
                 openLog.getRandomBoxOpenLogId(),
                 openLog.getUser().getUserId(),
@@ -300,6 +305,7 @@ public class RandomBoxService {
                 openLog.getRewardType(),
                 openLog.getRewardItem() == null ? null : openLog.getRewardItem().getItemId(),
                 openLog.getRewardCoinAmount(),
+                rewardRarity,
                 openLog.getOpenedAt()
         );
     }

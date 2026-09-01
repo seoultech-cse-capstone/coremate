@@ -23,6 +23,8 @@ export type ShopProduct = {
 export type PurchaseShopProductRequest = {
   shopProductId: number;
   quantity?: number;
+  /** 닉네임 변경권 구매 시 변경할 새 닉네임(최대 6글자). 서버가 필수로 요구한다. */
+  newNickname?: string;
 };
 
 export type ShopPurchaseResult = {
@@ -72,5 +74,7 @@ export type RandomBoxOpenResult = {
   rewardType: string;
   rewardItemId: number | null;
   rewardCoinAmount: number | null;
+  /** 보상 등급. 아이템은 COMMON/RARE/EPIC/LEGENDARY, 코인 보상은 "COIN". 상자 들썩임 연출의 빛 색에 쓴다. */
+  rewardRarity: string | null;
   openedAt: string;
 };

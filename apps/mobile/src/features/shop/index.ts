@@ -1,5 +1,12 @@
 export { shopApi } from "./shopApi";
 export { randomBoxApi } from "./randomBoxApi";
+export { ChestAnimation } from "./ChestAnimation";
+export { RandomBoxOpenModal } from "./RandomBoxOpenModal";
+export {
+  CHEST_TOTAL_MS,
+  CLOSED_CHEST_IMAGE,
+  CHEST_CONTENT_OFFSET_RATIO,
+} from "./randomBoxFrames";
 export {
   useShopProducts,
   usePurchaseMutation,
