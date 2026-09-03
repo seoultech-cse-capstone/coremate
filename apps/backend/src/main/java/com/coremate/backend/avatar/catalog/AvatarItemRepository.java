@@ -8,6 +8,6 @@ public interface AvatarItemRepository extends JpaRepository<AvatarItem, Long> {
 
     Optional<AvatarItem> findByItemIdAndActiveTrue(Long itemId);
 
-    // 가입 시 전원에게 주는 비매품 8종. 랜덤박스 후보에서도 제외된다.
+    // 가입 시 전원에게 주는 비매품 6종. 랜덤박스 후보에서도 제외된다.
     List<AvatarItem> findByDefaultItemTrueAndActiveTrueOrderByItemIdAsc();
 }

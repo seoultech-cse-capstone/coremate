@@ -20,18 +20,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 기본 지급 8종 통합 테스트(H2). 아바타를 처음 조회하는 것만으로 8종이 지급·장착되는지,
+ * 기본 지급 6종 통합 테스트(H2). 아바타를 처음 조회하는 것만으로 6종이 지급·장착되는지,
  * 다시 조회해도 중복 지급되지 않는지를 실제 JPA 왕복으로 검증한다.
  * avatar_items 는 시드가 SQL 로 들어오는 구조라 여기서도 네이티브 INSERT 로 만든다.
  */
 @SpringBootTest
 @Transactional
-@DisplayName("기본 지급 8종 통합 (2026-08-27 확정)")
+@DisplayName("기본 지급 6종 통합 (2026-08-30 개정)")
 class DefaultAvatarItemIntegrationTest {
 
-    // 머리·눈·입·상의·하의·신발·벽지·바닥
+    // 머리·눈·입·상의·하의 + 방 테마 1종. 신발은 「없음」이 정상이라 기본 지급이 아니고,
+    // 벽지·바닥은 WALLPAPER 한 아이템이 metadata 로 벽+바닥을 함께 가리킨다(2026-08-30 개정).
     private static final List<String> DEFAULT_SLOTS =
-            List.of("HAIR", "EYES", "MOUTH", "TOP", "BOTTOM", "SHOES", "WALLPAPER", "FLOOR");
+            List.of("HAIR", "EYES", "MOUTH", "TOP", "BOTTOM", "WALLPAPER");
 
     @Autowired
     private AvatarService avatarService;
@@ -82,13 +83,13 @@ class DefaultAvatarItemIntegrationTest {
     }
 
     @Test
-    @DisplayName("아바타를 처음 조회하면 8종이 지급되고 자동 장착된다")
+    @DisplayName("아바타를 처음 조회하면 6종이 지급되고 자동 장착된다")
     void grantsAndEquipsOnFirstView() {
         UserAvatarResponse response = avatarService.getMyAvatar(userId);
         entityManager.flush();
 
         List<UserItem> owned = userItemRepository.findByUser_UserIdOrderByAcquiredAtDesc(userId);
-        assertThat(owned).hasSize(8);
+        assertThat(owned).hasSize(6);
         assertThat(owned).allSatisfy(item -> {
             assertThat(item.getAcquiredSource()).isEqualTo("DEFAULT_GRANT");
             assertThat(item.getQuantity()).isEqualTo(1);
@@ -97,8 +98,8 @@ class DefaultAvatarItemIntegrationTest {
                 .containsExactlyInAnyOrderElementsOf(DEFAULT_SLOTS);
 
         assertThat(userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId))
-                .hasSize(8);
-        assertThat(response.profile().equippedItems()).hasSize(8);
+                .hasSize(6);
+        assertThat(response.profile().equippedItems()).hasSize(6);
     }
 
     @Test
@@ -122,8 +123,8 @@ class DefaultAvatarItemIntegrationTest {
         avatarService.getMyAvatar(userId);
         entityManager.flush();
 
-        assertThat(userItemRepository.findByUser_UserIdOrderByAcquiredAtDesc(userId)).hasSize(8);
-        assertThat(userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId)).hasSize(8);
+        assertThat(userItemRepository.findByUser_UserIdOrderByAcquiredAtDesc(userId)).hasSize(6);
+        assertThat(userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId)).hasSize(6);
     }
 
     @Test
@@ -134,11 +135,9 @@ class DefaultAvatarItemIntegrationTest {
         List<AvatarSlot> slots = response.profile().equippedItems().stream()
                 .map(item -> item.slot())
                 .toList();
-        // 착용 6종이 렌더 순서(신발-하의-상의-머리-눈-입)로 먼저 오고 벽지·바닥이 뒤에 온다.
-        assertThat(slots.subList(0, 6)).containsExactly(
-                AvatarSlot.SHOES, AvatarSlot.BOTTOM, AvatarSlot.TOP,
-                AvatarSlot.HAIR, AvatarSlot.EYES, AvatarSlot.MOUTH);
-        assertThat(slots.subList(6, 8))
-                .containsExactlyInAnyOrder(AvatarSlot.WALLPAPER, AvatarSlot.FLOOR);
+        // 착용 5종이 렌더 순서(하의-상의-머리-눈-입)로 먼저 오고, renderOrder 가 없는 방 테마가 맨 뒤에 온다.
+        assertThat(slots).containsExactly(
+                AvatarSlot.BOTTOM, AvatarSlot.TOP, AvatarSlot.HAIR,
+                AvatarSlot.EYES, AvatarSlot.MOUTH, AvatarSlot.WALLPAPER);
     }
 }

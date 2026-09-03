@@ -36,7 +36,7 @@ import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("기본 지급 8종 (2026-08-27 확정)")
+@DisplayName("기본 지급 6종 (2026-08-30 개정)")
 class DefaultAvatarItemServiceTest {
 
     private static final long USER_ID = 7L;

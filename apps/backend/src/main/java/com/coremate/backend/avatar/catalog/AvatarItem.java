@@ -52,7 +52,7 @@ public class AvatarItem {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // 기본 지급 8종(머리·눈·입·상의·하의·신발·벽지·바닥) 표시. 비매품이고 랜덤박스 후보에서 제외한다.
+    // 기본 지급 6종(머리·눈·입·상의·하의·방 테마) 표시. 비매품이고 랜덤박스 후보에서 제외한다.
     @Column(name = "is_default", nullable = false)
     private boolean defaultItem;
 
