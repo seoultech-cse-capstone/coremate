@@ -114,7 +114,6 @@ export function ChestOpenCanvas({ playing, rarity, onComplete, tuning, style }: 
 
   const inten = eng.inten;
   const open = eng.open;
-  const flash = eng.flash;
   const tG = eng.tGlobal;
   const k = t.intensity * inten;
 
@@ -318,12 +317,6 @@ export function ChestOpenCanvas({ playing, rarity, onComplete, tuning, style }: 
           <Path path={front.dim} color={rgba(pal.mid, 0.9)} />
           {front.coins}
         </Group>
-        {/* 열림 플래시 (최상단) */}
-        {flash > 0.001 ? (
-          <Group blendMode="plus">
-            <Rect x={0} y={0} width={CANVAS_W} height={CANVAS_H} color={rgba(pal.core, flash * 0.55)} />
-          </Group>
-        ) : null}
       </Canvas>
     </View>
   );
