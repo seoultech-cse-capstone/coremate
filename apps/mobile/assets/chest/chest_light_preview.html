@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>랜덤상자 빛 연출 미리보기</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;
+       justify-content:center;gap:18px;background:#1a1430;color:#f3e9d2;
+       font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+  canvas{border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  button{font-size:18px;padding:12px 28px;border:0;border-radius:10px;cursor:pointer;
+          background:#f0b856;color:#3a2416;font-weight:700;box-shadow:0 4px 0 #a8672a}
+  button:active{transform:translateY(3px);box-shadow:0 1px 0 #a8672a}
+  button:disabled{opacity:.6;cursor:default}
+  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .label{font-variant-numeric:tabular-nums;opacity:.8;font-size:14px;min-width:200px}
+  .knobs{display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;align-items:center;
+          font-size:13px;opacity:.85;width:456px}
+  .knobs input{width:100%}
+  .hint{font-size:12px;opacity:.55;text-align:center;line-height:1.6;max-width:456px}
+</style></head><body>
+<canvas id="cv" width="456" height="474"></canvas>
+<div class="row">
+  <button id="btn">📦 상자 열기</button>
+  <button id="reset" style="background:#6c5b93;color:#fff;box-shadow:0 4px 0 #3f3460">다시 닫기</button>
+  <span class="label" id="label"></span>
+</div>
+<div class="knobs">
+  <span>빛 세기</span><input id="kInt" type="range" min="0" max="2" step="0.05" value="1"><span id="vInt">1.00</span>
+  <span>빛기둥 각도</span><input id="kAng" type="range" min="10" max="60" step="1" value="32"><span id="vAng">32°</span>
+  <span>입자 개수</span><input id="kPar" type="range" min="0" max="60" step="1" value="28"><span id="vPar">28</span>
+</div>
+<div class="hint">빛은 스프라이트와 별개의 캔버스 레이어(additive 블렌드)로 그려집니다.
+슬라이더로 튜닝해 보고 마음에 드는 값을 Claude Code 프롬프트에 그대로 적어주세요.</div>
+<script>
+const F = [{"name": "closed", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEM0lEQVR4nO2aQUgUURjH/5UQiuIqJCssKUlSIZuCB9tixQ4eDIQ6CKFIBy9RFHUukfBceJAgJEKSoIOBhw4dFJeyPSxlyyJRKCWCssLmYrTH7TB+zzez3+zM6Kw7ru8Hy868eTPM/vi+b957s4BCoVAoFAqFQqFQKBQKhZc4ZrdjMODP2u0bX9uwfd3DhuUPI1Hfog/z9hu5/QYjz28CAC52PBXtpSYv748JBvxZTlRn5xj6Qg3Y3Mro2ueWkui6UAcAWN7YBgDE1/+K46Ugr8zsQDDgz0YmwkgnYqLt9dSars8pXzneLvxGX6gBAIQsAFhNZdB1oQ5N/irMLSVxurYcwG5aH1Z5x7lGkiXzemoN0e9J0wttbmUwt5TEKV85AL084npbPYL1ldon4M/SZz8/4KDJiTBO1of3KdTVVKDjnCbh7rXzSP75p+tDomibi7zljW1d5FHaHqbI0wkzkwVACKqrqdDJIilmUORx/UieHm/LE8I4WXcff0HvpUYAmiiCpFEbCbQTeQ/unBX7D3AW+QgPRbKAt8SZFv0P71NClhFOllXkDfQHAADVLe22by4yoX2HhyJZr0gzFZYPY7TJ20aZ0e9JzIxfdiSKoHMiE96RdgzIX7ucwEXeQH9AJ2vk9hvb16OBMACkEzGEhyJFT09W2F5kcXT31ApZJIqelH2hBt0whWtr8ldp5+6I84I0y5QcnU5YXuTRjRaxPfP5F3ovNebI2h1C2IeerjTtqm5pL3p65hU2Op2wnEMC2tyRpLklS2Z5Y9sz0oSwxYUV0djdcwYAMDqt7acTMbZopxMx3XlHATbCjBImX8UxeCu33+SrOILNlYW4L8/CziWHp9YxPLUu9gdvBdmTuXa305GgtASwk5ZhR2t0bsFGGE1X3n1d17V3DM6K7ejk1QLeljnzL94CAOI//lr0LAx7GrhydPfUunUpT+NIWHTyKjoGZ9noorrXGjoj1tDkeSPHAAKO2uTaGmyuBD5u2b53t3AtwqjmPXHrggzFSkMZx8LMahfVPflhUYpYCksnYjvDitwnIjesmBm/7N7dGTAOd+69XDPpWThYYfJQYHFhBcHmSnaAyo3BFhdW0BrSBr7Pxn+ywwq7c0ljW5O/Cl1tJwAULz3ZcZjCHDbCVlPa6zPfyRO2wv56W727d+VhWGFyHeq980lsa6/KNFZTGd3+UcGy6M/P3xfbnZ1jbB+5TnXBt/+78jBCmFxEW0O7HeQXucbIo9Q9SpFmuVpBTzwjZmmLoxJhZtiRJ6ctTY4JikIjm1uZnGNWbbRkXUxYYXJ6ymMtM3ly2pY6ZYD2onTiI8Ta0tAVn+jgVJ7Wv3RXYXeLvrQ+vh95pQ6fkvuQZ4T7F0++Y3bbioVl0XcqT4bmfaWEo+UdO/JKnT0vIOaT54WFvkLh+ovQg3yTU+z/WShs8B/ThiXCBOB+lgAAAABJRU5ErkJggg=="}, {"name": "hop1_a", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEXUlEQVR4nO2aT0gUURzHv/3BMFZcBZcVlpREKZFJwYOuodjBg4FgByGUxYMHxSjsXODBc+FBkpAQKYIOBh46dEhcyvawlC2LSKGYCMoKtouRdIjtMP7evpl9szPrzrrjOB9YnH3zZvbtx/f7vT+zgIODg4ODg4ODg4ODw5nnnNGKks+bNFo3sr1r+L6nDd0vRqK+hR5mrDc+8hrjz+4CAG60PGHldpOX8ctIPm9SJKqjYxJ9/irsxQ8V5YurMXTWewAA67sHAIDIzm923g7yLmqdkHzeZHCmHYlomJW9fLWtqFPhLsab5Z/o81cBAJMFAFv7h+is96DGW4LF1RiulBcDSIX1aZV3XlRIsnhevtpGaC2meaO9+CEWV2OocBcDUMojepsqIVW65JfPm6RXLl/gpEnrYSJZ79/tw1N2GS3XZAn3bl9H7NcfRR0SRceinre+e6DoeRS2p6nnKYRpyQLABHnKLitkkRQtqOeJ6pE8JdaWx4SJZN17/AU9rdUAZFEESaMyEmik542N1rL3Y6hFJtqHgknAWuI0k/77d/tMlhqRLL2eN9DvAwCUNjQbblxwRv7bPhRMWkWaprBMqHsbf6yWGVqLYWGqLStRBF0TnLGOtHNA5tyVDaKeN9DvU8gaH3lt+H40EQaARDSM9qFgwcNTKOw4skR0dZczWSSKRso+f5VimiIqq/GWyNceibOCNN2QnJiP6t7k0Z0GdrzweRM9rdVpslJTCOPQ6ErLrtKG5oKHZ0ZhE/NR3TUkIK8dSZpZsnjWdw8sI40JW1neYIVd3VcBABPz8vtENCxM2oloWHHdWYAJG57eZIXTqkpzsxEEBtMvnpuNQKpz5adlFoUJmx6uZoUkr6hIPh0YlIQXBwaltB5mdjgSVglLYQ7zlFwCAMT//lOUtwQ+sOPQ3K08NkubpedvAACR7791auYHoTBa3739umP4Rl3d5ea0yOJkNdMPzd1CS+CDsHdRaDb6r7I9NH7dKGIAvqzK+PCX6lzAx7jhtpvFsZZGIijvqQcMMylUGPJkLUwrd1He40fbfEOD0kmi+4mJaPhoWpE+UvLTCsp7i6vau7Jmox6UTgJdYSvLG5DqXMIJqmgOtjDVZk7LNNrCc//FtkbN/CEUlsvcaWV5A41+eaXwdOqH8F5GF9/qshpvCTqbLgCw2LSCkCpdhv6LvU2VpjXI6giFbe2nnje6L104ekSWXkf0ZMjuCIXxeahn9BMTqBZH4Ub7VmcB3aS/tPSAHXd0TArr8HmqE+7cW2VhmDA+iTb6UxX4J99Ge56dEfYwfvimEU+NWl4KtykNsyqG5mGEljw+bGk3geAHEJ69+GHaOb0yK+RKoTA+PPnJqZY8PmztzkVAfrI88xHsEf3QTTerkK08ub59t61TSZ/bucxFnt0Rh2QO8tRkmtyKzhktKxS6ST9beTy07rMTWW0oGZFnd469A5dJnhV2RvOF6Y+oTvInmIX+YYqDg0PB+Q/YuzsdtvSAywAAAABJRU5ErkJggg=="}, {"name": "hop1_b", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEfUlEQVR4nO2aTWgbRxiG3zQlxkEiiiFCBlGbmJg2mK0NOThKkXEOPrhgSA+GEmNy8MEhoSU9N+CDzyk5mJpiihEJgRxc8CGHHGIsUlcH0bpCmNBi4wZBhAyuhENFDkU9rL/RzGpmf6xVtNruA8Kj2dn16tH3zd8KCAgICAgICAgICOgATjlprMVjNbttc4Wio2t3CrY+FIn6PfONabuF20+w8P2XAIBPRx+wej/Js/wgWjxWk4kaG3uI6UQfDspVoX5jp4Txy1EAwG7xCACQe/OWHe90eR+aHdTisVp6JYlKPsvqHj0uCG0uRLrxdOsvTCf6AIDJAoDXh1WMX45iIBbGxk4JH/V0A6indSfK+0B1gGTxPHpcQOZVSXmxg3IVGzslXIh0AxDlETdGeqH1hvRXPFaj10k/wPtGGmEyWc+fHSJ6/ixGP9Yl3P38E5T+/kdoQ6KoLIu83eKREHmUtp0SeQ3CVLIAMEHR82cFWSRFBUWerB3JE/GuPEGYTNbd+79i6mo/AF0UQdKojgTaibx7dy6x9/dwCWYk59I1wDviTDv9588OmSwjMllWkTdzMw4AODd0xfYNplf0v8m5dM0L0kyFmWGMNr5slJl5VcL60jVHogg6J73iDWnsn5v1XU6QRd7Mzbgga+H2E9vXo4kwAFTyWSTn0m1NT6Wwk8iSMTHZw2SRKBoppxN9wjRFVjcQC+vnHotrtzRbKbm4lrds8+0XQ6y8/ss+pq72N8iqTyHsQ6MrLbvODV1pa3paCltcy1uuIQF97UjS3JLFs1s88oQ0Qdj21h4rT0xeBAAsrunvK/mstNOu5LPCeX5HEDa/vM/Ky4aGqdUcZm81XiC1moM2GHL/zjyKci05v7wvCJy9pUnbyerdTkeC0hLAcVomHe3RuYEQYcvz/azMy+IZnX3BypnU9ZbclBWbPzwFAOT+eGvR0n2UnX403AUAKL/71/bFJiZ7mr8jj6MURgvin357I9RnUtcxOvtCGl3U+Q8nLrI9NH7dKGMGcUd1/ACjDYaAl2XT67vNiZdGMiiNjQOGm7QjDXlOJMyq71L1f63gzBlXv3NLlKMkTyWfRWo1Jz3G10fDXazv8yu2vp7trT1ogyHpBJWfg1G/t7Gj3sZ2GyeDkhu0JJ7Xl6614rIA0PClffVjQdGyNSiF0WRT6w3ZuqkbI72svL21h+GEvrT6bulP6cTV7m6FsW4gFsb4yGkAHpuH8US6Th8/IqtvtwDiM8j/C0phrw+r0nq3ljmdilIY3w9N3fmZCaRII0ggH3l+xlZKbm5+zcpjYw+lbfjIG0ekubvyMIIwvhMdTtTr+Z8K2I08v6KMMH74phHPiFFenUjTN+ZVbE9cCZU8Pm1p+4VQDSAH5WrDMau6dveVSmF8evKzeZU8Pm39DBOWKxRPrbwE272c+yzCGjmVp7f35z6/2OlzT2Cakedn1CnZhDwjZqsB2TG7de3AVqfvVB4Prfv8guPdCjvy/ExT2ztm8tq9ldwqWvKY/X0+K2z3z58CAgICOon/AAI8ORyzeL6JAAAAAElFTkSuQmCC"}, {"name": "hop1_c", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEXklEQVR4nO2aT0gUURzHv/2hUFZchZYVlpREqZBJoYNuoWwHDwaCHYRIFg8elKKoc4EHz0UHSUIipAg6GHjo0CFxqW0PS9myiBRKhaCsYLsYLR1iO4y/t29m3+zMuLO74zQfWJx982b27cf3+70/s4CLi4uLi4uLi4uLi4uLizkOGa0oBfw5o3UTG1uG73vQ0P1iJOpz7E7RepMTLzD56CoA4Fz3fVbuNHlFv4wU8OdEovr6HmI42IztdFZRvriSQuisDwCwtrULAEhs/mLnnSDvqNYJKeDPRWZ7kUnGWdmz5xuKOie8NXgZ/Y7hYDMAMFkA8GMni9BZH1r9dVhcSeFkYw2AfFgfVHmHRYUki+fZ8w3EVlOaN9pOZ7G4ksIJbw0ApTxiqKsJUpNHfgX8OXqV8gUqTUEPE8l683oHvoZadJ+WJdy4fAapn78VdUgUHYt63trWrqLnUdgepJ6nEKYlCwAT5GuoVcgiKVpQzxPVI3lK7C2PCRPJunHvIwZ7WgDIogiSRmUk0EjPu329jb2/jTYUo3cskgPsJU4z6b95vcNkqRHJ0ut5I9cCAID6jvOGGxeZlf/2jkVydpGmKawY6t7GH6tlxlZTWJi+YEoUQddEZu0j7RBQPHeZQdTzRq4FFLImJ14Yvh9NhAEgk4yjdyxS9fAUCtuPLBH9A41MFomikXI42KyYpojKWv118rV74uwgTTckp+aTuje5e6WDHS98+IbBnpYCWfkphHFodKVlV33H+aqHZ1FhU/NJ3TUkIK8dSZpVsnjWtnZtI40JW46us8L+gVMAgKl5+X0mGRcm7Uwyrrjuf4AJG5/5xgpnVJXmniYQHi28eO5pAlK7pzwtsylM2Mx4CyskeceOyafDo5Lw4vCoVNDDrA5Hwi5hKcxhvrrjAID0n7+K8u7wW3Ycm7tUxmZps/T4JQAg8eWXTs3yIBRG67tXnzYN36h/oNGaFtkcUzP92NwldIffCnsXhWZn8BTbQ+PXjSJGEDBVxoe/1O4B3qUNt90q9rU0EkF5Tz1gWEm1wpDHtDCt3EV5jx9tyw0NSpVE9xMzyfjetKJwpOSnFZT3Fle0d2WtRj0oVQJdYcvRdUjtHuEEVTQHW5i+YE3LNNrCc/PJhkbN8iEUVsrcaTm6js6gvFJ4MP1VeC+ji291Wau/DqGuIwBsNq0gpCaPof/iUFeTZQ2yO0JhP3byzxu9x4/sPSIrrCN6MuR0hML4PDR4/T0TqBZH4Ub7Vv8Dukl/aekWO+7reyisw+epELylt8rGMGF8Eu0M5ivwT76N9jwnI+xh/PBNI54atbw8XksaZlcMzcMILXl82NJuAsEPIDzb6WzBOb0yO+RKoTA+PPnJqZY8PmydzlFAfrI8+w7sEf3YRS+rYFaeXN+529b5pM/tXJYiz+mIQ7IEeWqKTW5F54yWVQvdpG9WHg+t+5yEqQ0lI/Kczr534IrJs8POaLmw/BFVJX+CWe0fpri4WM8/aEU7HVKN03wAAAAASUVORK5CYII="}, {"name": "hop2_a", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEnklEQVR4nO2aP2gbVxzHv25EjINEFEOEDKI2NjFNMBe7ZFCUIuMOHlwwpIOhxIgMGhwcWtKhUwsePHVoyWBqiijGJAQyuOAhQwYbH4mrQaSOEG5osXGDIEIGV8KhokNRhtPv6d3du9MpPskn6T4gfPrdu+e7j3/v7xlwcXFxcXFxcXFxaQG6rBSSQsGy1QrT2ZylOlsV04cjUS+TX5tWsnDnERZ++gIAcDX8A4u3ozzDB5JCwbJI1Pj4fcxE+nFYKKnim7t5TFwJAAD2cscAgPSbt+x8u8jziIJSKFiWE1EUMykWe/Awqypz0d+Dx9t/YybSDwBMFgC8Piph4koAQ0EfNnfz+LC3B0C1WbeyvA+0AZLF8+BhFslXecNKDgslbO7mcdHfA0Atj7g51gepz6t8QsEyfU76AM1GlWEiWU+fHCFw4RzCHykS7n52Gfl//lWVIVF0LMq8vdyxKvOo2bZa5jFhRrIAMEGBC+dUskiKEZR5onIkT43z5XkAsay7373A9PUBAIoogqRRjARaybx785fY93u4BDOicbkMOE+csNN/+uSIydIiklUr82ZvhQAA50euWb4xOaH8jMblspOkCYWZoc02/lgrM/kqj/WlG3WJIugaOeEsaV1mfVc9iDJv9lZIJWvhziPL9dFEGACKmRSicdkRzVMn7H1kiZic6mWySBSNlDORftU0RRQbCvqUayvinCLNtEkurmVqVvDt5yPseP23A0xfH9DJqk4hrEOjKy27zo9cc0TzNBS2uJapuYYElLUjSbNLFs9e7thR0jwAsLO9zwKTU4MAgMU15XsxkxJ22sVMSnVdp+ABgLnlAxZY1hRYXUkjdlt/4epKGtKwt3F35lB0a8m55QOVwNhtSXihKG53cySoWQKoNMtoXXt0duIBgOW5ARYYjQwiHNuAdqoRjm2w4+Tqp825Ow1bPz8GAKT/fFujZOPQdfrT888R8HUjGpfxMmltwjk51Wv7jTkVnTBaEP/6+xtV/I8X3+Dyx98Ls4s6/9HIINtD49eNImYRqivGDzDSsBd4VjCtv1FYXhrxm4lAZelSeQjq87QDhp2cZjPkqWstyWcXCZQTUYRjGywDm8XZs3Uvg21BN0ryFDMprK6khecoHo3LCPi6MT5+3/67cyCmf6ad7X1Iw17hBJWfg1G/t7lrvI1tN4X//m/a7+KxNa/Xl27YWZ0K7R/ty1+yBiUbi04YTTalPq+lm7o51seOd7b3MRpRllY/Lv0lnLha3a3QxoaCPkyMnQHgsHkYj7/7TOUVWXW7BVC/g+w0dMJeH5VE5Wxb5rQ6OmF8PzQ9/5wJpEwjSCCfeZ2AaZPc2vqKHRtNG/jMm4DfnrtyMB5A3YmORqon+dm91cxrd3QZxg/fNOJp0cqr4rftxpxKzYkrYSSPb7a0/UIYDSCHhZLuXK2YU/pKnTC+efKzeSN52kV5u+NJZ3NdiWdgu5fxT/zsZL3ylPLtvc+vdPrcG5iTyOsE9E3yBPK0mK0GROesxk4T006/Xnk8tO5rNyzvVliR1wm81/aOmTynbCU3CltftzfzXeFp/1OKi4uLSyvyDtbISg9mFr2DAAAAAElFTkSuQmCC"}, {"name": "hop2_b", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEqElEQVR4nO2aP2gbVxzHv2lKgoNNFEOEDKI2MTFNMFe7ZFCUIuMOHlwwpIOhxIgMGhwSUtKhUwsePHVoyWBqiijGJAQyuOAhQwYbi9TVIFJHCDe02LhBECGDK+FQkaGow/n39N75vbuTdPadlPuA8OndT6d3H//e3xPg4+Pj4+Pj4+MIJ+oJ1sKhqt3YbL5Q17VbBVs3RaJepL8yjZu59QgzP34BAPgo8j0rbyd5ljeihUNVmaiRkfuYjPZit1QRylc3ixi9HAQAbBX2AQDZ12/Y+VaX977ZSS0cqqaSMZRzGVb24GFeiDkf6MDj9b8xGe0FACYLAF7tVTB6OYj+UBdWN4v4oLsDQK1Zt6K891QnSBbPg4d5pF8WlRfbLVWwulnE+UAHAFEecX24B1pPp/4Kh6r0avQGjhtphslkPX2yh+C5M4h8qEu489klFP/5V4ghUXQsy7ytwr6QedRsWyXzDglTyQLABAXPnRFkkRQVlHmyOJIn4l15gjCZrDvfPsfE1T4AuiiCpFEZCbSTefduX2Tv7+EizIglUlXAO+JMO/2nT/aYLCMyWVaZN3UjDAA4O3jFdgVTSf1vLJGqekGaqTAzjNnGHxtlpl8WsTx3rS5RBH0mlfSGNPblZn1XPcgyb+pGWJA1c+uR7evRRBgAyrkMYomUq81TKawRWTLGxruZLBJFI+VktFeYpsjK+kNd+mcPxLktzVaTnF3KWcZ88/kgO17+bQcTV/sOyapNIexDoystu84OXnG1eVoKm13KWa4hAX3tSNKcksWzVdj3hDRB2Mb6NjseG78AAJhd0t+Xcxlpp13OZYTPtTuCsOn5HXY8bwhcXMgifvPwBRYXstAGOp2vmUdRriWn53cEgfGbmjROVu50cySoWQI4aJaxuvbonEDZh6UXP0UkvgLjVCMSXxFi3GDtp8cAgOyfbywinUcQNj/dx45JTCyRwou0vQnn2Hi3czXzKMoMC3adBgCU3v4nlP/x/Gtc+vg7aXZR5z8UvcD20Ph1o4wphOsq4wcYbaATeFYyvb7TKIXRDsIvv78WyvnNROBg6XJwE9TnGQcMJ3GjGfI0tJbks4sEppIxROIrLAOPi1OnGl4ON4RylOQp5zJYXMhKz1F5LJECgGOV5Qa2/j0b69vQBjqlE1R+Dkb9XnH/rUPV8x6O5jP1e6ub6n1/pzEOSkeNpbDrwz24+3PeKgxaTy3TlueuNVcrE4xZbqduTqIUxs/OA6dPCg8xaMuFfwbJs7G+jaGovhb9Ye4v6Uzf7vaOsaw/1IXR4ZMAPDBxNYNummS9qyiFvdqrSMudWhe2KkphfD80cftXJlB/el3jXcs8W01ybe1Ldjwycl8aw2feKALN1crDCML4TnQoWivnl0N2M69dUWYYP3zTiGfEKK9GoOmKeRXbM31CJY9vtrRfRagGkN1S5dA5qzK3+0qlML558ssflTzjLka7woRl84UTyWdg272JTwIsqF55enx7PhgRO33ukVUz8toZdZNsQp4R2fLJ7JzdMjew1enXK4+H1n3tQt3bO3bktTNN7YeZyXN77/2oOJLfJRznw1W3fy/m4+Pj49PG/A8GYlabcuUkXQAAAABJRU5ErkJggg=="}, {"name": "hop2_c", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEXklEQVR4nO2aT0gUURzHv/2hUFZchZYVlpREqZBJoYNuoWwHDwaCHYRIFg8elKKoc4EHz0UHSUIipAg6GHjo0CFxqW0PS9myiBRKhaCsYLsYLR1iO4y/t29m3+zMuLO74zQfWJx982b27cf3+70/s4CLi4uLi4uLi4uLi4uLizkOGa0oBfw5o3UTG1uG73vQ0P1iJOpz7E7RepMTLzD56CoA4Fz3fVbuNHlFv4wU8OdEovr6HmI42IztdFZRvriSQuisDwCwtrULAEhs/mLnnSDvqNYJKeDPRWZ7kUnGWdmz5xuKOie8NXgZ/Y7hYDMAMFkA8GMni9BZH1r9dVhcSeFkYw2AfFgfVHmHRYUki+fZ8w3EVlOaN9pOZ7G4ksIJbw0ApTxiqKsJUpNHfgX8OXqV8gUqTUEPE8l683oHvoZadJ+WJdy4fAapn78VdUgUHYt63trWrqLnUdgepJ6nEKYlCwAT5GuoVcgiKVpQzxPVI3lK7C2PCRPJunHvIwZ7WgDIogiSRmUk0EjPu329jb2/jTYUo3cskgPsJU4z6b95vcNkqRHJ0ut5I9cCAID6jvOGGxeZlf/2jkVydpGmKawY6t7GH6tlxlZTWJi+YEoUQddEZu0j7RBQPHeZQdTzRq4FFLImJ14Yvh9NhAEgk4yjdyxS9fAUCtuPLBH9A41MFomikXI42KyYpojKWv118rV74uwgTTckp+aTuje5e6WDHS98+IbBnpYCWfkphHFodKVlV33H+aqHZ1FhU/NJ3TUkIK8dSZpVsnjWtnZtI40JW46us8L+gVMAgKl5+X0mGRcm7Uwyrrjuf4AJG5/5xgpnVJXmniYQHi28eO5pAlK7pzwtsylM2Mx4CyskeceOyafDo5Lw4vCoVNDDrA5Hwi5hKcxhvrrjAID0n7+K8u7wW3Ycm7tUxmZps/T4JQAg8eWXTs3yIBRG67tXnzYN36h/oNGaFtkcUzP92NwldIffCnsXhWZn8BTbQ+PXjSJGEDBVxoe/1O4B3qUNt90q9rU0EkF5Tz1gWEm1wpDHtDCt3EV5jx9tyw0NSpVE9xMzyfjetKJwpOSnFZT3Fle0d2WtRj0oVQJdYcvRdUjtHuEEVTQHW5i+YE3LNNrCc/PJhkbN8iEUVsrcaTm6js6gvFJ4MP1VeC+ji291Wau/DqGuIwBsNq0gpCaPof/iUFeTZQ2yO0JhP3byzxu9x4/sPSIrrCN6MuR0hML4PDR4/T0TqBZH4Ub7Vv8Dukl/aekWO+7reyisw+epELylt8rGMGF8Eu0M5ivwT76N9jwnI+xh/PBNI54atbw8XksaZlcMzcMILXl82NJuAsEPIDzb6WzBOb0yO+RKoTA+PPnJqZY8PmydzlFAfrI8+w7sEf3YRS+rYFaeXN+529b5pM/tXJYiz+mIQ7IEeWqKTW5F54yWVQvdpG9WHg+t+5yEqQ0lI/Kczr534IrJs8POaLmw/BFVJX+CWe0fpri4WM8/aEU7HVKN03wAAAAASUVORK5CYII="}, {"name": "hop3_a", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAE+ElEQVR4nO2aQWjbVhjH/1mNQ0pC3EKNA2YJCS1rCV4ycnDd4ZAeyugg0B0Mo8GU4UNKS0d36GmDHHLaYaODMDNCCKalkEMGOYSQQ0xMl/lg0s6ItGykZMVQ44ArkzKTQ9AO6nt+kp5kuZFj2dYPjKVPT89P/3zf9973FMDBwcHBwcGhAYhrEanRY7Caj+rVsbgWkXqHx1pOtA4zjQJ+n+mHzubytE9xLSJ5vlgy9RvNguHDiGsRKRxL4a/0d4adzNx+gplfvwYAfBr8idpZ8VoF3QcK+H0ST6jx8YeIhPqxL5YV9uROAROXvACA3fwBACD75h293iriuXhGkn8IJSGDR49zijbnPF1Y2voXkVA/AFCxAOB1sYyJS14M+XqQ3Cng47NdACph3cziaZI+yVclIQPy/ehxDumXBd1O9sUykjsFnPN0AVCKR7gx2odAX7f88fsk8rHmMU4OhYcF/D4pNR+m5yUhg/XVIrxnTiP4iSzC3S8vovD2P0UnRChyzPO83fyBwvNI2Dab51HB1GIBwPpqEQCoQN4zpxViEVH0IJ7Ha0fEU2J/8VwAX6y7P2xj8vIAAFkoAhGN2IiAZjzv/p3z9Pw+zsOIcCwlAfYTjpv011eLVCw1PLGqed7UTT8AgJ1IqpGal7/DsZRkJ9G4ghmh9jb2WC1m+mUBK3NXahKKQO5JzdtLtA6j3FULPM+buulXiDVz+4np/shCGJAnn3AsZYvw1Aj2IWLxuHb9LBWLCEVmykioX7FM4dmGfD3yve+Fs4tohiE5uyxU7eD7r4bp8cqfe5i8PKARq7KEMA+ZXUnZ1Ts8Zovw1BVsdlmoWkMCcu1IRLNKLJbd/IGtRHMBwPOtV9Rw7fogAGB2WT4vCRlu0i4JGcV97YILAKbje9QQVzVILGYRvaW9MbGYReBCd/1GZlM0teR0fE8hYPRWgHsjz251OBJIWAJ4H5bhmvborISbw15sP1DsawFAMLpBj9OJq/UdlQ6bvy0BALJ/v6vSsn64ACA+PUAN0/E9XPzsR7jdLrpjIXvNBu9+ALJntQsaD/P2dAIAxMMj9A6PoSRkUBIyhl5Fkv9IaJCKzNaNPKbgr8nGTjCBC93AU9Gw/3qhEYzsIPz+7I2mcTC6oRBuJDQILORozlNPGFbSyDBkqamWVHsZ+aunE1cRjG4oJot643bXXAZbguFrtpKQQWIxy73G2tkJgUDEfbH9QHF+XHuj6Qj4fdIv31RyR/LZEQA5JFm7HvcWcvB0ngIAFA4O6zNKDm63qyF1pSV+TfJeckd/399qxMOjE/stFl3Bboz24d5CTu8yJdBXWe2vzF2xZlQc1GWYmbHVA41g7Orc03lK8RKDbLmw7yBZnm+9kmdOAD/P/cNd6Zvd3lHbhnw9mBiVQ7/hC1cjyEMTsdodjWCvi2VeO8vqwmZHIxibhybv/EEFlN9eV2hXzzMMyc3Nb+nx+PhDbhvW8ybgsWZUNsYFKJPoSKhykdSFgHnPa3U0HsZO32TGU6MWr4LHsoHZFcOQNCMeG7Zkv4qgN4Hsi2XNtWo2u+RKjWBseLJb0HrisWHbDriyuXzH/FPQ7d7Y5x56sVbx5Pat/WJETvpMEXsc8doBbUgeQzw1vPLJ6JpZWyMxTPq1isdC6r5Ww/T2jhnx2oEP2g8zEs8ue+/1wtIdy5N8udro/+JxcHBwaEb+B+lziln4GK9YAAAAAElFTkSuQmCC"}, {"name": "hop3_b", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAFDklEQVR4nO2aQWgbRxSGfzfBwcHGiqFCBhGHGAINQrGLD45SZOyDKT6YpgdBSDCh6JCQ4kAohkALPhgKOaSkRcQUYYxoCfjgBh+CycHGS6vqIFxFCCe0WLhBECGDs0IhwqFBPSgzml3NrnallXYl6wOh0eyb3dG/b+a9mV2gTZumR1z3Fczug1F81IiL9LpGGnGZhtBRz5OL674CK1Y2EYXt85W6XrPe6Oq82+nQPLTiqTQ9dyF1r9DhnGtqoQjHtRiJ676C1y/gWeSOqt38zUeYf3gFAHBh9D4VN5uI1tJHS1HxrrudjgJPqLGxB/B5BrAv5jH/8Armbz4CAGzuZDB+3g4A2E3nAADxV29oO9bzmhHVzvPmoF9+TQEAVsL/wucZwK3vv6DHA3cfY1/M09+seJs7GZzu62p68RSjJJmvyHAiYkVeZCR2gbuP6fe+mMfmTgYf27oAgIrFcnm4H+7+7uLH6SiQjzF/p/5w77Db6SgIQa+k7umTAwBA5vVbAID91ElaJt6mViaet5vO4eVBvmmHbdmkr1csAFQUJYjn8exY8UqUPM5q0VZycZ5YX3+3jemLZ7iNM6/fwn7qJC0D2jzv2lWn5g56/QIASCK0maKpphVPnxxULRZQ7nlEKD2ZvxAsfl8YvY9nkTumigVozMN4ELF4ZbmYkRcZrAUuVbVEIm2EYFE0s6F3S23u0gPP865ddUrEIjmbFkgiDBQjtdcvmBoUFAWrRiwek1N9VCwiFImUPs+AJE3h1Q06eoptPwhntmiahuTCaqKizbdfumh57c89TF88UyYWSSH0QKIrWXb1ukYgBAGvXyiYIVpFwRZWExXXkEBxfiGiGSUWy246ZwnRJILFwklanpw6CwBYWC3+ziai3Ek7m4hK2rU6EsFuLO7R8qLMMLQcx8z18hOEluNwn+s2vmcWRXEteWNxTyLgzHU3145Xb/RwJJBhCeDDsPTq2qMzAt152OjMBi1HQhOGdkYrWz+vAADif7+pYGk8ioJFQhPodY3o2vybnOozpFNWRpKH/fhVaY1HhmNn53GQ/IwIODqzIfGuWDiJ2aUUSPshz9m6dVgeYGaXUg3NyRQ9zN5zAgAgHr6nQpFIGQnx2xCR5QHDSMwYhiyKgpEtl9/+eiWplw/RXtcIhgBgKUXr2GBRbzo7q14OV4Wm55LZRBSh5Tj32E/fLCEWTkIIehEJTeD59pyhHbQamm5PLJyE+1w3N0ElOZjXL+Ddu/8AbEiOP9+eo17JBpFaymykbjSG+jOZ9zK5Q1r3yaf3GIsNg8rmUVGwy8P9mGXmJzU7wuZORsXSWMTD9w27FqDRw2wnjmH8vB276RzdbgHKn0GSY2uBS3XoahFeWtFIFAXjLWcGHT1lorHHCLFwkuZiPwT+4Z5L636YvG7Q0YPx4WMALJbpyyF/mifWUUJRsJcHeW69UQvpZkVRMHYemr71BxXwdF+XxO6oeZ6mIbm1dZuWx8YecG1YzxuHrbZeWRiJYOwkOuQp1bPLIa2e16ooehgbvpV2H+TilbDV3DGronlpRFASjx22ZIOPoBRA9sV82bFKdWbPlYqCscOT3bNXEq+V3jJUgwoWT6U7gr+D7o/7P7NRI73iFe1b80mSdNJndi5rEa+VUR6SNYgnh/cmotoxrXVmoGnS1yseC1n3tQq698O0iNfK1LSBqCae2Q8r6kVdHk818mm0lV8gbtOmTZs2bY4W/wMv5LTqT+BySQAAAABJRU5ErkJggg=="}, {"name": "hop3_c", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAE0UlEQVR4nO2ab0gbZxzHv66lYjGYFhoihClKy1YkKvgiTUvEviijA6F7ERiVUEZeWCwd3YvCYANf+NrRgSyUIBI2Cr5wwxdF+kIxtF1eBLuFYMuGw5VAJYJLsDT0RclenL8nz12ey13Mnbmc94Hg5bnnOe8+/p4/v+cEHBwcHBwcHBxag8JKuNzsezCSj8y8eGElXO4aGLGdNFOxm6w2rQqFlXDZ/dlim9/n1f3gmdyO5nVblZNaFboGRuD3Jct/pr6pWW/69iNM//QlAGAwMMvk2k2e6sPQ+EMUs2nQ99HRBwgHe7BbKMnarG3mMXbRAwDY2tkHAGTevGXn7SBPNcJC0SSScSnCitk0AGDu299kdc65O7D4/F+Egz0AwGQBwOu9EsYuetDvdWFtM4+Pz3YA8LZ85AlnSb/PW07GQwDAZP38Sw6pV3nVC+0WSljbzOOcuwOAXB5xY7gb/u5O6ePzlunT8FMcIVURxssinjzeg+fMaQQ+kSTc+fxT5P97J6tDouhYFHlbO/uyyKNu20qRJxOmJgsAE+Q5c1omi6SoQZEnqkfy5FhbHhMmknXn+w2MX+oFIIkiSBqVkUA9kXdv6jz7fg/nUYtQNFkGrCVOddB/8niPyVIikqUVeRM3fQAAfubVIhmXfoaiybJVpGmuw0Qoo40/VspMvcpjee5yXaIIapOMW0daG1B77KoHUeRN3PTJZE3ffqT7erQQBqTZOhRNNr17CoUdRpaIa9fPMlkkimbKcLBHtkwRlfV7XVLbA3FWkKbZJWeWspoX+e6LAXa8/Ps2xi/1VsmqLCH0Q7MrpV1dAyNN7541hc0sZaGVQwLAYGCWSTNKFs/Wzr5lpDFhfzz/hxVeu94HAJhZkr7zeSRPMZuWtTsOMGGTsW1WGFNUSixkELlV3TixkIH/Qqc5d2ZRhLnkZGxbJjByyy9sLCo3ujsS1C0BHHTLEJqRh7IIi032ssLJ2DZebtzHYGBWVjkQWWXHqcRV8+9OwPrDRQBA5q+3GjXNQTjoe1ztGB19AKCyWyFFzaqoOgApso4DQmGUEP/64g3bDytm0zWjigb/oWAfk8znjSIm4KurjJ9g/Bc6gaeFmtc3g7pTo0BkVSZuKNgHzOfYmKecMIykWd2Qp25hyiijv3oqcRWByKpssjCbU6cOlQo3hOZ7yWI2jcRCRniOLx+fegaPq72qzsuN+wAqounnYcubDcslf/yqMnasvfgAQBrD+HI17s7ncGO4W2q7qb6NbTSF9x+OPK80PKaX5y4bfUmGMqu4O58z7XepIRRGi01/d6eum6LoAqSHGgpKqdUPc38LF656dyuUZf1eF8aGTwCw2DqMx91+4uAVWWW7BZC/gzxOCIW93iuJig1Lc1oZoTB+HBqfesYEUqQRJJCPPLuj2SXX179mx5QuKeEjbwzuxu/KwjBh/CA6FKxUoDQH0B95dkYYYfz0TTOeEqW8Cm5DbsyqaHZJPfL4bkvbL4TaBLJbKFWd0yqzwlgpFMZ3T35HVU0e323tzklAehUffwq2exm94mYV6pUn1bfvPn9l0Odyskbk2R1xl2xAnpJa2YDonN6yZqE56Ncrj4fyPjtR126FHnl259DbO7XkWWEr2SwM33w7yneFzf5PHgcHh6bzPyCEfjO2PxMjAAAAAElFTkSuQmCC"}, {"name": "swing1", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAFYUlEQVR4nO2aQUgbWRjH/6mFkmIxFQwKUoulxV0kavGQzS6R7KGHLgjdg1C6SFlCqVgs7W1hF8Las9CiVEoQkV2EHNrFgwcPWww29RDWNIRSCgYNAUMKaYKlYcuW7CH7Xr6ZeTOZMZqJ2fnBMG++mcy8/PN93/vemwAWFhYWFhYWFhYWxwDbQT7k6u4syW3xdMbGzrF2M6L7i1GRXm3eV5wfcM/wcwPuGcTTGVszindSz0Wu7s5SOOgFALT1D0vOzf30BwDAcaoFY54eBCaWmWila0NdAFBqJvFUBaMexcQCgEIiirXVHLLvP3JbKLLL2x0OO0ZGHuKWrxcAwERrFvGEglGPkrO2mgMAOM+e5rY7333BBaTiAcDz11nc8vXiXb7YFOLpCkkm0srLHYx+dV5xnonlPHsaY54ebpd7Xiiye+w9TyGYaARkiMRiMI9rds+TCKYVilpQkSjVPO+HG93cdg8Xy405AEDJ1dUKoPFEk3RGLhgLxYOSff9RIeaVq+2S47b+YRQSUb5n3PnlLwBAfO9Ded8gwunKYQ+eJqpe8/P3/Qqbmljy0oQdU/vstPReXn+4BJgvHH+4KBzXVnN48DQhLFTlDLhnFKKtvNzB7PRlfiwXSg/U6wDA6w+bKprEw2KRJAY9vXxPYWEjp5CIIhZJVn1QW/8wAhPLAIDtzL7k3IXOM7wdeHwdgYllBB5f55+jzwoHvfD6w6blthOsEU9nbFMLaf7lY5GkJN8sLcZRSEQV29JiXPXmWqMqpcNhR4fDDgBcVPmeEg56NUfzo0TiYWXRwDvyiJwbv+kS3mD8pkvoYWr5Su5dqVwRqcguzrXbJXZ3n1Mp3n9eJw/TenJCboinMza2TS2kFR9wj//JNyMEJpaFYgGQlByMUGQX25l9vrF7AOUfwSwvUwhGqTVPMO8ShZUaqVwRqVxR4XEAeNiaiaZgIjaXvpXsKVeutsPpyEtyn1qiB4Bz7XaMeXqw+SarsLn7nNyWyhUbQiyACObq7iyJNiM3owMGAKw/CeHe5EUuFi0xgEpIiqAiijArLPkqqdqUyOsP49Xmfc1EG4skMbWQliwD0YFAXqIAwOjkCwBQhJ4oHFO5Is9z7/JFRfKvZ23GR0mtL8jKB9FIubQYh+tSKwCoDgTzpM3qvJW5r7mNTYOYMNS7mBcyG63ZzEA4NWK/PiMWScJ1qVVYPjCxtLg9v8PbTDxaHLNQZc919zklojHv2nyT5d7FqHflLxTM92Ul4T7b2jvUB4rEY/x6owuDnm7ucbPTlxU/nrwmq3flz3PYox8rSy3Ptz5X2q+zyP/9WflJGZ8+/VNTR+Zvn5cc07Tw2+9pRUj6hlr4NfX0Ml2CUY+jdgbNR0YLWhFy8eT98g21AADibz8guJE3PyT1woSkYSOqzw6LQY/0OP5WfR57VOgSTC2PPdvaw7WhLoUHHmQZxyiFRLQ84Gzkj/xZFN0eJqrTvP4wtjP7pg31Uwvpuq+NGQ5J+VrZhc4zqqIZmUPqheYvMxAKJpr3aaHlYWr3Uptgq9mrPadeGJ58i6Y5/yeEHiaaFHv9YV03jEWSGKypS42NUDBaV41OvoDjVDlv0FBhoWNm0jeDqkl/ff0ub4+MPBReQ/OUD47ae9XAcMHoqEMLRLqsI/c8FrpqSboZEXpYtbUsQCleBcehdKxRqRqSesSjYbv+JHQI3WpchILR8KTrXWrimfnaq96cBMpvh4IblfeR/m8c/AKj4pWvr/4m/LhSSfpkTlaLeM2OOCRrEE+OWo1m1N4oVE36RsWjsIlyM2FotUKPeM3OgVdctcQza+mlHhz64ls930Sb/W9ECx38CzDT49mc2o97AAAAAElFTkSuQmCC"}, {"name": "swing2", "src": "data:image/png;base64,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"}, {"name": "swing3", "src": "data:image/png;base64,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"}, {"name": "swing4", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAFB0lEQVR4nO2bQWgbRxSGfzWGYoix8EHIIJw0oqU1QshGh0Qta+RDCT0E0oOgh/ZQhKGkUHrxqYWAe/KtxSUQdLJbAjrE0Et8avDiCh+Ea4xIS4oEMYIIF1wJmQp62R42MxqtZnZ3VrOrrerv4uFptFp9evNmdnYNXHKJn0SC/sB0Im5YYyfNVuDn4ZVATzSdiBvffZpAJndjIK4VddoOu7ypcX74caWBTO4GvvowRWPfPAbNwDDKG6swlli0/Srzwi0vcGGlJ23gyRG2NpaFfcIsb6wZRuTduXVd2Cds8gIT1t4rGGxxt/JfkReYsNlUFoBYGIuMvPc/0GhMK+q+ywtEWHuvYACAXtLw+ddHQ6+f/fU3tw04yzN/CBO91I9rRd3wQ5qvwtp7BYP9QrOpLHZ2s+jUqp6OJyvPD2m+CoveLkeAMhXXqVVphm1tLOP0vAcAOK28wMLc9ND77TKPcP+zR/32g49oezaV9UWatLD2XsEwRbgnerscMZpZQyvqSM9fpXEi6ebbMZQrLwCI5Ymot7q0bZXnh7TXZN/Apr0MTsNwYW4aC3PTKOSu4fS8h9PzHpVoRZRt9VYX9VYXX957k8ozpWnca1gvSAkjxZv8lcEuK/9s9wbaMvJ4zKayqLe6vkhzNSR5xdtoZo1OrWorQgWiYZt6Y36o79bGMh0BO7trnicXO1wJ4xVvr6JIoXcDL/MAUx7wz1B/c0I5ws7uGj6++xAAkIz/obSeSRV9UrxHySq2oNNZ8rwnVehZeD9Ap1al8WR8xtNxRUjPkirTnEhKxmfw9NkZAHfyzMy7AgAo5K4Nvf7Dj00aZ7NUBdLC/KpZXuUd/n5m+7rqDBPOkkZzU8k07AZ2LVVvdeksmV+M0VmSSBw3XGFEVpDSRKiWl56/OtLygjskI4n1iNHcNCKJdeXDT2aW5GUeMDjMnI5nHZInLy9G2skQ1jA/ZAH8WdIal4FX9FnGXvRV4lXe02dnyC+ZC9egiz4VpupayytO8tgZ02s2qmAKMGXpJc2pr2+wMqxtmZoXBDTDjisNGmRvtN785GfuGw+3V4WvOXG4vQoA9M7RnXu/cPtZM2lQXpQTGyS/GKN7ZJ1aFVpRH3nrmlvD2C9AvhwwKM+rLOt7D7dX8dP373I/W5R5LHZFX3XBBwTC8osx2nYjDwB+O1rHO8ub0ifgVp4IUdFPxmeUZxfgcpYkAu3keZFlRSbzyJBkYWdEP2QBkssKL5nnFSd5J88vADS4kgiqZQEjrsOcMs8viLzjSgP5JXPXYmWtMNDHD1mAS2G7v74Uxu8uzQ9kHuB9318G3jYTG/NDFiCRYbx1mlbUUW91la+mZTCHJpB5lVE0HpY73+SZLkIyPiOUxt72UgUZgifPL1A6aNN46cCfjLLCFcbuErjBLsNExxKtq+w2DXmfE/TTO9L3Ja2PW/7f4GYY73LD7lElluNKA5mRTinccIVZ1zzR1826Yd1RWJibHnvRDxrHor+//wVtr6x8y+3D1qk8ZwU+SVBhZHoGgEyu34Fd21gzjwzdce5PBQ03w0RbPSzii+SokhMLK45D0o08dtjuPywrOK3wwhXGDs/0W/3nuUTy/HjoI6xMAebir3TQfxq5+F6UdpCVR3YRJpV+0WdWzKPIm3T4Q3IEeVZEazTZeFhwLPqy8ljIhfIkIbVb4UbepON5x9VOnijjJgHlWyNB3kEPy78EXmLDv7nq7lKH9325AAAAAElFTkSuQmCC"}, {"name": "swing5", "src": "data:image/png;base64,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"}, {"name": "swing6", "src": "data:image/png;base64,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"}, {"name": "swing7", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAFVUlEQVR4nO2aT2gjVRzHv7WFJdDQ0EOYQOjKBqVKid0SJWYlpXvSS3BBAkXcgwRBUhAve2sp9iDkIChdCktOq4vQy0IPbvCwuw029hDaEoIuC1u1BFpaLBO2S/CwPA/xvXnz8uZfMpnEkA8EJpM3b2Y++f1+771JgCFDhgwZMmTIkCEDjVpIk15fgxu84tWJJmZiXp2qq3gijEbXIETZSDc7VwtpIouserWMwPubXT33/xq1kCakliODEGGOafemSS03ELIc17B2i3e9Wm7ruHboZiQ7EtZJ8fayZnVzRLZ1E/1evKNhhQBAMZ/Uyer59fVb8Y6GFRINK+TxSow8XokRtZAm0bBCSC1HqES3cWyf1HJkJHyrp1FFZURD48h8EAAAzCauAAAOSodsO5kpsmMqtRNXrtlxJ2ohTXoV5rwoGby8n386RzCgsvduyet5/bEDFRW4NIqpSR/bv742h6XlPekx3ZJn2LjfUg8Ajs4bAICpSR+Ozhs6eal3X8XWr39K+3FTnrQBP8nshTSr1AN6J6/vIiwaVoiYelZ0S55MWt/UMKOoEgVY0Y48Kg6AboTtS2FGomQF3W15fERRJmZibBknk8bedGuiJ6NSOxlxIiqi+PHs5LluXyfyxIii54sofqxuLAJorhJkwsaApqxiPmn75J2SzBQJL4q/Gdk0gZdF5fGy7MgTRQH6yJJRzCeRzBQJL22MbhyUDqUdxW8+lHa2e/e64WdW7N69rnvPS+LlyWhHnrgakJ1X7BswScloWCHffRpmO1fuHbPtrdvX2Ha7gszg5clqFmAsj0eWtrJiDgCp7I60XzElgVZpUmGP9l9q27+dsm0zeb/v3cIbcznLGzPDTXkLV0cBNEUdlA6Rf6Cyz+PTQew+OZUeBwCrG4uGwsZajpKw8GYQgPbNAPqbi9982LEs2o+s/1R2pyXtgFZ5R+cNfPVxSLfvh3s1bJaOdW13n5waSrPCljAKFQeYy3MDI3lLy3tSeU1RAQDayBef1q5Xhljvnp08Z1EGyGuYI2EiVpHXDdbX5tj20vIePnrbj+jrzRFXLOp2IkiUxqejDFvC7u8fG+6/cTWkizzAmx9t69Uy3olol59/oCL+Rw0AsFn6SydhatLXkoJ0m29Ho4ufvIrYjjDZPC2ZKbaEsdf8/cKnG6QofOTQ1BSjSRRpNWkF2khJ/okmoA3nMmmrn//otHtL6OhXeXrBUvHR/ktEFL9hCtIiLxKfDuJMbUinE0ZIhYnzGSvMIsyoL6PZudms3W4kpxOXAehTU5QZUfw4U5sDBpVlB8cRZrWc8JLZxBVMzMQwz+375MYdw/ZTkz6ddFGU2aKbIhVGh2oe/uGaGQelQ8zaaukO9WpZN8jQ1IxPB5FOXMaZ2tCVDFk08WloJgsw+CF36/Y19gKaz9IDl0YRDY2zF33vNH3dhE5n6tUyu+nVjUV8f/8zXTu+RlFoez6qrGQBNlJye/sLtj0//620DS9t4b/Jo1eksjvsi+WjLfv1h6wNHXxEaTR9K8cXtn8MYcIqTy/YztmE1oAPV34tmcruOFrfdQP1n+Z0IpkpIhoax/raHLtePk2/zL7Gtjv9j4c0wowe9fCI8jQCHV2QU7TIUAits8V8Em/Fv9HNHcU6Je/DGsuUtCOPT9vtO5t2z+0q/E3Th37JTFH6FLmTH3Klwvj0pJNDwFiel39lsgMV4tbfA3jGaMf5X8C+jcx7Ae3kDuU122ufDRpa0ee+jU7kDTrylOxAnojRcsbp/n7Bsug7lcdDF8qDhKO1pB15g07bT1zN5BlF3CDg+rDr9S/oXp1rSJv8C9YyJwZjhmvVAAAAAElFTkSuQmCC"}, {"name": "open", "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEwAAAA2CAYAAABtLn+MAAAEX0lEQVR4nO2aT0gUURzHv5tCCEmLh1hBPCQGRZgrHaJiZTvlRdjLXsIOsQixi9GlmxF585AUepGlQxGBF6FLngKXlA6yyiIESR5iYT3JikLH6bC9t2/evjdv3vzbcZgPiM+ZNzNvPvv7/d68WYGYmJiYmJiYmPNFcyNvdHsMXnAhqAtdvnk7qEv5SmDCokIgwkg6RiEtE36duLmRN6zS8GR/B8mHa75d/1zT3MgbRn3RiEKEaeP0po36YiRkadew8zDb+RnJWsLcFO+T/R3dQxzj54dqq+jKCnjYCjc/zq6Pr5vFe2woZZAfVV8/62WvTufkw7WEUb9tBPmpEUGVcoZuyxQqVEitftQxFj/TX/vGmxt534WxUcSKIuxtH9L23Ps6bYvkeU1o6g9hbChliCQRSvNVFKaSwn1ByJOe1KgvGomhF4EIVUVUab4KAPhz/BfDA32mfUHLE56ILZpOpOmkrVVETRe3OgQRuiXPlwhTHasTUSxhkOdpytl5DnITUSxO5U3O5mn71p032tJ8qVGyCLOSVZqvakmx24/d93F91rR/JreKWuNMSxp9DrPzQGiXk/0dW+fjI4pt/zn+axLjtB8viTCTW1UNT0gCUE/lXpMpVAAAyYs9pu1eRBTh9aNBAOYUnMmtmqJuJNWP9d2GVoRRYe+eDNGN43ev0vadx9+EB/748EC6T8WPDw9o22t5omJf/tqUjqUwlcTc+7ptaUJhLz81aPvLyj3adirICq/kkYhiKX9t0j58Gg8P9GEk1Q8AWlEmXEtmb1yh7eniFm2zN8fL+1l9gesTi3auaYI9j0weuWn2wyvNV6kEPqqsIoonm+7B+q798dpafBOBVvKcyOJRyWNZXpigbXZtSaKKyBwe6KMTA7+NRJgOWm8rnESeU1Ty2ElKJ6JYsukedScOLWEdF1REnh9wr3kwNnhJeYwoytgPXwdbwtZ3G9LtufRgx8WDeO9P3nnVGmfIpQfx++iU7iOCZJOFG2xHmOg5LVOo4PfRqaNa4DXLCxN0DQp0SmOjLHvjCk1HnUcKwEFK7m0fmp7TRlL9Ummvnn7WPb0ScqO1X2et362bNZ5jFMsLE1haOQAAU8TRY/9nglNZgESY6GJWWEWY7FyylLFKJdl1avWjRKZQMSrlDJ4XRwEASysHwv5OCj2LdoSx0RUmWGkAqDgRZKZ18npHKIxffrAXUbG3fYhx3VF4BJFG/ubrrhtRBKEw9ol6urhFlyqi5UVYij6BlcHK4/c5RZmSm5vPaHty8q2wD1unski6HZNn+PFFCBVGZh0AGL/b7sB+x8dHnmhhG3WEEcauzWRFnpfXJunJwMKKMiXtyGPTdnN1zYNhhRehMDY9x66112oyeUH+Z0636QVaxbH8HXRGKdxP0g668lr92/uiRrvoMzOKG3lRR5ySLuTxyJ7RdLeHBWXR15XH4nbdFka01pJ25EUdx29creTJIi4KeL508PIbdBVB/ANdjEv+AZb4gihqzZvNAAAAAElFTkSuQmCC"}];
+const SEQ = [{"frame": 0, "name": "closed", "ms": 250}, {"frame": 1, "name": "hop1_a", "ms": 60}, {"frame": 2, "name": "hop1_b", "ms": 60}, {"frame": 3, "name": "hop1_c", "ms": 60}, {"frame": 0, "name": "closed", "ms": 320}, {"frame": 4, "name": "hop2_a", "ms": 60}, {"frame": 5, "name": "hop2_b", "ms": 60}, {"frame": 6, "name": "hop2_c", "ms": 60}, {"frame": 0, "name": "closed", "ms": 320}, {"frame": 7, "name": "hop3_a", "ms": 60}, {"frame": 8, "name": "hop3_b", "ms": 60}, {"frame": 9, "name": "hop3_c", "ms": 60}, {"frame": 0, "name": "closed", "ms": 150}, {"frame": 10, "name": "swing1", "ms": 40}, {"frame": 11, "name": "swing2", "ms": 40}, {"frame": 12, "name": "swing3", "ms": 40}, {"frame": 13, "name": "swing4", "ms": 40}, {"frame": 14, "name": "swing5", "ms": 40}, {"frame": 15, "name": "swing6", "ms": 40}, {"frame": 16, "name": "swing7", "ms": 40}, {"frame": 17, "name": "open", "ms": 1500}];
+const S = 6, CW = 456, CH = 474, CHEST_Y = 150;
+const OPEN_X = 24 * S, OPEN_Y = CHEST_Y + 30 * S;
+
+// ---------- per-frame light targets ----------
+// intensity: 0..1 brightness, openness: 0 closed .. 1 fully open (cone width)
+const TARGET = {
+  closed:   { i: 0.0,  o: 0.0 },
+  hop1_a:   { i: 0.18, o: 0.05 }, hop1_b: { i: 0.30, o: 0.08 }, hop1_c: { i: 0.15, o: 0.05 },
+  hop2_a:   { i: 0.40, o: 0.08 }, hop2_b: { i: 0.55, o: 0.12 }, hop2_c: { i: 0.30, o: 0.06 },
+  hop3_a:   { i: 0.65, o: 0.12 }, hop3_b: { i: 0.85, o: 0.18 }, hop3_c: { i: 0.55, o: 0.10 },
+  swing1:   { i: 0.70, o: 0.20 }, swing2: { i: 0.80, o: 0.35 }, swing3: { i: 0.90, o: 0.50 },
+  swing4:   { i: 1.00, o: 0.70 }, swing5: { i: 1.00, o: 0.85 }, swing6: { i: 1.00, o: 0.95 },
+  swing7:   { i: 1.00, o: 1.00 },
+  open:     { i: 0.75, o: 1.00 },   // settles to a gentle pulse after the flash
+};
+const RESIDUAL = 0.12;   // light left over between hops (cracks stay lit)
+// hop frames: whole-chest jitter (dx,dy) and lid lift in 1x sprite px
+const HOP = {"hop1_a": {"dx": 0, "dy": -2, "lift": 1}, "hop1_b": {"dx": 1, "dy": -3, "lift": 2}, "hop1_c": {"dx": 0, "dy": -1, "lift": 1}, "hop2_a": {"dx": -1, "dy": -3, "lift": 2}, "hop2_b": {"dx": 1, "dy": -4, "lift": 3}, "hop2_c": {"dx": 0, "dy": -1, "lift": 1}, "hop3_a": {"dx": -1, "dy": -3, "lift": 3}, "hop3_b": {"dx": 1, "dy": -5, "lift": 4}, "hop3_c": {"dx": 0, "dy": -2, "lift": 2}};
+const OX = 20, OY = 20, PW = 27, SX = 3, NSTEP = 7;
+
+// ---------- state ----------
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const imgs = F.map(f => { const im = new Image(); im.src = f.src; return im; });
+let frameIdx = 0, playing = false, seqPos = -1, seqT = 0, lastTs = 0;
+let inten = 0, open = 0, flash = 0, tGlobal = 0;
+let particles = [];
+const knob = (id, vid, fmt) => { const el = document.getElementById(id);
+  const v = document.getElementById(vid); const f = () => v.textContent = fmt(el.value);
+  el.oninput = f; f(); return el; };
+const kInt = knob('kInt','vInt', v => (+v).toFixed(2));
+const kAng = knob('kAng','vAng', v => v + '°');
+const kPar = knob('kPar','vPar', v => v);
+
+function currentName() { return F[frameIdx].name; }
+function hopInfo() { return HOP[currentName()] || {dx: 0, dy: 0, lift: 0}; }
+function chestOffsetY() { return hopInfo().dy * S; }
+// seam (lid/base gap) as canvas polylines: front seam runs along the sweep,
+// end-panel seam is horizontal on the right. y sits in the middle of the gap.
+function seamPaths() {
+  const h = hopInfo(); const gy = 15 - h.lift / 2;
+  const P = (x, y) => [ (x + h.dx) * S, CHEST_Y + (y + h.dy) * S ];
+  const front = []; for (let t = NSTEP - 1; t >= 0; t--) front.push(P(OX - SX * t + 1, OY - t + gy));
+  const end = [ P(OX + 2, OY + gy), P(OX + PW - 2, OY + gy) ];
+  return { front, end, gap: h.lift };
+}
+
+// ---------- particles ----------
+function spawnParticle(strength) {
+  const spread = 10 + 60 * open;
+  let x = OPEN_X + (Math.random() - .5) * spread * 2;
+  let y = OPEN_Y + chestOffsetY() + (Math.random() - .5) * 8;
+  if (open < 0.3) {                       // lid still closed: sparks come out of the gap
+    const sp = seamPaths(); const pts = Math.random() < 0.6 ? sp.front : sp.end;
+    const u = Math.random() * (pts.length - 1), a = Math.floor(u), f = u - a;
+    const b = Math.min(a + 1, pts.length - 1);
+    x = pts[a][0] + (pts[b][0] - pts[a][0]) * f; y = pts[a][1] + (pts[b][1] - pts[a][1]) * f;
+  }
+  particles.push({
+    x, y,
+    vx: (Math.random() - .5) * 0.6 * (0.3 + open),
+    vy: -(0.6 + Math.random() * 1.6) * (0.4 + strength),
+    life: 1, decay: 0.006 + Math.random() * 0.012,
+    size: (Math.random() < .25 ? 3 : 2) * (S / 3),
+    coin: open > .6 && Math.random() < .18,
+  });
+}
+function stepParticles(dt) {
+  const want = +kPar.value * inten * (0.3 + open);
+  if (particles.length < want && Math.random() < 0.5 + inten) spawnParticle(inten);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.004 * dt; p.life -= p.decay * dt; }
+  particles = particles.filter(p => p.life > 0 && p.y > -20);
+}
+
+// ---------- drawing ----------
+function drawBackground() {
+  const g = ctx.createRadialGradient(CW/2, CH*0.55, 20, CW/2, CH*0.55, CW*0.9);
+  g.addColorStop(0, '#3a2a5e'); g.addColorStop(1, '#170f2a');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, CW, CH);
+}
+// light leaking through the lid gap: bright core line + soft halo + short rays
+// fanning out above and below the seam (perpendicular to it)
+function drawSeamLeak(k) {
+  if (k <= 0.001) return;
+  const { front, end, gap } = seamPaths();
+  const g = 0.5 + gap * 0.35;                      // wider gap -> stronger leak
+  const flick = 0.85 + 0.15 * Math.sin(tGlobal / 37) * Math.sin(tGlobal / 61);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+  const strokePath = (pts, w, col) => {
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke();
+  };
+  for (const pts of [front, end]) {
+    // soft halo (cheap blur: stacked strokes)
+    for (const [w, a] of [[16, 0.06], [10, 0.10], [6, 0.16], [3.2, 0.30]])
+      strokePath(pts, w * S * g * 0.5, `rgba(255,200,110,${a * k * flick})`);
+    // bright core
+    strokePath(pts, (0.6 + gap * 0.25) * S, `rgba(255,244,200,${0.9 * k})`);
+  }
+  // rays: short gradient lines leaving the seam on both sides
+  const rays = (pts, nx, ny, count, seed) => {
+    for (let i = 0; i < count; i++) {
+      const u = (i + 0.5) / count;
+      const a = Math.floor(u * (pts.length - 1)), f = u * (pts.length - 1) - a;
+      const b = Math.min(a + 1, pts.length - 1);
+      const x = pts[a][0] + (pts[b][0] - pts[a][0]) * f, y = pts[a][1] + (pts[b][1] - pts[a][1]) * f;
+      const ph = Math.sin(tGlobal / 90 + i * 1.7 + seed) * 0.5 + 0.5;       // shimmer
+      const len = (8 + 26 * g * k) * S * (0.45 + 0.55 * ph);
+      for (const dir of [1, -1]) {
+        const L = len * (dir > 0 ? 1 : 0.7);
+        const ex = x + nx * L * dir, ey = y + ny * L * dir;
+        const gr = ctx.createLinearGradient(x, y, ex, ey);
+        gr.addColorStop(0, `rgba(255,236,170,${0.55 * k * (0.6 + 0.4 * ph)})`);
+        gr.addColorStop(1, 'rgba(255,190,90,0)');
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey);
+        ctx.lineWidth = (1.2 + 1.4 * ph) * S * 0.5; ctx.strokeStyle = gr; ctx.stroke();
+      }
+    }
+  };
+  // front seam direction (SX,1) -> outward normals (-1,SX)/|..| (down-left) and (1,-SX) (up-right)
+  const nl = Math.hypot(1, SX);
+  rays(front, -1 / nl, SX / nl, 7, 0);
+  rays(end, 0, 1, 6, 3);
+  ctx.restore();
+}
+
+function drawLight() {
+  const k = +kInt.value * inten; if (k <= 0.001) return;
+  const oy = chestOffsetY();
+  // while the lid is still (nearly) closed the light leaks from the gap;
+  // the upward cone fades in only as the lid actually swings open
+  const coneW = Math.max(0, (open - 0.15) / 0.85); const coneK = k * coneW * coneW;
+  if (coneK <= 0.001) return;
+  const ax = OPEN_X, ay = OPEN_Y + oy;                  // cone apex (box opening)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  // --- upward light cone (god rays) ---
+  const ang = (+kAng.value) * Math.PI / 180;
+  const h = CH * (0.35 + 0.75 * open);                  // cone height
+  const halfTop = Math.tan(ang) * h * (0.15 + 0.85 * open);
+  const halfBase = 6 * S * (0.15 + 0.85 * open);
+  for (const [w, a] of [[1.0, 0.55], [0.62, 0.45], [0.30, 0.55]]) {
+    ctx.beginPath();
+    ctx.moveTo(ax - halfBase * w, ay);
+    ctx.lineTo(ax - halfTop * w, ay - h);
+    ctx.lineTo(ax + halfTop * w, ay - h);
+    ctx.lineTo(ax + halfBase * w, ay);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, ay, 0, ay - h);
+    g.addColorStop(0,   `rgba(255,236,170,${a * coneK})`);
+    g.addColorStop(0.45,`rgba(255,196,90,${a * 0.55 * coneK})`);
+    g.addColorStop(1,   'rgba(255,170,60,0)');
+    ctx.fillStyle = g; ctx.fill();
+  }
+  // --- radial glow at the opening ---
+  const r = (14 + 26 * open) * S * (0.8 + 0.2 * Math.sin(tGlobal / 180));
+  const rg = ctx.createRadialGradient(ax, ay, 0, ax, ay, r);
+  rg.addColorStop(0,   `rgba(255,240,190,${0.75 * coneK})`);
+  rg.addColorStop(0.35,`rgba(255,200,100,${0.35 * coneK})`);
+  rg.addColorStop(1,   'rgba(255,160,60,0)');
+  ctx.fillStyle = rg; ctx.fillRect(ax - r, ay - r, r * 2, r * 2);
+  // --- flash on open ---
+  if (flash > 0) { ctx.fillStyle = `rgba(255,240,200,${flash * 0.55})`; ctx.fillRect(0, 0, CW, CH); }
+  ctx.restore();
+}
+function drawParticles(behind) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const p of particles) {
+    if ((p.y > OPEN_Y + chestOffsetY()) !== behind) continue;   // lower ones go behind the chest
+    ctx.globalAlpha = Math.min(1, p.life * 1.4);
+    if (p.coin) {
+      ctx.fillStyle = '#f0b856'; ctx.fillRect(Math.round(p.x) - 4, Math.round(p.y) - 3, 8, 6);
+      ctx.fillStyle = '#ffe48a'; ctx.fillRect(Math.round(p.x) - 3, Math.round(p.y) - 2, 4, 2);
+      ctx.fillStyle = '#c07e34'; ctx.fillRect(Math.round(p.x) - 4, Math.round(p.y) + 2, 8, 1);
+    } else {
+      ctx.fillStyle = p.life > .5 ? '#ffe48a' : '#f0b856';
+      const s = p.size; ctx.fillRect(Math.round(p.x - s/2), Math.round(p.y - s/2), s, s);
+    }
+  }
+  ctx.restore();
+}
+function drawChest() {
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(imgs[frameIdx], 0, CHEST_Y, 76 * S, 54 * S);
+}
+
+// ---------- main loop ----------
+function tick(ts) {
+  const dt = Math.min(3, (ts - lastTs) / 16.67 || 1); lastTs = ts; tGlobal += dt * 16.67;
+  // sequence stepping
+  if (playing) {
+    seqT += dt * 16.67;
+    while (seqPos < SEQ.length && seqT >= SEQ[seqPos].ms) {
+      seqT -= SEQ[seqPos].ms; seqPos++;
+      if (seqPos >= SEQ.length) { playing = false; seqPos = SEQ.length - 1; break; }
+      frameIdx = SEQ[seqPos].frame;
+      if (SEQ[seqPos].name === 'open') flash = 1;      // burst when it pops open
+    }
+  }
+  // light easing toward per-frame targets (fast attack, slow decay)
+  const name = currentName();
+  let t = TARGET[name] || TARGET.closed;
+  let ti = t.i, to = t.o;
+  if (name === 'closed' && seqPos > 0) ti = Math.max(ti, RESIDUAL * Math.min(1, seqPos / 4));
+  if (name === 'open') ti = 0.7 + 0.08 * Math.sin(tGlobal / 260);   // gentle pulse
+  inten += (ti - inten) * (ti > inten ? 0.45 : 0.10) * dt;
+  open  += (to - open)  * (to > open  ? 0.35 : 0.15) * dt;
+  flash = Math.max(0, flash - 0.06 * dt);
+  stepParticles(dt);
+  // compose
+  drawBackground();
+  drawLight();                       // upward cone (behind the chest, only once it opens)
+  drawParticles(true);
+  drawChest();
+  // light leaking through the lid gap sits ON the chest surface -> drawn over the sprite
+  drawSeamLeak(+kInt.value * inten * Math.pow(1 - Math.min(1, open / 0.6), 1.5));
+  drawParticles(false);
+  document.getElementById('label').textContent =
+    name + '  ·  light ' + inten.toFixed(2) + '  open ' + open.toFixed(2);
+  requestAnimationFrame(tick);
+}
+document.getElementById('btn').onclick = () => {
+  if (playing) return; playing = true; seqPos = 0; seqT = 0; frameIdx = SEQ[0].frame;
+  document.getElementById('btn').disabled = true;
+};
+document.getElementById('reset').onclick = () => {
+  playing = false; seqPos = -1; frameIdx = 0; inten = 0; open = 0; flash = 0; particles = [];
+  document.getElementById('btn').disabled = false;
+};
+Promise.all(imgs.map(im => new Promise(r => im.onload = r))).then(() => requestAnimationFrame(tick));
+</script></body></html>

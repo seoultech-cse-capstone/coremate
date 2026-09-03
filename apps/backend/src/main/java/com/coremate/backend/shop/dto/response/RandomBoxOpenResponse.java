@@ -11,6 +11,7 @@ public record RandomBoxOpenResponse(
         @Schema(example = "ITEM") String rewardType,
         @Schema(example = "1") Long rewardItemId,
         @Schema(example = "50") Integer rewardCoinAmount,
+        @Schema(example = "EPIC", description = "보상 등급. 아이템은 rarity(COMMON/RARE/EPIC/LEGENDARY), 코인 보상은 COIN") String rewardRarity,
         @Schema(example = "2026-05-12T09:10:11") LocalDateTime openedAt
 ) {
 }
