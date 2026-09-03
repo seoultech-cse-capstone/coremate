@@ -11,7 +11,6 @@ import com.coremate.backend.avatar.equip.UserAvatarEquippedItemRepository;
 import com.coremate.backend.avatar.inventory.dto.response.InventoryGroupResponse;
 import com.coremate.backend.avatar.inventory.dto.response.InventoryItemResponse;
 import com.coremate.backend.avatar.inventory.dto.response.InventoryResponse;
-import com.coremate.backend.avatar.inventory.dto.response.UserItemResponse;
 import com.coremate.backend.avatar.inventory.entity.UserItem;
 import com.coremate.backend.avatar.inventory.repository.UserItemRepository;
 import com.coremate.backend.avatar.room.UserRoomPlacement;
@@ -110,64 +109,8 @@ public class InventoryService {
         );
     }
 
-    // 상점/랜덤박스/레벨업 보상에서 공통으로 호출할 아이템 지급 진입점.
-    // @deprecated 중복 처리 분기가 없어 가구가 아닌 아이템도 수량만 늘린다.
-    // ItemGrantService.grant() 로 옮긴다. 상점이 이전을 마치면 지운다.
-    @Deprecated(forRemoval = true)
-    @Transactional
-    public UserItemResponse grantItem(Long userId, Long itemId, int quantity, String acquiredSource, Long sourceId) {
-        return toUserItemResponse(grantItemEntity(userId, itemId, quantity, acquiredSource, sourceId));
-    }
-
-    // 지급 후 로그 테이블과 직접 연결해야 하는 흐름에서 엔티티를 그대로 반환한다.
-    // @deprecated 위와 같은 이유. ItemGrantService.grant() 가 userItemId 를 돌려준다.
-    @Deprecated(forRemoval = true)
-    @Transactional
-    public UserItem grantItemEntity(Long userId, Long itemId, int quantity, String acquiredSource, Long sourceId) {
-        validateGrantRequest(quantity, acquiredSource);
-        User user = findUser(userId);
-        AvatarItem item = avatarItemRepository.findByItemIdAndActiveTrue(itemId)
-                .orElseThrow(() -> new CoreMateException(ErrorCode.AVATAR_ITEM_NOT_FOUND));
-
-        return userItemRepository.findByUser_UserIdAndItem_ItemId(userId, itemId)
-                .map(existing -> {
-                    existing.addQuantity(quantity);
-                    return existing;
-                })
-                .orElseGet(() -> userItemRepository.save(new UserItem(
-                        user,
-                        item,
-                        quantity,
-                        acquiredSource,
-                        sourceId
-                )));
-    }
-
-    private UserItemResponse toUserItemResponse(UserItem userItem) {
-        AvatarItem item = userItem.getItem();
-        return new UserItemResponse(
-                userItem.getUserItemId(),
-                userItem.getUser().getUserId(),
-                item.getItemId(),
-                item.getItemName(),
-                item.getItemType(),
-                item.getSlot(),
-                item.getRarity(),
-                item.getImageUrl(),
-                userItem.getQuantity(),
-                userItem.getAcquiredSource(),
-                userItem.getAcquiredAt()
-        );
-    }
-
     private User findUser(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    private void validateGrantRequest(int quantity, String acquiredSource) {
-        if (quantity <= 0 || acquiredSource == null || acquiredSource.isBlank()) {
-            throw new CoreMateException(ErrorCode.INVALID_INPUT);
-        }
     }
 }
