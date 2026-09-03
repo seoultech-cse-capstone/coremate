@@ -70,7 +70,7 @@ public class AvatarService {
             }
 
             if (equippedItem.userItemId() == null) {
-                // 필수 5종(머리·눈·입·벽지·바닥)은 비우면 렌더가 깨지므로 교체만 허용한다. EX-ITEM-007
+                // 필수 6종(머리·눈·입·상의·하의·방 테마)은 비우면 렌더가 깨지므로 교체만 허용한다. EX-ITEM-007
                 if (slot.isRequired()) {
                     throw new CoreMateException(ErrorCode.REQUIRED_AVATAR_SLOT);
                 }
@@ -107,7 +107,7 @@ public class AvatarService {
                 .ifPresent(userAvatarEquippedItemRepository::delete);
     }
 
-    // 아바타를 보는 모든 경로가 여기를 지난다. 기본 지급 8종 보충도 같은 자리에서 한다.
+    // 아바타를 보는 모든 경로가 여기를 지난다. 기본 지급 6종 보충도 같은 자리에서 한다.
     private UserAvatarProfile getOrCreateProfile(Long userId) {
         User user = findUser(userId);
         UserAvatarProfile profile = userAvatarProfileRepository.findByUser_UserId(userId)

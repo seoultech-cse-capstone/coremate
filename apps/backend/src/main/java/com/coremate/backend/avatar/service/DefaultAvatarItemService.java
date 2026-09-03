@@ -20,7 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 기본 지급 8종(머리·눈·입·상의·하의·신발·벽지·바닥)을 채워 넣는다.
+// 기본 지급 6종(머리·눈·입·상의·하의·방 테마)을 채워 넣는다.
 // 아바타 프로필을 조회하는 자리에서 부르므로 신규 가입자는 처음 볼 때 받고,
 // 기본 지급이 생기기 전에 가입한 사용자도 같은 자리에서 보충된다(FR-AVATAR-02).
 // 회원가입 코드를 건드리지 않는 이유가 이것이다.

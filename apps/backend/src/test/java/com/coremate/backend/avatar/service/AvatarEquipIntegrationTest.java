@@ -26,15 +26,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 장착 API 통합 테스트(H2). 12슬롯 검증과 필수 슬롯 해제 차단(EX-ITEM-007)을
- * 실제 서비스 경로로 확인한다. 기본 지급 8종이 이미 장착된 상태에서 시작한다.
+ * 실제 서비스 경로로 확인한다. 기본 지급 6종이 이미 장착된 상태에서 시작한다.
  */
 @SpringBootTest
 @Transactional
 @DisplayName("아바타 장착 12슬롯 (2026-08-27 확정)")
 class AvatarEquipIntegrationTest {
 
+    // 기본 지급 6종. 신발·바닥은 기본 지급이 아니다(2026-08-30 개정).
     private static final List<String> DEFAULT_SLOTS =
-            List.of("HAIR", "EYES", "MOUTH", "TOP", "BOTTOM", "SHOES", "WALLPAPER", "FLOOR");
+            List.of("HAIR", "EYES", "MOUTH", "TOP", "BOTTOM", "WALLPAPER");
 
     @Autowired
     private AvatarService avatarService;
@@ -66,7 +67,7 @@ class AvatarEquipIntegrationTest {
         }
         entityManager.flush();
 
-        // 기본 지급 8종을 받아 장착된 상태로 만든다.
+        // 기본 지급 6종을 받아 장착된 상태로 만든다.
         avatarService.getMyAvatar(userId);
         entityManager.flush();
     }
@@ -104,8 +105,10 @@ class AvatarEquipIntegrationTest {
     @DisplayName("비필수 슬롯은 해제된다")
     class OptionalSlots {
 
-        @ParameterizedTest(name = "{0} 은 해제된다")
-        @ValueSource(strings = {"SHOES", "FLOOR"})
+        // 기본 지급이 6종으로 줄면서 SHOES·FLOOR 는 애초에 장착돼 있지 않다. 해제 요청이
+        // REQUIRED_AVATAR_SLOT 으로 막히지 않고 조용히 통과하는지를 본다(unequip 은 no-op).
+        @ParameterizedTest(name = "{0} 은 해제 요청이 막히지 않는다")
+        @ValueSource(strings = {"SHOES", "FLOOR", "HAT", "BAG"})
         void canUnequipOptionalSlot(String slot) {
             update(slot, null);
             entityManager.flush();
@@ -113,7 +116,7 @@ class AvatarEquipIntegrationTest {
             assertThat(userAvatarEquippedItemRepository
                     .findByUser_UserIdAndSlot(userId, AvatarSlot.from(slot))).isEmpty();
             assertThat(userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId))
-                    .hasSize(7);
+                    .hasSize(6);
         }
     }
 

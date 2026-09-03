@@ -52,7 +52,7 @@ public class RoomService {
     // 친구 방도 같은 경로를 쓴다(1-10). 읽기 전용이라 소유자 구분이 필요 없다.
     @Transactional
     public RoomResponse getRoom(Long userId) {
-        // 프로필 생성과 기본 지급 8종 보충이 여기서 함께 일어난다.
+        // 프로필 생성과 기본 지급 6종 보충이 여기서 함께 일어난다.
         var avatarProfile = avatarService.getAvatarProfile(userId);
         UserAvatarProfile profile = userAvatarProfileRepository.findByUser_UserId(userId)
                 .orElseThrow(() -> new CoreMateException(ErrorCode.RESOURCE_NOT_FOUND));
