@@ -24,6 +24,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -114,10 +115,12 @@ public class SolveSessionController {
             @Parameter(description = "풀이 세션 ID", example = "9001")
             @PathVariable Long solveSessionId,
             @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CompleteSolveSessionRequest request
     ) {
         return ApiResponse.success("풀이 세션 완료 성공",
-                solveSessionService.completeSolveSession(solveSessionId, userDetails.getUserId(), request));
+                solveSessionService.completeSolveSession(
+                        solveSessionId, userDetails.getUserId(), request, idempotencyKey));
     }
 
     @Operation(summary = "풀이 세션 완료 (비회원 전용)", description = "비회원이 개념 문제집의 모든 답안을 한 번에 제출하고 문제별 정오답과 해설을 확인한다. DB에 저장되지 않는다.")

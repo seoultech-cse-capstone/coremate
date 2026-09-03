@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -80,10 +81,11 @@ public class WeaknessAnalysisController {
     @PostMapping("/reports")
     public ApiResponse<WeaknessAnalysisReportDetailResponse> createWeaknessAnalysisReport(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateWeaknessAnalysisReportRequest request
     ) {
-        WeaknessAnalysisReportDetailResponse data = analysisService.createReport(userDetails.getUserId(), request);
+        WeaknessAnalysisReportDetailResponse data =
+                analysisService.createReport(userDetails.getUserId(), request, idempotencyKey);
         return ApiResponse.success("약점 분석표 생성 성공", data);
     }
 

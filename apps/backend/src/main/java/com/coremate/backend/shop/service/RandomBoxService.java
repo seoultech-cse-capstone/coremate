@@ -8,6 +8,7 @@ import com.coremate.backend.avatar.inventory.service.ItemGrantResult;
 import com.coremate.backend.avatar.inventory.service.ItemGrantService;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.reward.entity.CurrencyLog;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
@@ -58,6 +59,7 @@ public class RandomBoxService {
     private final ItemGrantService itemGrantService;
     private final UserItemRepository userItemRepository;
     private final UserRepository userRepository;
+    private final IdempotencyGuard idempotencyGuard;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public List<RandomBoxResponse> getRandomBoxes() {
@@ -111,7 +113,9 @@ public class RandomBoxService {
 
     // 랜덤박스 오픈은 코인 차감, 확률 보상 결정, 지급, 로그 저장을 하나로 묶는다.
     @Transactional
-    public RandomBoxOpenResponse open(Long userId, OpenRandomBoxRequest request) {
+    public RandomBoxOpenResponse open(Long userId, OpenRandomBoxRequest request, String idempotencyKey) {
+        // 더블클릭·재시도로 코인 이중 차감 + 보상 중복 뽑기가 나지 않도록 맨 앞에서 멱등키 등록. (#168)
+        idempotencyGuard.register(userId, idempotencyKey, "RANDOM_BOX_OPEN");
         User user = findUser(userId);
         RandomBox randomBox = randomBoxRepository.findByRandomBoxIdAndActiveTrue(request.getRandomBoxId())
                 .orElseThrow(() -> new CoreMateException(ErrorCode.RANDOM_BOX_NOT_FOUND));

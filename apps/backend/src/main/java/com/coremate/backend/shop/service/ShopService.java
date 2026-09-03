@@ -2,6 +2,7 @@ package com.coremate.backend.shop.service;
 
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.reward.entity.CurrencyLog;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
@@ -40,6 +41,7 @@ public class ShopService {
     private final ShopPurchaseLogRepository shopPurchaseLogRepository;
     private final RewardService rewardService;
     private final UserRepository userRepository;
+    private final IdempotencyGuard idempotencyGuard;
 
     public List<ShopProductResponse> getProducts() {
         return shopProductRepository.findByActiveTrueOrderByRequiredLevelAscShopProductIdAsc()
@@ -59,7 +61,9 @@ public class ShopService {
     // 꾸미기 아이템 직판은 폐기됐고 랜덤박스는 /random-box/open 전용 흐름이라, 여기서 즉시 처리하는 상품은
     // 닉네임 변경권뿐이다. (성별 변경권은 성별 구분 폐기(08-28)로 없어졌다)
     @Transactional
-    public ShopPurchaseResponse purchase(Long userId, PurchaseShopProductRequest request) {
+    public ShopPurchaseResponse purchase(Long userId, PurchaseShopProductRequest request, String idempotencyKey) {
+        // 더블클릭·재시도로 코인이 이중 차감되지 않도록 트랜잭션 맨 앞에서 멱등키를 등록한다. (#168)
+        idempotencyGuard.register(userId, idempotencyKey, "SHOP_PURCHASE");
         User user = findUser(userId);
         ShopProduct product = shopProductRepository.findByShopProductIdAndActiveTrue(request.getShopProductId())
                 .orElseThrow(() -> new CoreMateException(ErrorCode.SHOP_PRODUCT_NOT_FOUND));

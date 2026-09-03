@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.coremate.backend.content.entity.Concept;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.content.entity.Question;
 import com.coremate.backend.content.repository.CategoryLv1Repository;
 import com.coremate.backend.content.repository.CategoryLv2Repository;
@@ -57,6 +58,7 @@ class SolveSessionConceptReentryTest {
     @Mock private LearningHistoryService learningHistoryService;
     @Mock private SolveRewardService solveRewardService;
     @Mock private SolveSessionExpiryService solveSessionExpiryService;
+    @Mock private IdempotencyGuard idempotencyGuard;
 
     private SolveSessionService solveSessionService;
 
@@ -74,7 +76,8 @@ class SolveSessionConceptReentryTest {
                 learningHistoryService,
                 solveRewardService,
                 solveSessionExpiryService,
-                new ObjectMapper());
+                new ObjectMapper(),
+                idempotencyGuard);
 
         Concept concept = org.mockito.Mockito.mock(Concept.class);
         when(concept.getConceptName()).thenReturn("스택");
