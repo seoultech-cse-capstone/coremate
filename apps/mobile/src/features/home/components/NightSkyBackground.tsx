@@ -94,7 +94,7 @@ export function NightSkyBackground() {
 
 const styles = StyleSheet.create({
   fill: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: SKY_COLOR,
   },
 });

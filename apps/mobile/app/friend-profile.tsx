@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   headerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   backButton: {

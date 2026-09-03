@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   revealBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(12,8,28,0.78)",
     alignItems: "center",
     justifyContent: "center",
