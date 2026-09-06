@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import type { BottomTabBarButtonProps } from "@react-navigation/bottom-tabs";
+import type { BottomTabBarButtonProps } from "expo-router/build/react-navigation/bottom-tabs/types";
 import {
   BookOpenCheck,
   ChartNoAxesCombined,

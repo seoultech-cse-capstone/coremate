@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   headerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   title: {

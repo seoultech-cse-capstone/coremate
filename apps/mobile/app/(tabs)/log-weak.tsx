@@ -1041,7 +1041,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(109, 93, 251, 0.85)",
   },
   title: {
@@ -1384,19 +1384,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(15, 23, 42, 0.72)",
   },
   selectionDim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     backgroundColor: "rgba(15, 23, 42, 0.36)",
   },
   selectionHeaderDim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.28)",
   },
   selectionPurpleDim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
     backgroundColor: "rgba(15, 23, 42, 0.32)",
   },
