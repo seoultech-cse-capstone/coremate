@@ -7,13 +7,13 @@ export type { RoomLayoutInfo } from "./components/RoomBackdrop";
 export { RoomThemeProvider, useRoomTheme } from "./RoomThemeContext";
 export { AvatarEquipProvider, useAvatarEquip } from "./AvatarEquipContext";
 export type { EquippedMap } from "./AvatarEquipContext";
-export { ROOM_THEMES } from "./roomThemes";
+export { ROOM_THEMES, ROOM_THEME_ITEM_STEM } from "./roomThemes";
 export type { RoomTheme, RoomThemeKey } from "./roomThemes";
 export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect } from "./roomGrid";
 export type { RoomGridLayout } from "./roomGrid";
 export { RoomFurnitureProvider, useRoomFurniture } from "./RoomFurnitureContext";
 export type { FurniturePosition } from "./RoomFurnitureContext";
-export { FURNITURE_SETS, FURNITURE_TYPES } from "./roomFurniture";
+export { FURNITURE_SETS, FURNITURE_TYPES, FURNITURE_ITEM_STEM } from "./roomFurniture";
 export type { FurnitureSet, FurnitureType } from "./roomFurniture";
 export {
   DEFAULT_LOCAL_KEY_BY_SLOT,

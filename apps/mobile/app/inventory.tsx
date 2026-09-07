@@ -5,10 +5,11 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View, type GestureRespo
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
-import { useRequireMember } from "../src/features/auth";
+import { useAuth, useRequireMember } from "../src/features/auth";
 import {
   AvatarStage,
   DEFAULT_LOCAL_KEY_BY_SLOT,
+  FURNITURE_ITEM_STEM,
   FURNITURE_SETS,
   FURNITURE_TYPES,
   LOCAL_AVATAR_CATALOG,
@@ -17,9 +18,12 @@ import {
   LOCAL_SLOT_ORDER,
   REQUIRED_LOCAL_SLOTS,
   ROOM_GRID_ROWS,
+  ROOM_THEME_ITEM_STEM,
   ROOM_THEMES,
   RoomBackdrop,
   useAvatarEquip,
+  useInventory,
+  useMyAvatar,
   useRoomFurniture,
   useRoomTheme,
   type FurnitureType,
@@ -34,6 +38,16 @@ const ROOM_PREVIEW_HEIGHT = 320;
 type MainTab = "avatar" | "myroom";
 type RoomTab = "theme" | "furniture";
 
+// 서버 아이템 image_url("/assets/avatar/hair_basic.png")에서 파일명 stem("hair_basic")만
+// 뽑아낸다. 이 stem이 로컬 카탈로그의 key/가구·테마 매핑과 이어지는 유일한 값이다.
+function stemFromImageUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) {
+    return null;
+  }
+  const fileName = imageUrl.split("/").pop();
+  return fileName ? fileName.replace(/\.[^.]+$/, "") : null;
+}
+
 // 아이템 보관함(코디)과 마이룸 인벤토리(테마+가구)를 한 화면으로 합쳤다. 상단
 // 아바타/마이룸 탭으로 큰 영역을 나누고, 마이룸 탭 안에서 다시 테마/가구를
 // 고른다. 각 영역의 세부 동작(착용 반영, 가구 배치·치우기 방식)은 기존과 동일.
@@ -44,6 +58,27 @@ export default function InventoryScreen() {
   // 아바타 탭 상태
   const [selectedSlot, setSelectedSlot] = useState<LocalAvatarSlot>("HAIR");
   const { equipped, setEquippedItem } = useAvatarEquip();
+
+  // 서버 보유 목록 — 이 화면의 아바타/테마/가구는 전부 이 집합으로 필터링한다.
+  const { accessToken } = useAuth();
+  // /api/avatar/me 가 서버의 아바타 프로필 생성 + 기본 6종 지급(getOrCreateProfile
+  // → ensureGranted)을 트리거한다. 앱의 다른 화면은 이 엔드포인트를 부르지 않아서,
+  // 인벤토리를 처음 여는 순간 여기서 지급을 보장한 뒤 보유 목록을 불러온다.
+  const avatarProfileQuery = useMyAvatar(accessToken);
+  const inventoryEnabled = accessToken !== null && !avatarProfileQuery.isPending;
+  const inventoryQuery = useInventory(inventoryEnabled ? accessToken : null);
+  const ownedStems = useMemo(() => {
+    const set = new Set<string>();
+    for (const group of inventoryQuery.data?.groups ?? []) {
+      for (const item of group.items) {
+        const stem = stemFromImageUrl(item.imageUrl);
+        if (stem) {
+          set.add(stem);
+        }
+      }
+    }
+    return set;
+  }, [inventoryQuery.data]);
 
   // 마이룸 탭 상태
   const { themeKey, setThemeKey } = useRoomTheme();
@@ -58,11 +93,20 @@ export default function InventoryScreen() {
     for (const slot of LOCAL_SLOT_ORDER) {
       map.set(
         slot,
-        LOCAL_AVATAR_CATALOG.filter((item) => item.slot === slot),
+        LOCAL_AVATAR_CATALOG.filter((item) => item.slot === slot && ownedStems.has(item.key)),
       );
     }
     return map;
-  }, []);
+  }, [ownedStems]);
+
+  const ownedThemes = useMemo(
+    () => ROOM_THEMES.filter((theme) => ownedStems.has(ROOM_THEME_ITEM_STEM[theme.key])),
+    [ownedStems],
+  );
+  const ownedFurnitureTypes = useMemo(
+    () => FURNITURE_TYPES.filter((type) => ownedStems.has(FURNITURE_ITEM_STEM[type])),
+    [ownedStems],
+  );
 
   const currentItems = itemsBySlot.get(selectedSlot) ?? [];
   const isRequiredSlot = REQUIRED_LOCAL_SLOTS.includes(selectedSlot);
@@ -78,6 +122,11 @@ export default function InventoryScreen() {
 
   const handleFloorPress = (event: GestureResponderEvent) => {
     if (!layout) {
+      return;
+    }
+    // 보유하지 않은 가구는 놓을 수 없다. 목록이 비면 기본 선택값(bed)이 남아 있어도
+    // 여기서 막지 않으면 미보유 가구가 배치돼 버린다.
+    if (!ownedStems.has(FURNITURE_ITEM_STEM[selectedFurnitureType])) {
       return;
     }
     const { locationX, locationY } = event.nativeEvent;
@@ -176,7 +225,11 @@ export default function InventoryScreen() {
               </ScrollView>
 
               <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-                {!isRequiredSlot ? (
+                {inventoryQuery.isPending ? (
+                  <Text style={styles.statusText}>불러오는 중…</Text>
+                ) : null}
+
+                {!inventoryQuery.isPending && !isRequiredSlot ? (
                   <Pressable
                     style={[styles.card, effectiveKey === null && styles.cardSelected]}
                     onPress={() => setEquippedItem(selectedSlot, null)}
@@ -253,7 +306,13 @@ export default function InventoryScreen() {
 
               {roomTab === "theme" ? (
                 <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-                  {ROOM_THEMES.map((theme) => {
+                  {inventoryQuery.isPending ? (
+                    <Text style={styles.statusText}>불러오는 중…</Text>
+                  ) : ownedThemes.length === 0 ? (
+                    <Text style={styles.statusText}>보유한 테마가 없어요</Text>
+                  ) : null}
+
+                  {ownedThemes.map((theme) => {
                     const isSelected = theme.key === themeKey;
 
                     return (
@@ -287,7 +346,13 @@ export default function InventoryScreen() {
                   </Text>
 
                   <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-                    {FURNITURE_TYPES.map((type) => {
+                    {inventoryQuery.isPending ? (
+                      <Text style={styles.statusText}>불러오는 중…</Text>
+                    ) : ownedFurnitureTypes.length === 0 ? (
+                      <Text style={styles.statusText}>보유한 가구가 없어요</Text>
+                    ) : null}
+
+                    {ownedFurnitureTypes.map((type) => {
                       const isToolSelected = selectedFurnitureType === type;
                       const isPlaced = Boolean(placements[type]);
 
@@ -450,6 +515,15 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 13,
     lineHeight: 19,
+  },
+  statusText: {
+    width: "100%",
+    paddingVertical: 40,
+    textAlign: "center",
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "600",
   },
   grid: {
     flexDirection: "row",
