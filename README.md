@@ -23,6 +23,10 @@ coremate/
   .github/                # GitHub Actions, PR/Issue 템플릿
 ```
 
+## 저장소에 없는 파일
+
+`apps/mobile/google-services.json`은 gitignore 대상이라 저장소에 없다. 담당자에게 받아 `apps/mobile/` 루트에 두어야 안드로이드 네이티브 빌드와 FCM 푸시가 동작한다.
+
 ---
 
 # AI 콘텐츠 파이프라인 빠른 실행 가이드
