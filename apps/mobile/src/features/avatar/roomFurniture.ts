@@ -6,6 +6,7 @@ import { Image, type ImageSourcePropType } from "react-native";
 export type FurnitureType =
   | "bed"
   | "desk"
+  | "chair"
   | "dryingRack"
   | "shelf"
   | "fridge"
@@ -89,6 +90,15 @@ const DESK_SET = buildSet("desk", "책상", 2, [
   },
 ]);
 
+// 책상 세트에 딸린 의자와 별개로, 방에 단독으로 놓는 장식용 의자다(상호작용 없음).
+const CHAIR_SET = buildSet("chair", "의자", 1, [
+  {
+    source: require("../../../assets/room/furniture/furn_chair_basic.png"),
+    offsetXDots: 0,
+    offsetYDots: 0,
+  },
+]);
+
 const BED_SET = buildSet("bed", "침대", 2, [
   {
     source: require("../../../assets/room/furniture/furn_bed_basic.png"),
@@ -155,6 +165,7 @@ const WASHER_SET = buildSet("washer", "세탁기", 1, [
 export const FURNITURE_SETS: Record<FurnitureType, FurnitureSet> = {
   bed: BED_SET,
   desk: DESK_SET,
+  chair: CHAIR_SET,
   dryingRack: DRYING_RACK_SET,
   shelf: SHELF_SET,
   fridge: FRIDGE_SET,
@@ -166,6 +177,7 @@ export const FURNITURE_SETS: Record<FurnitureType, FurnitureSet> = {
 export const FURNITURE_TYPES: FurnitureType[] = [
   "bed",
   "desk",
+  "chair",
   "dryingRack",
   "shelf",
   "fridge",
@@ -173,6 +185,22 @@ export const FURNITURE_TYPES: FurnitureType[] = [
   "petCushion",
   "washer",
 ];
+
+// 각 가구가 대응하는 서버 아바타 아이템 image_url stem(파일명). 인벤토리 보유
+// 목록(서버)과 로컬 가구 카탈로그를 잇는 유일한 키다 — require() 안의 파일명은
+// 런타임에 못 읽어서 여기 명시한다. 책상은 세트로 의자를 함께 그리지만 보유
+// 판정은 책상(furn_desk_basic)만 본다. 의자(furn_chair_basic)는 별도 아이템이다.
+export const FURNITURE_ITEM_STEM: Record<FurnitureType, string> = {
+  bed: "furn_bed_basic",
+  desk: "furn_desk_basic",
+  chair: "furn_chair_basic",
+  dryingRack: "furn_drying_rack",
+  shelf: "furn_shelf",
+  fridge: "furn_fridge",
+  pcTower: "furn_pc_tower",
+  petCushion: "furn_pet_cushion",
+  washer: "furn_washer",
+};
 
 /** 아바타가 걸어가서 앉거나 누울 수 있는(탭하면 상호작용하는) 가구. 나머지는 장식용이다. */
 export const INTERACTIVE_FURNITURE_TYPES: FurnitureType[] = ["bed", "desk"];

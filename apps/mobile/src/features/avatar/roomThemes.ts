@@ -27,6 +27,14 @@ export const ROOM_THEMES: RoomTheme[] = [
 
 export const DEFAULT_ROOM_THEME_KEY: RoomThemeKey = "basic";
 
+// 각 테마가 대응하는 서버 WALLPAPER 아이템 image_url stem(벽지 파일명). 인벤토리
+// 보유 목록과 로컬 테마를 잇는 키다 — require() 안의 파일명은 런타임에 못 읽어서
+// 여기 명시한다.
+export const ROOM_THEME_ITEM_STEM: Record<RoomThemeKey, string> = {
+  basic: "room_basic_wall",
+  herringbone: "room_herringbone_wall",
+};
+
 export const ROOM_THEME_BY_KEY = new Map(ROOM_THEMES.map((theme) => [theme.key, theme]));
 
 // assets_template.md 3절: 두 테마 모두 같은 도트 규격(가로 112도트 = 7칸x16도트).
