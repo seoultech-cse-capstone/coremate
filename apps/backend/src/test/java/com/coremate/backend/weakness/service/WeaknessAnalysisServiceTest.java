@@ -141,7 +141,7 @@ class WeaknessAnalysisServiceTest {
         when(diagnosticProfileService.loadConceptProfile(9301L)).thenReturn(Optional.of(
                 new DiagnosticProfileService.ConceptProfileView("프로필 핵심", "프로필 설명",
                         List.of(), List.of(), List.of(), null, null, List.of())));
-        when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of()));
+        when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of(), null));
 
         service.createReport(1L, request());
 
@@ -186,7 +186,7 @@ class WeaknessAnalysisServiceTest {
         when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of(
                 new AiWeaknessAnalysisResponse.ConceptAnalysis(9401L, AiAnalysisStatus.SUPPORTED,
                         WeaknessType.CONCEPT_CONFUSION, List.of(), null, null, "진단", null, null,
-                        List.of("e1", "e3")))));
+                        List.of("e1", "e3"))), null));
 
         var detail = service.createReport(1L, request());
 

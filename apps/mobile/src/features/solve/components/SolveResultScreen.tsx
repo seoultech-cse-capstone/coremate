@@ -5,6 +5,7 @@ import {
   CircleX,
   ListChecks,
   RotateCcw,
+  Sparkles,
 } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +24,11 @@ type SolveResultScreenProps = {
   onRetry: () => void;
   isDailyQuiz?: boolean;
   onGoHome?: () => void;
+  /**
+   * 약점 분석 페이지로 이동(SCR-SOLVE-03). 모의고사 회차에서만 넘겨받으며,
+   * 값이 없으면 버튼을 그리지 않는다(개념 문제집·오늘의 퀴즈는 분석 대상이 아니다).
+   */
+  onWeaknessAnalysis?: () => void;
   /** 이번 회차로 지급된 보상. 값이 있을 때만 보상 카드를 보여준다(게스트 완료는 보상이 없다). */
   reward?: { xpAmount: number; coinAmount: number };
 };
@@ -46,6 +52,7 @@ export function SolveResultScreen({
   onRetry,
   isDailyQuiz = false,
   onGoHome,
+  onWeaknessAnalysis,
   reward,
 }: SolveResultScreenProps) {
   const insets = useSafeAreaInsets();
@@ -132,6 +139,13 @@ export function SolveResultScreen({
           <ListChecks color="#ffffff" size={20} strokeWidth={2.2} />
           <Text style={styles.reviewButtonText}>해설 보기</Text>
         </Pressable>
+
+        {isMockExam && onWeaknessAnalysis ? (
+          <Pressable style={styles.weaknessButton} onPress={onWeaknessAnalysis}>
+            <Sparkles color="#5b4de8" size={19} strokeWidth={2.2} />
+            <Text style={styles.weaknessButtonText}>약점 분석하러 가기</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.secondaryActionRow}>
           <Pressable
             style={styles.retryButton}
@@ -170,6 +184,8 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, alignItems: "center", borderRadius: 8, backgroundColor: "#ffffff", paddingVertical: 18 },
   statValue: { color: "#1f2937", fontFamily: FONT.kufam, fontSize: 22, fontWeight: "700", marginTop: 7 },
   statLabel: { color: "#64748b", fontFamily: FONT.pretendard, fontSize: 12, fontWeight: "600", marginTop: 2 },
+  weaknessButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 52, borderRadius: 8, backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#5b4de8", marginTop: 10 },
+  weaknessButtonText: { color: "#5b4de8", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "700" },
   notice: { borderRadius: 8, backgroundColor: "#F1EFFF", marginTop: 22, padding: 16 },
   noticeTitle: { color: "#5144cf", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "700" },
   noticeText: { color: "#5f587d", fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "500", lineHeight: 20, marginTop: 6 },

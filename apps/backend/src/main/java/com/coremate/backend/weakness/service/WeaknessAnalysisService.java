@@ -172,7 +172,7 @@ public class WeaknessAnalysisService {
             throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
         }
         int latencyMs = (int) (System.currentTimeMillis() - startedAt);
-        saveAiCallLog(report.getAnalysisReportId(), fingerprint, latencyMs, "SUCCESS");
+        saveAiCallLog(report.getAnalysisReportId(), fingerprint, latencyMs, "SUCCESS", aiResponse.meta());
 
         // 교차검증 + 개념/근거 저장
         Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> aiByConcept = indexAiByConcept(aiResponse);
@@ -412,16 +412,26 @@ public class WeaknessAnalysisService {
         }
     }
 
-    private void saveAiCallLog(Long reportId, String fingerprint, int latencyMs, String status) {
+    /**
+     * AI 호출 1건을 기록한다. 모델명·토큰 수는 AI 서버가 실제 호출에서 받은 값을 그대로 적재한다
+     * ({@code meta}). 프로바이더가 사용량을 주지 않으면 해당 컬럼은 null 로 남고, 모델명만
+     * 비어 있을 때 설정값 라벨로 대체한다 — 어느 모델로 얼마를 썼는지 사후에 따질 수 있어야 한다.
+     */
+    private void saveAiCallLog(Long reportId, String fingerprint, int latencyMs, String status,
+            AiWeaknessAnalysisResponse.CallMeta meta) {
         aiCallLogRepository.save(WeaknessAnalysisAiCallLog.builder()
                 .analysisReportId(reportId)
                 .requestFingerprint(fingerprint)
-                .model(props.getAiModelLabel())
+                .model(meta != null && meta.model() != null ? meta.model() : props.getAiModelLabel())
                 .promptVersion(props.getPromptVersion())
                 .schemaVersion(props.getSchemaVersion())
                 .scoringRuleVersion(props.getScoringRuleVersion())
                 .diagnosticProfileVersion(props.getDiagnosticProfileVersion())
-                .retryCount(0)
+                .inputTokens(meta != null ? meta.inputTokens() : null)
+                .cachedTokens(meta != null ? meta.cachedTokens() : null)
+                .outputTokens(meta != null ? meta.outputTokens() : null)
+                .reasoningTokens(meta != null ? meta.reasoningTokens() : null)
+                .retryCount(meta != null && meta.retryCount() != null ? meta.retryCount() : 0)
                 .escalationCount(0)
                 .latencyMs(latencyMs)
                 .status(status)

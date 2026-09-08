@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
@@ -7,6 +8,7 @@ import { FONT } from "../constants/fonts";
 import { useAuth, useRequireMember } from "../src/features/auth";
 import { weaknessApi, type AnalysisScopeType } from "../src/features/weakness";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
+import { createIdempotencyKey } from "../src/shared/utils/idempotency";
 
 const BRAND_PURPLE = "#6D5DFB";
 
@@ -35,6 +37,10 @@ export default function WeaknessGeneratingScreen() {
   const [messageIndex, setMessageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const hasStartedRef = useRef(false);
+  // 이 화면 한 번 = 사용자가 생성을 한 번 확정한 것. 토큰 재발급으로 요청이 재전송돼도
+  // 같은 키를 써야 코인이 두 번 빠지지 않는다.
+  const idempotencyKeyRef = useRef(createIdempotencyKey());
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -73,8 +79,22 @@ export default function WeaknessGeneratingScreen() {
             useCoin: true,
           },
           accessToken,
+          idempotencyKeyRef.current,
         );
-        router.replace({
+
+        // 분석표 목록·통계와 코인 잔액은 이 요청으로 서버에서 바뀌었다. 무효화하지 않으면
+        // 복습 탭이 생성 전 목록을 그대로 들고 있어 "만들었는데 안 보인다"가 된다.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["weakness", "reports"] }),
+          queryClient.invalidateQueries({ queryKey: ["currency", "me"] }),
+        ]);
+
+        // 결과 화면에서 뒤로 가면 결제 확인 화면이 되살아나므로, 생성에 쓰인 화면들을
+        // 스택에서 걷어내고 결과만 남긴다(뒤로 = 복습 탭).
+        if (router.canDismiss()) {
+          router.dismissAll();
+        }
+        router.push({
           pathname: "/weakness-report",
           params: { reportId: report.analysisReportId.toString() },
         });

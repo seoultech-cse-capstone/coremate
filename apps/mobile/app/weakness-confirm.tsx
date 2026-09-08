@@ -95,7 +95,9 @@ export default function WeaknessConfirmScreen() {
       </View>
 
       {!isLoading && !isError && !canAfford ? (
-        <Text style={styles.insufficientText}>코인이 부족해요.</Text>
+        <Text style={styles.insufficientText}>
+          코인이 부족합니다. 출석과 문제 풀이로 코인을 획득할 수 있습니다.
+        </Text>
       ) : null}
 
       <Pressable
@@ -108,6 +110,13 @@ export default function WeaknessConfirmScreen() {
       >
         <Text style={detailStyles.primaryButtonText}>분석표 생성하기</Text>
       </Pressable>
+
+      {/* 코인이 모자랄 때만 노출. 여기서 막히면 갈 곳이 없어 화면을 벗어나야 했다. */}
+      {!isLoading && !isError && !canAfford ? (
+        <Pressable style={styles.shopButton} onPress={() => router.push("/avatar-shop")}>
+          <Text style={styles.shopButtonText}>상점으로 이동</Text>
+        </Pressable>
+      ) : null}
 
       <Pressable style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>선택 화면으로 돌아가기</Text>
@@ -155,6 +164,21 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  shopButton: {
+    marginTop: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#6D5DFB",
+  },
+  shopButtonText: {
+    color: "#6D5DFB",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "700",
   },
   backButton: {
     marginTop: 12,

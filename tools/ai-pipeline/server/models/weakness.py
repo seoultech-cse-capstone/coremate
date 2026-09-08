@@ -108,6 +108,21 @@ class ConceptAnalysis(BaseModel):
     evidence_refs: list[str] = Field(default_factory=list)
 
 
+class CallMeta(BaseModel):
+    """실제 호출에 쓰인 모델과 토큰 사용량. 백엔드가 ai_call_logs 에 그대로 적재한다.
+
+    프로바이더가 값을 주지 않으면 None 으로 남긴다(추정치를 만들지 않는다).
+    """
+
+    model: str | None = None
+    input_tokens: int | None = None
+    cached_tokens: int | None = None
+    output_tokens: int | None = None
+    reasoning_tokens: int | None = None
+    retry_count: int = 0
+
+
 class WeaknessAnalysisResponse(BaseModel):
     overview: str
     concept_analyses: list[ConceptAnalysis] = Field(default_factory=list)
+    meta: CallMeta = Field(default_factory=CallMeta)
