@@ -56,15 +56,18 @@ export const weaknessApi = {
   },
 
   // 동기 호출: AI 해석까지 끝난 뒤 완성된 분석표를 응답으로 받는다(시간이 걸릴 수 있음).
+  // 코인이 차감되는 요청이라 서버가 Idempotency-Key 헤더를 필수로 요구한다. 헤더가 없으면
+  // IDEMPOTENCY_KEY_REQUIRED 로 거절당해 생성 자체가 안 된다.
   createReport(
     request: CreateWeaknessAnalysisReportRequest,
     accessToken: string,
+    idempotencyKey: string,
   ): Promise<WeaknessAnalysisReportDetail> {
     return httpClient
       .post<ApiEnvelope<WeaknessAnalysisReportDetail>>(
         "/api/v1/weakness/reports",
         request,
-        { accessToken },
+        { accessToken, headers: { "Idempotency-Key": idempotencyKey } },
       )
       .then((res) => res.data);
   },

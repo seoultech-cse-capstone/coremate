@@ -7,6 +7,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -163,6 +164,9 @@ function deriveAnalysisScope(sessions: EligibleSolveSession[]): AnalysisScope | 
 
 const HEADER_HEIGHT = 60;
 const OVERSCROLL_BUFFER = 96;
+/** 한 분석표에 넣을 수 있는 회차 수(FR-WEAK-02). 서버도 같은 값으로 막지만, 여기서 먼저 알려준다. */
+const MIN_SELECTION = 1;
+const MAX_SELECTION = 5;
 const BRAND_PURPLE = "#6D5DFB";
 const WEAKNESS_PURPLE = "#4E44A4";
 const PANEL_GRAY = "#F3F3F3";
@@ -416,16 +420,35 @@ export default function LogWeakScreen() {
 
   const toggleMode = () => updateMode(isWrongNote ? "weakness" : "wrongNote");
 
+  // 분석표 목록 화면(SCR-WEAK-01)에서 바로 새 분석표를 시작한다. 대상 선택 목록은
+  // 반대 모드에 있어서, 모드를 바꾸고 선택 단계까지 한 번에 열어 준다.
+  const startNewReport = () => {
+    setMode("wrongNote");
+    router.setParams({ mode: "wrongNote" });
+    setSelectedExamIds([]);
+    setCreateReportError(null);
+    setIsSelecting(true);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
   const toggleSelectedExam = (id: number) => {
     if (!isSelecting) {
       return;
     }
 
-    setSelectedExamIds((currentIds) =>
-      currentIds.includes(id)
-        ? currentIds.filter((currentId) => currentId !== id)
-        : [...currentIds, id],
-    );
+    setSelectedExamIds((currentIds) => {
+      if (currentIds.includes(id)) {
+        setCreateReportError(null);
+        return currentIds.filter((currentId) => currentId !== id);
+      }
+      // 상한을 넘겨 보내면 서버가 막지만, 사용자는 두 화면을 지나서야 실패를 본다.
+      if (currentIds.length >= MAX_SELECTION) {
+        setCreateReportError(`문제집은 최대 ${MAX_SELECTION}개까지 선택할 수 있어요.`);
+        return currentIds;
+      }
+      setCreateReportError(null);
+      return [...currentIds, id];
+    });
   };
 
   const openExamReview = (item: ExamHistoryDisplayItem) => {
@@ -501,6 +524,28 @@ export default function LogWeakScreen() {
     setIsSelecting(false);
     setSelectedExamIds([]);
     setCreateReportError(null);
+  };
+
+  // 분석표는 코인 100을 써서 만든 것이고, 지운 뒤 같은 회차로 다시 만들면 다시 차감된다
+  // (서버 재사용 조건이 "삭제되지 않은 완료 분석표"라서). 한 번 눌러 사라지면 안 된다.
+  const confirmDeleteReport = (item: WeaknessAnalysisReportSummary) => {
+    if (deletingReportId !== null) {
+      return;
+    }
+    Alert.alert(
+      "분석표를 삭제할까요?",
+      `${item.title}\n\n삭제하면 되돌릴 수 없어요. 같은 문제집으로 다시 만들려면 코인 ${item.coinCost}이 다시 필요합니다.`,
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: () => {
+            void handleDeleteReport(item.analysisReportId);
+          },
+        },
+      ],
+    );
   };
 
   const handleDeleteReport = async (analysisReportId: number) => {
@@ -679,7 +724,7 @@ export default function LogWeakScreen() {
           style={[
             styles.grayPanel,
             { minHeight: height + OVERSCROLL_BUFFER },
-            isWrongNote && styles.grayPanelWithFloatingButton,
+            styles.grayPanelWithFloatingButton,
           ]}
         >
           {isWrongNote && isSelecting && <View style={styles.selectionDim} />}
@@ -688,7 +733,7 @@ export default function LogWeakScreen() {
             accentColor={activePurple}
             conceptCountSummary={conceptCountSummaryQuery.data}
             isWrongNote={isWrongNote}
-            weaknessReports={weaknessReports}
+            weaknessReports={filteredWeaknessReports}
           />
 
           <View style={styles.divider} />
@@ -728,7 +773,7 @@ export default function LogWeakScreen() {
                     isDeleting={deletingReportId === item.analysisReportId}
                     item={item}
                     key={item.analysisReportId}
-                    onDelete={() => handleDeleteReport(item.analysisReportId)}
+                    onDelete={() => confirmDeleteReport(item)}
                     onPress={() =>
                       router.push({
                         pathname: "/weakness-report",
@@ -741,9 +786,27 @@ export default function LogWeakScreen() {
         </View>
       </ScrollView>
 
+      {isWrongNote && isSelecting && !createReportError ? (
+        <Text style={styles.selectionHintText}>
+          같은 과목의 모의고사를 {MIN_SELECTION}~{MAX_SELECTION}개까지 고를 수 있어요.
+        </Text>
+      ) : null}
+
       {isWrongNote && createReportError ? (
         <Text style={styles.createReportErrorText}>{createReportError}</Text>
       ) : null}
+
+      {/* 분석표 목록 화면에는 생성 진입이 없어, 홈에서 들어온 사용자가 만들 방법을 못 찾았다. */}
+      {!isWrongNote && (
+        <View style={styles.aiButtonWrap}>
+          <Pressable
+            style={[styles.aiButton, { backgroundColor: activePurple }]}
+            onPress={startNewReport}
+          >
+            <Text style={styles.aiButtonText}>새 약점 분석표 만들기</Text>
+          </Pressable>
+        </View>
+      )}
 
       {isWrongNote && (
         <View style={styles.aiButtonWrap}>
@@ -950,6 +1013,11 @@ function EligibleSessionCard({
           <Text style={styles.resultLabel}>Wrong</Text>
           <Text style={[styles.resultValue, styles.wrongResultValue]}>
             {item.wrongCount}/{item.totalQuestionCount}
+          </Text>
+          {/* 분석 근거는 오답만이 아니라 오래 걸림·힌트까지 셋이다. 고를 때 셋 다 보여야
+              어느 회차가 분석할 거리가 많은지 판단할 수 있다(SCR-WEAK-02). */}
+          <Text style={styles.signalText}>
+            오래 걸림 {item.longTimeCount} · 힌트 사용 {item.hintUsedCount}
           </Text>
           <Text style={styles.scopePathText}>{scopePath.join("  >  ")}</Text>
         </View>
@@ -1299,6 +1367,13 @@ const styles = StyleSheet.create({
   wrongResultValue: {
     color: "#ef4444",
   },
+  signalText: {
+    marginTop: 6,
+    color: "#475569",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   scopePathText: {
     color: "#64748b",
     fontFamily: FONT.pretendard,
@@ -1347,6 +1422,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#8493A0",
     paddingHorizontal: 18,
+  },
+  // 카드(흰 배경) 위에 겹쳐 뜨므로 오류 문구와 같은 알약 배경을 써야 읽힌다.
+  selectionHintText: {
+    position: "absolute",
+    left: 50,
+    right: 50,
+    bottom: 70,
+    zIndex: 20,
+    color: "#ffffff",
+    backgroundColor: "rgba(30, 27, 60, 0.88)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   createReportErrorText: {
     position: "absolute",

@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -99,10 +99,23 @@ export default function WeaknessReportScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>분석에 사용한 문제집</Text>
                 <View style={styles.card}>
+                  {/* 각 회차를 눌러 실제 풀이 기록으로 넘어갈 수 있어야 한다(SCR-WEAK-05). */}
                   {report.selectedSessions.map((session) => (
-                    <Text key={session.solveSessionId} style={styles.sessionText}>
-                      {session.title} · {session.wrongCount}/{session.totalQuestionCount} 오답
-                    </Text>
+                    <Pressable
+                      key={session.solveSessionId}
+                      style={styles.sessionRow}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/mistake-exam-review",
+                          params: { solveSessionId: session.solveSessionId.toString() },
+                        })
+                      }
+                    >
+                      <Text style={styles.sessionText}>
+                        {session.title} · {session.wrongCount}/{session.totalQuestionCount} 오답
+                      </Text>
+                      <ChevronRight color="#94a3b8" size={18} strokeWidth={2.2} />
+                    </Pressable>
                   ))}
                 </View>
               </View>
@@ -183,11 +196,17 @@ function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
         <Text style={styles.conceptScore}>약점 점수 {concept.weaknessScore}</Text>
       </View>
 
+      {/* 백엔드 판정과 AI 판정이 갈리면 최종 유형이 비는데, 그대로 두면 "유형 - (판정 보류)"
+          처럼 하이픈이 노출된다. 유형이 없을 때는 보류 상태만 문장으로 말한다. */}
       <Text style={styles.metaText}>
-        유형 {label(WEAKNESS_TYPE_LABEL, concept.finalType)} (
-        {label(TYPE_SOURCE_LABEL, concept.finalTypeSource)}) · 원인{" "}
-        {label(CAUSE_CODE_LABEL, concept.causeCode)} · 근거 강도 {concept.evidenceStrength} · 상태{" "}
-        {label(ANALYSIS_STATUS_LABEL, concept.analysisStatus)}
+        {concept.finalType
+          ? `유형 ${label(WEAKNESS_TYPE_LABEL, concept.finalType)} (${label(
+              TYPE_SOURCE_LABEL,
+              concept.finalTypeSource,
+            )})`
+          : "유형 판정 보류"}{" "}
+        · 원인 {label(CAUSE_CODE_LABEL, concept.causeCode)} · 근거 강도{" "}
+        {concept.evidenceStrength} · 상태 {label(ANALYSIS_STATUS_LABEL, concept.analysisStatus)}
       </Text>
       {concept.confusedRelation ? (
         <Text style={styles.metaText}>혼동 개념: {concept.confusedRelation}</Text>
@@ -265,6 +284,20 @@ function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
           ))}
         </View>
       ) : null}
+
+      {/* 분석표를 읽고 나면 복습으로 이어져야 한다(SCR-WEAK-05). */}
+      <Pressable
+        style={styles.conceptLinkButton}
+        onPress={() =>
+          router.push({
+            pathname: "/concept-detail",
+            params: { conceptId: concept.conceptId.toString() },
+          })
+        }
+      >
+        <Text style={styles.conceptLinkText}>이 개념 문제집으로 가기</Text>
+        <ChevronRight color={BRAND_PURPLE} size={18} strokeWidth={2.4} />
+      </Pressable>
     </View>
   );
 }
@@ -325,6 +358,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  conceptLinkButton: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BRAND_PURPLE,
+  },
+  conceptLinkText: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "700",
   },
   stateArea: {
     flex: 1,

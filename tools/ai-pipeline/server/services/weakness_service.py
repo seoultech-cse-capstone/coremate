@@ -12,13 +12,17 @@ from pydantic import ValidationError
 
 from schemas.weakness_analysis_schema import WEAKNESS_ANALYSIS_SCHEMA
 from server.core.paths import AI_PIPELINE_ROOT
-from server.models.weakness import WeaknessAnalysisRequest, WeaknessAnalysisResponse
+from server.models.weakness import (
+    CallMeta,
+    WeaknessAnalysisRequest,
+    WeaknessAnalysisResponse,
+)
 
 # 서버 프로세스에서 src.ai_client 를 import 할 수 있도록 ai-pipeline 루트를 경로에 추가.
 if str(AI_PIPELINE_ROOT) not in sys.path:
     sys.path.insert(0, str(AI_PIPELINE_ROOT))
 
-from src.ai_client import call_ai_json  # noqa: E402
+from src.ai_client import call_ai_json_with_meta  # noqa: E402
 
 SCHEMA_NAME = "weakness_analysis"
 REASONING_EFFORT = "medium"
@@ -79,9 +83,9 @@ def analyze(request: WeaknessAnalysisRequest) -> WeaknessAnalysisResponse:
     allowed_refs = {e.ref for c in request.weakness_candidates for e in c.evidence}
 
     last_error: Exception | None = None
-    for _ in range(MAX_ATTEMPTS):
+    for attempt in range(MAX_ATTEMPTS):
         try:
-            raw = call_ai_json(
+            raw, call_meta = call_ai_json_with_meta(
                 system_prompt=SYSTEM_PROMPT,
                 user_prompt=user_prompt,
                 schema_name=SCHEMA_NAME,
@@ -89,6 +93,8 @@ def analyze(request: WeaknessAnalysisRequest) -> WeaknessAnalysisResponse:
                 reasoning_effort=REASONING_EFFORT,
             )
             response = WeaknessAnalysisResponse.model_validate(raw)
+            # 모델이 스키마를 어겨 재시도한 횟수까지 담아야 로그로 품질을 따질 수 있다.
+            response.meta = CallMeta(**call_meta, retry_count=attempt)
             return _sanitize(response, allowed_concept_ids, allowed_refs)
         except (ValidationError, json.JSONDecodeError, ValueError) as exc:
             last_error = exc  # 형식/스키마 오류만 제한적으로 재시도
@@ -116,4 +122,6 @@ def _sanitize(
             continue
         refs = [ref for ref in analysis.evidence_refs if ref in allowed_refs][:MAX_EVIDENCE_REFS]
         cleaned.append(analysis.model_copy(update={"evidence_refs": refs}))
-    return WeaknessAnalysisResponse(overview=response.overview, concept_analyses=cleaned)
+    return WeaknessAnalysisResponse(
+        overview=response.overview, concept_analyses=cleaned, meta=response.meta
+    )

@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 
+import { useAuth } from "../src/features/auth";
 import {
   SolveResultScreen,
 } from "../src/features/solve/components/SolveResultScreen";
@@ -13,6 +14,7 @@ const sessionTypes: SolveSessionType[] = [
 ];
 
 export default function SolveResultRoute() {
+  const { isAuthenticated } = useAuth();
   const {
     conceptId,
     correctCount,
@@ -77,6 +79,14 @@ export default function SolveResultRoute() {
           },
         })
       }
+      onWeaknessAnalysis={() => {
+        // FR-GUEST-02: 약점 분석은 회원 전용이라 게스트는 로그인 안내로 보낸다.
+        if (!isAuthenticated) {
+          router.push("/login-required");
+          return;
+        }
+        router.push({ pathname: "/(tabs)/log-weak", params: { mode: "weakness" } });
+      }}
       onReview={() => {
         router.push({
           pathname: "/mistake-exam-review",
