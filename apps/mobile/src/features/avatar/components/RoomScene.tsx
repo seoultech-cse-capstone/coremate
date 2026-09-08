@@ -14,9 +14,12 @@ import {
   getAvatarDotPx,
 } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
+import { useAuth } from "../../auth";
 import { useAvatarEquip } from "../AvatarEquipContext";
 import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
+import { useSavePoseMutation } from "../useRoomQueries";
+import type { RoomPose } from "../types";
 import {
   INTERACTIVE_FURNITURE_TYPES,
   getFurnitureFootprintRect,
@@ -93,12 +96,23 @@ type RoomSceneProps = {
  * 배치된 책상·침대를 탭하면 거기로 걸어가서 앉거나 눕고, 다시 탭하면 일어난다.
  */
 export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
-  const { placements } = useRoomFurniture();
+  const { placements, placementIdByType } = useRoomFurniture();
   const { equipped } = useAvatarEquip();
+  const { accessToken } = useAuth();
+  const savePose = useSavePoseMutation(accessToken);
   const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
   const [hasPositioned, setHasPositioned] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("front");
   const [occupancy, setOccupancy] = useState<FurnitureType | null>(null);
+
+  // 아바타가 앉거나(desk) 누우면(bed) 그 포즈를, 일어나면 STAND를 서버에 저장한다.
+  // occupancy는 로컬 애니메이션 상태이고, 서버에는 마지막 포즈만 남긴다(친구 방 경과시간 기준).
+  const changeOccupancy = (next: FurnitureType | null) => {
+    setOccupancy(next);
+    const roomPose: RoomPose = next === "desk" ? "SIT_DESK" : next === "bed" ? "SLEEP_BED" : "STAND";
+    const placementId = next ? (placementIdByType[next] ?? null) : null;
+    savePose.mutate({ roomPose, placementId });
+  };
 
   const posX = useRef(new Animated.Value(0)).current;
   const posY = useRef(new Animated.Value(0)).current;
@@ -302,7 +316,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
             locationY,
           )
         : false;
-      setOccupancy(null);
+      changeOccupancy(null);
       justStoodUp = true;
       if (withinCurrent) {
         return;
@@ -344,7 +358,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight, avatarDotPx);
       targetX = anchor.x;
       targetY = anchor.y;
-      onArrive = () => setOccupancy(hitType);
+      onArrive = () => changeOccupancy(hitType);
     } else {
       targetX = Math.min(
         Math.max(locationX, feetOffsetX),

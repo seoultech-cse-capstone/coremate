@@ -26,6 +26,8 @@ export function useUpdateEquippedItemsMutation(accessToken: string | null) {
         return { ...current, profile };
       });
       queryClient.invalidateQueries({ queryKey: ["avatar", "inventory"] });
+      // WALLPAPER(테마) 등 장착 변경은 방 조회의 equippedItems에도 반영돼야 한다.
+      queryClient.invalidateQueries({ queryKey: ["avatar", "room"] });
     },
   });
 }
