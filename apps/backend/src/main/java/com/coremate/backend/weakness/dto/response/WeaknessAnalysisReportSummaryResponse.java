@@ -32,6 +32,10 @@ public record WeaknessAnalysisReportSummaryResponse(
         @Schema(description = "분석 대상 중 틀린 문제 수", example = "4")
         Integer totalWrongCount,
 
+        @Schema(description = "이 분석표가 짚어낸 약점 개념 수. 목록 화면의 '발견한 약점'이 쓰는 값이며, "
+                + "틀린 문제 수(totalWrongCount)와는 다른 지표다.", example = "3")
+        Integer weaknessConceptCount,
+
         @Schema(description = "생성에 사용한 코인", example = "100")
         Integer coinCost,
 
