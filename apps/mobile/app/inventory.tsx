@@ -26,6 +26,7 @@ import {
   useMyAvatar,
   useRoomFurniture,
   useRoomTheme,
+  useUpdateEquippedItemsMutation,
   type FurnitureType,
   type LocalAvatarSlot,
   type RoomLayoutInfo,
@@ -79,6 +80,37 @@ export default function InventoryScreen() {
     }
     return set;
   }, [inventoryQuery.data]);
+
+  // 로컬 카탈로그 key → 서버 userItemId. 착용 상태를 서버에 저장할 때
+  // PUT /api/avatar/equipped-items 가 userItemId 를 요구하는데, 프론트 착용은
+  // 로컬 key 로 동작해서 이 매핑으로 잇는다.
+  const keyToUserItemId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const group of inventoryQuery.data?.groups ?? []) {
+      for (const item of group.items) {
+        const stem = stemFromImageUrl(item.imageUrl);
+        if (stem) {
+          map.set(stem, item.userItemId);
+        }
+      }
+    }
+    return map;
+  }, [inventoryQuery.data]);
+
+  const equipMutation = useUpdateEquippedItemsMutation(accessToken);
+
+  // 착용 변경은 로컬(AvatarEquipContext)에 즉시 반영해 화면을 갱신하고, 동시에
+  // 서버에도 저장한다. key 가 null 이면 해제(userItemId=null), 아니면 매핑된 userItemId 전송.
+  const handleEquip = (slot: LocalAvatarSlot, key: string | null) => {
+    setEquippedItem(slot, key);
+    const userItemId = key === null ? null : (keyToUserItemId.get(key) ?? null);
+    // 보유 아이템만 노출되므로 key→userItemId 매핑은 정상적으로 잡힌다. 혹시
+    // 매핑이 없으면(비정상) 서버 저장만 건너뛰고 로컬 반영은 유지한다.
+    if (key !== null && userItemId === null) {
+      return;
+    }
+    equipMutation.mutate({ equippedItems: [{ slot, userItemId }] });
+  };
 
   // 마이룸 탭 상태
   const { themeKey, setThemeKey } = useRoomTheme();
@@ -232,7 +264,7 @@ export default function InventoryScreen() {
                 {!inventoryQuery.isPending && !isRequiredSlot ? (
                   <Pressable
                     style={[styles.card, effectiveKey === null && styles.cardSelected]}
-                    onPress={() => setEquippedItem(selectedSlot, null)}
+                    onPress={() => handleEquip(selectedSlot, null)}
                   >
                     {effectiveKey === null ? (
                       <View style={styles.selectedBadge}>
@@ -253,7 +285,7 @@ export default function InventoryScreen() {
                     <Pressable
                       key={item.key}
                       style={[styles.card, isEquipped && styles.cardSelected]}
-                      onPress={() => setEquippedItem(selectedSlot, item.key)}
+                      onPress={() => handleEquip(selectedSlot, item.key)}
                     >
                       {isEquipped ? (
                         <View style={styles.selectedBadge}>
