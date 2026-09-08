@@ -64,11 +64,17 @@ export const friendApi = {
     );
   },
 
-  poke(toUserId: number, accessToken: string): Promise<FriendPoke> {
+  // 알림이 나가는 요청이라 서버가 Idempotency-Key 를 필수로 요구한다(연타 = 알림 폭탄).
+  // 같은 친구를 하루 3회까지 찌를 수 있으므로 키를 고정하지 않고 호출부가 수명을 정한다.
+  poke(
+    toUserId: number,
+    accessToken: string,
+    idempotencyKey: string,
+  ): Promise<FriendPoke> {
     return httpClient.post<FriendPoke>(
       "/api/friends/pokes",
       { toUserId, messageType: "POKE" },
-      { accessToken },
+      { accessToken, headers: { "Idempotency-Key": idempotencyKey } },
     );
   },
 };

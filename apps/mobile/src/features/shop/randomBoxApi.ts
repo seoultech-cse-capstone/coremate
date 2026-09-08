@@ -29,9 +29,16 @@ export const randomBoxApi = {
     );
   },
 
-  open(body: OpenRandomBoxRequest, accessToken: string): Promise<RandomBoxOpenResult> {
+  // 코인 차감 + 보상 지급이라 서버가 Idempotency-Key 를 필수로 요구한다.
+  // 키 수명은 호출부(useIdempotencyKey)가 정한다.
+  open(
+    body: OpenRandomBoxRequest,
+    accessToken: string,
+    idempotencyKey: string,
+  ): Promise<RandomBoxOpenResult> {
     return httpClient.post<RandomBoxOpenResult>("/api/random-box/open", body, {
       accessToken,
+      headers: { "Idempotency-Key": idempotencyKey },
     });
   },
 };

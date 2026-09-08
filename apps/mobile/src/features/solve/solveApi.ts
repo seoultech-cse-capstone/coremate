@@ -87,6 +87,14 @@ export const solveApi = {
       .then((res) => res.data);
   },
 
+  /**
+   * 회차 완료. XP·코인이 지급되는 요청이라 서버가 Idempotency-Key 헤더를 필수로 요구한다
+   * (없으면 IDEMPOTENCY_KEY_REQUIRED 로 거절돼 회차를 끝낼 수 없다).
+   *
+   * 한 회차는 평생 한 번만 완료되므로 키를 sessionId 로 고정한다. 연타·재시도가 전부 같은
+   * 키를 쓰게 돼 이중 지급이 원천적으로 막히고, 서버에서 실패해 롤백되면 키도 함께 지워져
+   * 같은 키로 다시 시도할 수 있다.
+   */
   completeSession(
     sessionId: number,
     totalTimeSpentSec: number,
@@ -96,7 +104,10 @@ export const solveApi = {
       .post<ApiEnvelope<CompleteSolveSessionResponse>>(
         `/api/v1/solve-sessions/${sessionId}/complete`,
         { totalTimeSpentSec },
-        { accessToken },
+        {
+          accessToken,
+          headers: { "Idempotency-Key": `solve-complete-${sessionId}` },
+        },
       )
       .then((res) => res.data);
   },
