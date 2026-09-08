@@ -23,7 +23,6 @@ import {
   RoomBackdrop,
   useAvatarEquip,
   useInventory,
-  useMyAvatar,
   useRoomFurniture,
   useRoomTheme,
   useUpdateEquippedItemsMutation,
@@ -61,13 +60,10 @@ export default function InventoryScreen() {
   const { equipped, setEquippedItem } = useAvatarEquip();
 
   // 서버 보유 목록 — 이 화면의 아바타/테마/가구는 전부 이 집합으로 필터링한다.
+  // 기본 지급 보장(getOrCreateProfile → ensureGranted)은 앱 진입 시 AvatarProfileSync가
+  // 담당하므로, 여기서는 보유 목록만 바로 불러온다.
   const { accessToken } = useAuth();
-  // /api/avatar/me 가 서버의 아바타 프로필 생성 + 기본 6종 지급(getOrCreateProfile
-  // → ensureGranted)을 트리거한다. 앱의 다른 화면은 이 엔드포인트를 부르지 않아서,
-  // 인벤토리를 처음 여는 순간 여기서 지급을 보장한 뒤 보유 목록을 불러온다.
-  const avatarProfileQuery = useMyAvatar(accessToken);
-  const inventoryEnabled = accessToken !== null && !avatarProfileQuery.isPending;
-  const inventoryQuery = useInventory(inventoryEnabled ? accessToken : null);
+  const inventoryQuery = useInventory(accessToken);
   const ownedStems = useMemo(() => {
     const set = new Set<string>();
     for (const group of inventoryQuery.data?.groups ?? []) {

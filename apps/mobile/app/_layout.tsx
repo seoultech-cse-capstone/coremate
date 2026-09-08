@@ -8,7 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
-import { AvatarEquipProvider, RoomFurnitureProvider, RoomThemeProvider } from "../src/features/avatar";
+import { AvatarEquipProvider, AvatarProfileSync, RoomFurnitureProvider, RoomThemeProvider } from "../src/features/avatar";
 import { usePushRegistration } from "../src/features/notification";
 import { queryClient } from "../src/shared/api/queryClient";
 import { LanguageProvider } from "../src/shared/language/LanguageContext";
@@ -48,6 +48,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <PushRegistration />
+        <AvatarProfileSync />
         <RoomFurnitureProvider>
         <RoomThemeProvider>
         <AvatarEquipProvider>
