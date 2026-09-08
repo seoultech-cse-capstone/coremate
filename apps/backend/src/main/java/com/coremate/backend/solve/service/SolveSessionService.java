@@ -12,6 +12,7 @@ import com.coremate.backend.content.repository.QuestionRepository;
 import com.coremate.backend.content.repository.SubjectRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.learninghistory.service.LearningHistoryService;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.progress.entity.UserConceptProgress;
@@ -78,6 +79,7 @@ public class SolveSessionService {
     private final SolveRewardService solveRewardService;
     private final SolveSessionExpiryService solveSessionExpiryService;
     private final ObjectMapper objectMapper;
+    private final IdempotencyGuard idempotencyGuard;
 
     public StartSolveSessionResponse startSolveSession(Long userId, CreateSolveSessionRequest request) {
         if (request.sessionType() != SolveSessionType.CONCEPT_PRACTICE) {
@@ -256,6 +258,14 @@ public class SolveSessionService {
                 nextQuestionOrder,
                 isSessionAnswerCompleted
         );
+    }
+
+    // 컨트롤러 진입점. 멱등키를 먼저 등록해 동시/재시도 완료로 XP·코인이 이중 지급되지 않게 막고(#168),
+    // 실제 완료 처리는 기존 completeSolveSession 을 같은 트랜잭션에서 재사용한다.
+    public CompleteSolveSessionResponse completeSolveSession(Long solveSessionId, Long userId,
+            CompleteSolveSessionRequest request, String idempotencyKey) {
+        idempotencyGuard.register(userId, idempotencyKey, "SOLVE_SESSION_COMPLETE");
+        return completeSolveSession(solveSessionId, userId, request);
     }
 
     public CompleteSolveSessionResponse completeSolveSession(Long solveSessionId, Long userId,

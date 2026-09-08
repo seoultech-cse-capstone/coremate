@@ -7,6 +7,7 @@ import com.coremate.backend.content.entity.Subject;
 import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.paid.service.FeatureAccessPricingService;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
@@ -94,10 +95,20 @@ public class WeaknessAnalysisService {
     private final ConceptRepository contentConceptRepository;
     private final SolveLogRepository solveLogRepository;
     private final SolveSessionRepository weaknessSolveSessionRepository;
+    private final IdempotencyGuard idempotencyGuard;
 
     // ----------------------------------------------------------------------- //
     // 생성
     // ----------------------------------------------------------------------- //
+    // 컨트롤러 진입점. 멱등키를 먼저 등록해 동시/재시도 요청으로 비싼 LLM 호출·코인 차감·리포트가
+    // 중복되지 않게 막고(#168), 실제 생성은 기존 createReport 를 같은 트랜잭션에서 재사용한다.
+    @Transactional
+    public WeaknessAnalysisReportDetailResponse createReport(
+            Long userId, CreateWeaknessAnalysisReportRequest request, String idempotencyKey) {
+        idempotencyGuard.register(userId, idempotencyKey, "WEAKNESS_REPORT_CREATE");
+        return createReport(userId, request);
+    }
+
     @Transactional
     public WeaknessAnalysisReportDetailResponse createReport(Long userId, CreateWeaknessAnalysisReportRequest request) {
         List<SolveSession> sessions = selectionValidator.validateAndLoad(userId, request.solveSessionIds());

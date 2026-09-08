@@ -24,6 +24,7 @@ import com.coremate.backend.friend.repository.FriendRepository;
 import com.coremate.backend.friend.repository.FriendUserSearchRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.learninghistory.dto.response.LearningHistoryResponse;
 import com.coremate.backend.learninghistory.service.LearningHistoryService;
 import com.coremate.backend.notification.service.NotificationMessages;
@@ -61,6 +62,7 @@ public class FriendService {
     private final LearningHistoryService learningHistoryService;
     private final ProgressService progressService;
     private final ApplicationEventPublisher eventPublisher;
+    private final IdempotencyGuard idempotencyGuard;
 
     public List<FriendSearchUserResponse> searchUsers(Long userId, String keyword) {
         findActiveUser(userId);
@@ -169,6 +171,14 @@ public class FriendService {
         validateAcceptedFriend(userId, friendUserId);
         findActiveUser(friendUserId);
         return learningHistoryService.getStats(friendUserId);
+    }
+
+    // 컨트롤러 진입점. 멱등키를 먼저 등록해 연타·재시도로 poke 가 중복 생성/알림되지 않게 막고(#168),
+    // 실제 로직은 기존 poke(userId, request) 를 같은 트랜잭션 안에서 재사용한다.
+    @Transactional
+    public FriendPokeResponse poke(Long userId, PokeFriendRequest request, String idempotencyKey) {
+        idempotencyGuard.register(userId, idempotencyKey, "FRIEND_POKE");
+        return poke(userId, request);
     }
 
     @Transactional
