@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useIdempotencyKey } from "../../shared/hooks/useIdempotencyKey";
 import { getApiErrorCode } from "../../shared/utils/apiError";
 import { useAuth } from "../auth/AuthContext";
 import { friendApi } from "./friendApi";
@@ -108,9 +109,14 @@ export function useDeleteFriendMutation() {
  */
 export function usePokeMutation() {
   const { accessToken } = useAuth();
+  const idempotency = useIdempotencyKey();
 
   return useMutation({
-    mutationFn: (toUserId: number) => friendApi.poke(toUserId, accessToken as string),
+    // 같은 친구를 연타하면 같은 키가 나가 알림이 두 번 가지 않는다. 성공 후에는 키를
+    // 비워, 하루 3회까지 허용된 다음 찌르기를 막지 않는다.
+    mutationFn: (toUserId: number) =>
+      friendApi.poke(toUserId, accessToken as string, idempotency.keyFor(`poke-${toUserId}`)),
+    onSuccess: () => idempotency.clear(),
   });
 }
 
