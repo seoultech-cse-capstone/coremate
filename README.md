@@ -29,6 +29,44 @@ coremate/
 
 ---
 
+## 모바일 앱 실행
+
+앱을 여는 방법이 두 가지고, **플랫폼마다 쓸 수 있는 방법이 다르다.**
+
+| | iOS | 안드로이드 |
+|---|---|---|
+| Expo Go | 앱은 뜬다. 소셜 로그인·푸시는 동작하지 않는다 | **앱이 뜨지 않는다** |
+| 개발 빌드 | 전부 동작 | 전부 동작 |
+
+### iOS — Expo Go
+
+```bash
+cd apps/mobile && npx expo start --ios
+```
+
+### 안드로이드 — 개발 빌드가 필요하다
+
+**Expo Go 로 열면 스플래시에서 멈춘다.** 앱 버그가 아니다. `expo-notifications` 는 SDK 53 부터 Expo Go 안드로이드에서 푸시 기능이 제거됐는데, 이 패키지는 import 되는 순간 내부 모듈이 푸시 토큰 리스너를 등록하고 그 지점에서 예외를 던진다. iOS Expo Go 는 같은 자리에서 경고만 남기고 넘어가 문제가 드러나지 않는다. 라이브러리 동작이라 앱 코드로는 우회할 수 없다.
+
+안드로이드는 개발 빌드로 연다. 우리 네이티브 모듈이 전부 포함된 진짜 CoreMate 앱이 설치된다.
+
+```bash
+export ANDROID_HOME=$HOME/Library/Android/sdk
+cd apps/mobile
+npx expo prebuild -p android --clean
+npx expo run:android
+```
+
+- `ANDROID_HOME` 이 없으면 `SDK location not found` 로 실패한다. `~/.zshrc` 에 넣어 두면 편하다.
+- `prebuild` 는 `app.config.js` 의 설정(카카오 SDK maven 저장소 등)을 네이티브 프로젝트에 주입한다. **이걸 건너뛰면 `com.kakao.sdk:v2-*` 를 찾지 못해 빌드가 깨진다.** `android/` 는 gitignore 대상이라 재생성해도 안전하다.
+- 첫 빌드는 10분 안팎. 이후에는 Metro 만 켜면 되고(`npx expo start`), **네이티브 의존성이 바뀔 때만** 다시 빌드한다.
+
+에뮬레이터는 Android Studio 에서 띄워 두면 `run:android` 가 알아서 잡는다. 실기기는 USB 디버깅을 켜고 연결한 뒤 `npx expo run:android --device` 를 쓴다. 빌드 결과 APK 는 `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk` 에 남으므로 `adb install -r` 로 직접 넣어도 된다.
+
+⚠️ **실기기로 볼 때는 폰과 PC 가 같은 와이파이에 있어야 한다.** 앱이 `apps/mobile/.env` 의 `EXPO_PUBLIC_API_BASE_URL`(PC 의 LAN IP)로 백엔드를 찾아가기 때문이다. 이 값은 `scripts/local/start-backend.sh` 가 갱신하며, **Metro 가 이미 떠 있으면 완전히 껐다 켜야** 새 주소가 반영된다.
+
+---
+
 # AI 콘텐츠 파이프라인 빠른 실행 가이드
 
 `tools/ai-pipeline`은 전공서적 PDF를 기반으로 CoreMate 서비스에 사용할 CS 학습 콘텐츠 초안을 생성하는 내부 도구다.
