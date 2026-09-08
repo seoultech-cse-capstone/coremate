@@ -97,6 +97,8 @@ export type WeaknessAnalysisReportSummary = {
   selectedSessionCount: number;
   totalQuestionCount: number;
   totalWrongCount: number;
+  /** 이 분석표가 짚어낸 약점 개념 수. 틀린 문제 수와는 다른 지표다. */
+  weaknessConceptCount: number;
   coinCost: number;
   generatedAt: string | null;
   pdfAvailable: boolean;

@@ -223,9 +223,21 @@ public class WeaknessAnalysisService {
     // ----------------------------------------------------------------------- //
     @Transactional(readOnly = true)
     public List<WeaknessAnalysisReportSummaryResponse> getReports(Long userId) {
-        return reportRepository.findByUserIdAndStatusNotOrderByCreatedAtDesc(userId, AnalysisReportStatus.DELETED)
+        List<WeaknessAnalysisReport> reports = reportRepository
+                .findByUserIdAndStatusNotOrderByCreatedAtDesc(userId, AnalysisReportStatus.DELETED);
+        if (reports.isEmpty()) {
+            return List.of();
+        }
+        // 분석표마다 count 를 날리면 N+1 이라 한 번에 세어 맵으로 들고 간다.
+        Map<Long, Long> conceptCounts = conceptRepository
+                .countConceptsByReportIds(reports.stream().map(WeaknessAnalysisReport::getAnalysisReportId).toList())
                 .stream()
-                .map(this::toSummary)
+                .collect(Collectors.toMap(
+                        WeaknessAnalysisConceptRepository.ConceptCountByReport::getReportId,
+                        WeaknessAnalysisConceptRepository.ConceptCountByReport::getConceptCount));
+        return reports.stream()
+                .map(report -> toSummary(report,
+                        conceptCounts.getOrDefault(report.getAnalysisReportId(), 0L)))
                 .toList();
     }
 
@@ -636,6 +648,10 @@ public class WeaknessAnalysisService {
     }
 
     private WeaknessAnalysisReportSummaryResponse toSummary(WeaknessAnalysisReport report) {
+        return toSummary(report, conceptRepository.countByReport_AnalysisReportId(report.getAnalysisReportId()));
+    }
+
+    private WeaknessAnalysisReportSummaryResponse toSummary(WeaknessAnalysisReport report, long weaknessConceptCount) {
         return new WeaknessAnalysisReportSummaryResponse(
                 report.getAnalysisReportId(),
                 report.getTitle(),
@@ -645,6 +661,7 @@ public class WeaknessAnalysisService {
                 report.getSelectedSessionCount(),
                 report.getTotalQuestionCount(),
                 report.getTotalWrongCount(),
+                (int) weaknessConceptCount,
                 report.getCoinCost(),
                 report.getGeneratedAt(),
                 false);

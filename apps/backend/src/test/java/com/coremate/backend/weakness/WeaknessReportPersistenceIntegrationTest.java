@@ -65,6 +65,14 @@ class WeaknessReportPersistenceIntegrationTest {
                 .weaknessScore(70)
                 .evidenceStrength(new BigDecimal("0.800"))
                 .build());
+        // 개념 수(2)와 오답 수(4)를 다르게 둬야 목록의 "발견한 약점"이 어느 값을 세는지 구분된다.
+        conceptRepository.save(WeaknessAnalysisConcept.builder()
+                .report(report)
+                .conceptId(101L)
+                .sortOrder(1)
+                .weaknessScore(55)
+                .evidenceStrength(new BigDecimal("0.600"))
+                .build());
         reportId = report.getAnalysisReportId();
     }
 
@@ -76,11 +84,22 @@ class WeaknessReportPersistenceIntegrationTest {
         assertThat(list.get(0).status()).isEqualTo(AnalysisReportStatus.COMPLETED);
     }
 
+    /**
+     * 목록의 weaknessConceptCount 는 "약점으로 잡힌 개념 수"다. 예전엔 화면이 오답 수를
+     * "발견한 약점"으로 보여줘 라벨과 값이 어긋났으므로, 두 값이 다른 상태로 못 박아 둔다.
+     */
+    @Test
+    void listCountsWeaknessConceptsNotWrongAnswers() {
+        var summary = service.getReports(1L).get(0);
+        assertThat(summary.weaknessConceptCount()).isEqualTo(2);
+        assertThat(summary.totalWrongCount()).isEqualTo(4);
+    }
+
     @Test
     void detailRecordsViewAndReturnsConcept() {
         var detail = service.getReportDetail(1L, reportId);
         assertThat(detail.analysisReportId()).isEqualTo(reportId);
-        assertThat(detail.weaknessConcepts()).hasSize(1);
+        assertThat(detail.weaknessConcepts()).hasSize(2);
         assertThat(reportRepository.findById(reportId).orElseThrow().getViewCount()).isEqualTo(1);
     }
 

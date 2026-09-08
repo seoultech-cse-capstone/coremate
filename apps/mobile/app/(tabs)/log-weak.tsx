@@ -768,20 +768,54 @@ export default function LogWeakScreen() {
                       onPress={() => openExamReview(item)}
                     />
                   ))
-              : filteredWeaknessReports.map((item) => (
-                  <WeaknessReportCard
-                    isDeleting={deletingReportId === item.analysisReportId}
-                    item={item}
-                    key={item.analysisReportId}
-                    onDelete={() => confirmDeleteReport(item)}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/weakness-report",
-                        params: { reportId: item.analysisReportId.toString() },
-                      })
-                    }
+              : weaknessReportsQuery.isLoading ? (
+                  <ActivityIndicator
+                    color={activePurple}
+                    size="large"
+                    style={styles.eligibleLoading}
                   />
-                ))}
+                ) : weaknessReportsQuery.isError ? (
+                  <View style={styles.listStateBox}>
+                    <Text style={styles.listStateTitle}>분석표를 불러오지 못했어요.</Text>
+                    <Text style={styles.listStateText}>
+                      네트워크 연결을 확인한 뒤 다시 시도해 주세요.
+                    </Text>
+                    <Pressable
+                      style={[styles.listStateButton, { borderColor: activePurple }]}
+                      onPress={() => weaknessReportsQuery.refetch()}
+                    >
+                      <Text style={[styles.listStateButtonText, { color: activePurple }]}>
+                        다시 시도
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : filteredWeaknessReports.length === 0 ? (
+                  <View style={styles.listStateBox}>
+                    <Text style={styles.listStateTitle}>
+                      {selectedSubject ? "이 과목의 분석표가 없어요." : "아직 만든 분석표가 없어요."}
+                    </Text>
+                    <Text style={styles.listStateText}>
+                      {selectedSubject
+                        ? "다른 과목을 고르거나 새 분석표를 만들어 보세요."
+                        : "완료한 모의고사를 골라 첫 약점 분석표를 만들어 보세요."}
+                    </Text>
+                  </View>
+                ) : (
+                  filteredWeaknessReports.map((item) => (
+                    <WeaknessReportCard
+                      isDeleting={deletingReportId === item.analysisReportId}
+                      item={item}
+                      key={item.analysisReportId}
+                      onDelete={() => confirmDeleteReport(item)}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/weakness-report",
+                          params: { reportId: item.analysisReportId.toString() },
+                        })
+                      }
+                    />
+                  ))
+                )}
           </View>
         </View>
       </ScrollView>
@@ -861,8 +895,9 @@ function StatsSummary({
     (sum, report) => sum + report.totalQuestionCount,
     0,
   );
+  // "발견한 약점"은 약점으로 잡힌 개념 수다. 예전엔 오답 수를 더하고 있어 라벨과 값이 어긋났다.
   const totalWeaknessesFound = weaknessReports.reduce(
-    (sum, report) => sum + report.totalWrongCount,
+    (sum, report) => sum + report.weaknessConceptCount,
     0,
   );
 
@@ -1455,6 +1490,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
+  },
+  // 분석표 목록의 로딩/오류/없음 상태(SCR-WEAK-01). 카드가 없을 때 화면이 통째로 비어
+  // 있으면 "고장난 건지 안 만든 건지"를 구분할 수 없다.
+  listStateBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+    gap: 8,
+  },
+  listStateTitle: {
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  listStateText: {
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "500",
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  listStateButton: {
+    marginTop: 8,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  listStateButtonText: {
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "700",
   },
   eligibleLoading: {
     marginTop: 24,
