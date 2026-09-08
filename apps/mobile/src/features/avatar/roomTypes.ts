@@ -36,3 +36,11 @@ export type SaveRoomPlacementsRequest = {
     gridY: number;
   }[];
 };
+
+/** 서버 PATCH /api/avatar/room/pose 요청. 앱이 자동으로 보낸다. */
+export type SaveRoomPoseRequest = {
+  /** STAND / SIT_DESK / SLEEP_BED */
+  roomPose: RoomPose;
+  /** 가구 상호작용 포즈일 때 그 가구의 배치 ID. STAND면 null(서버가 무시) */
+  placementId: number | null;
+};

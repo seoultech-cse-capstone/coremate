@@ -27,8 +27,8 @@ export type { LocalAvatarSlot, LocalCatalogItem } from "./localCatalog";
 export { inventoryApi } from "./inventoryApi";
 export { useInventory } from "./useInventoryQueries";
 export { roomApi } from "./roomApi";
-export { useMyRoom, useSavePlacementsMutation } from "./useRoomQueries";
-export type { RoomPlacement, RoomResponse, SaveRoomPlacementsRequest } from "./roomTypes";
+export { useMyRoom, useSavePlacementsMutation, useSavePoseMutation } from "./useRoomQueries";
+export type { RoomPlacement, RoomResponse, SaveRoomPlacementsRequest, SaveRoomPoseRequest } from "./roomTypes";
 export { REQUIRED_AVATAR_SLOTS } from "./types";
 export type {
   AvatarEquippedItem,

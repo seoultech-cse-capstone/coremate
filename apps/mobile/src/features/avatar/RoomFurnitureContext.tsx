@@ -21,6 +21,8 @@ type Placements = Partial<Record<FurnitureType, FurniturePosition>>;
 
 type RoomFurnitureContextValue = {
   placements: Placements;
+  /** 배치된 가구의 서버 placementId. 포즈 저장(PATCH /room/pose)이 이 값을 요구한다. */
+  placementIdByType: Partial<Record<FurnitureType, number>>;
   /**
    * position이 null이면 치운다. 격자 범위를 벗어나면 안쪽으로 당겨서 놓는다.
    * 다른 가구와 칸이 겹치면 놓지 않고 false를 돌려준다(치우기는 항상 true).
@@ -74,6 +76,19 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
       const type = typeFromImageUrl(placement.imageUrl);
       if (type) {
         map[type] = { row: placement.gridY, col: placement.gridX };
+      }
+    }
+    return map;
+  }, [roomQuery.data]);
+
+  // 배치된 가구 → 서버 placementId. 포즈 저장에 쓴다. 낙관적 갱신 중에는 placementId가
+  // 0(placeholder)일 수 있으나, 포즈는 서버 저장이 끝난 실제 배치에서만 유발된다.
+  const placementIdByType = useMemo<Partial<Record<FurnitureType, number>>>(() => {
+    const map: Partial<Record<FurnitureType, number>> = {};
+    for (const placement of roomQuery.data?.placements ?? []) {
+      const type = typeFromImageUrl(placement.imageUrl);
+      if (type) {
+        map[type] = placement.placementId;
       }
     }
     return map;
@@ -150,8 +165,8 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<RoomFurnitureContextValue>(
-    () => ({ placements, setPlacement }),
-    [placements, setPlacement],
+    () => ({ placements, placementIdByType, setPlacement }),
+    [placements, placementIdByType, setPlacement],
   );
 
   return <RoomFurnitureContext.Provider value={value}>{children}</RoomFurnitureContext.Provider>;
