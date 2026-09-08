@@ -1,24 +1,19 @@
-import * as SecureStore from "expo-secure-store";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
+import { useAuth } from "../auth";
+import { useInventory } from "./useInventoryQueries";
+import { useMyRoom, useSavePlacementsMutation } from "./useRoomQueries";
+import type { RoomResponse } from "./roomTypes";
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS } from "./roomGrid";
 import {
   doFootprintsOverlap,
+  FURNITURE_ITEM_STEM,
   FURNITURE_SETS,
   FURNITURE_TYPES,
   type FurniturePosition,
   type FurnitureType,
 } from "./roomFurniture";
-
-const STORAGE_KEY = "coremate.roomFurniturePlacements";
 
 export type { FurniturePosition };
 
@@ -35,6 +30,26 @@ type RoomFurnitureContextValue = {
 
 const RoomFurnitureContext = createContext<RoomFurnitureContextValue | null>(null);
 
+const ROOM_QUERY_KEY = ["avatar", "room"] as const;
+
+// 서버 image_url 파일명 stem ↔ 로컬 FurnitureType. 서버 배치/보유목록과 로컬 가구를 잇는 키.
+const STEM_TO_TYPE = new Map<string, FurnitureType>(
+  FURNITURE_TYPES.map((type) => [FURNITURE_ITEM_STEM[type], type]),
+);
+
+function stemFromImageUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) {
+    return null;
+  }
+  const fileName = imageUrl.split("/").pop();
+  return fileName ? fileName.replace(/\.[^.]+$/, "") : null;
+}
+
+function typeFromImageUrl(imageUrl: string | null): FurnitureType | undefined {
+  const stem = stemFromImageUrl(imageUrl);
+  return stem ? STEM_TO_TYPE.get(stem) : undefined;
+}
+
 function clampPosition(type: FurnitureType, position: FurniturePosition): FurniturePosition {
   const footprintCols = FURNITURE_SETS[type].footprintCols;
   const col = Math.min(Math.max(position.col, 0), ROOM_GRID_COLS - footprintCols);
@@ -42,37 +57,41 @@ function clampPosition(type: FurnitureType, position: FurniturePosition): Furnit
   return { row, col };
 }
 
-function isPlacements(value: unknown): value is Placements {
-  return typeof value === "object" && value !== null;
-}
-
-// 마이페이지에서 놓은 가구 배치를 홈 화면 방과 공유한다. 방 배치 API가 없어서
-// 지금은 기기 저장소에만 남기는 로컬 상태다.
+// 마이페이지에서 놓은 가구 배치를 홈 화면 방과 공유한다. 서버(GET/PUT /api/avatar/room)가
+// 원본이며, 배치는 react-query 캐시(["avatar","room"])에서 파생한다. 변경 시 캐시를
+// 낙관적으로 갱신해 화면을 즉시 바꾸고, 서버에는 배치 전체를 통째로 저장한다(전체 교체 계약).
 export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
-  const [placements, setPlacements] = useState<Placements>({});
+  const { accessToken } = useAuth();
+  const queryClient = useQueryClient();
+  const roomQuery = useMyRoom(accessToken);
+  const inventoryQuery = useInventory(accessToken);
+  const savePlacements = useSavePlacementsMutation(accessToken);
 
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const stored = await SecureStore.getItemAsync(STORAGE_KEY);
-        if (!stored || !mounted) {
-          return;
-        }
-        const parsed = JSON.parse(stored) as unknown;
-        if (isPlacements(parsed)) {
-          setPlacements(parsed);
-        }
-      } catch (error) {
-        console.error("[roomFurniture] 저장된 가구 배치 복원 실패", error);
+  // 서버 방 응답의 배치 → 로컬 { type: {row, col} }. gridX=col, gridY=row.
+  const placements = useMemo<Placements>(() => {
+    const map: Placements = {};
+    for (const placement of roomQuery.data?.placements ?? []) {
+      const type = typeFromImageUrl(placement.imageUrl);
+      if (type) {
+        map[type] = { row: placement.gridY, col: placement.gridX };
       }
-    })();
+    }
+    return map;
+  }, [roomQuery.data]);
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // FurnitureType → 보유 userItemId. 배치 저장 시 서버가 userItemId를 요구한다.
+  const typeToUserItemId = useMemo(() => {
+    const map = new Map<FurnitureType, number>();
+    for (const group of inventoryQuery.data?.groups ?? []) {
+      for (const item of group.items) {
+        const type = typeFromImageUrl(item.imageUrl);
+        if (type) {
+          map.set(type, item.userItemId);
+        }
+      }
+    }
+    return map;
+  }, [inventoryQuery.data]);
 
   const setPlacement = useCallback(
     (type: FurnitureType, position: FurniturePosition | null): boolean => {
@@ -87,21 +106,47 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      setPlacements((prev) => {
-        const next = { ...prev };
-        if (position) {
-          next[type] = clampPosition(type, position);
-        } else {
-          delete next[type];
+      const next: Placements = { ...placements };
+      if (position) {
+        next[type] = clampPosition(type, position);
+      } else {
+        delete next[type];
+      }
+
+      // 저장 페이로드(전체 교체). 배치된 가구 중 하나라도 userItemId를 못 찾으면
+      // 부분 목록으로 덮어써 삭제되는 사고를 막기 위해 저장·낙관적 갱신을 모두 건너뛴다.
+      const payload: { userItemId: number; gridX: number; gridY: number }[] = [];
+      for (const [placedType, placedPos] of Object.entries(next) as [FurnitureType, FurniturePosition][]) {
+        const userItemId = typeToUserItemId.get(placedType);
+        if (userItemId === undefined) {
+          return true;
         }
-        SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next)).catch((error) => {
-          console.error("[roomFurniture] 가구 배치 저장 실패", error);
-        });
-        return next;
-      });
+        payload.push({ userItemId, gridX: placedPos.col, gridY: placedPos.row });
+      }
+
+      // 캐시를 낙관적으로 갱신해 화면 즉시 반영(placements가 여기서 파생된다).
+      queryClient.setQueryData<RoomResponse>(ROOM_QUERY_KEY, (old) =>
+        old
+          ? {
+              ...old,
+              placements: (Object.entries(next) as [FurnitureType, FurniturePosition][]).map(([t, pos]) => ({
+                placementId: 0,
+                userItemId: typeToUserItemId.get(t) ?? 0,
+                itemId: 0,
+                itemName: "",
+                imageUrl: `/assets/room/${FURNITURE_ITEM_STEM[t]}.png`,
+                gridX: pos.col,
+                gridY: pos.row,
+                metadata: null,
+              })),
+            }
+          : old,
+      );
+
+      savePlacements.mutate({ placements: payload });
       return true;
     },
-    [placements],
+    [placements, typeToUserItemId, queryClient, savePlacements],
   );
 
   const value = useMemo<RoomFurnitureContextValue>(
