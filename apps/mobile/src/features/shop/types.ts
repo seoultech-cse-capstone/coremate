@@ -49,6 +49,8 @@ export type RandomBox = {
 export type RandomBoxItem = {
   itemId: number | null;
   itemName: string | null;
+  /** 아이템 스프라이트 매핑용 image_url. 코인 보상은 null */
+  imageUrl: string | null;
   /** "ITEM" | "COIN" */
   rewardType: string;
   coinAmount: number | null;

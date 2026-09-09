@@ -2,7 +2,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Coins, Sparkles, X } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Modal,
   Pressable,
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { RewardItemVisual, canRenderRewardVisual } from "../avatar";
 import { FONT } from "../../../constants/fonts";
 import { getApiErrorMessage } from "../../shared/utils/apiError";
 import { ChestOpenCanvas } from "./ChestOpenCanvas";
@@ -76,12 +76,18 @@ export function RandomBoxOpenModal({ product, accessToken, onClose }: RandomBoxO
     }
   }, [phase, animDone, result]);
 
-  const rewardItemName = useMemo(() => {
+  const rewardItem = useMemo(() => {
     if (!result || result.rewardType !== "ITEM" || result.rewardItemId === null) {
       return null;
     }
-    return itemsQuery.data?.find((item) => item.itemId === result.rewardItemId)?.itemName ?? null;
+    return itemsQuery.data?.find((item) => item.itemId === result.rewardItemId) ?? null;
   }, [result, itemsQuery.data]);
+  const rewardItemName = rewardItem?.itemName ?? null;
+  // 보상 아이템을 종류별 비주얼(아바타 착용/펫/가구/벽지)로 그릴 수 있는지.
+  const rewardVisualAvailable = useMemo(
+    () => canRenderRewardVisual(rewardItem?.imageUrl ?? null),
+    [rewardItem],
+  );
 
   // 보상 리빌 팝인.
   const reveal = useRef(new Animated.Value(0)).current;
@@ -160,14 +166,20 @@ export function RandomBoxOpenModal({ product, accessToken, onClose }: RandomBoxO
               ]}
             >
               <Text style={styles.revealEyebrow}>축하해요!</Text>
-              <View style={styles.revealIcon}>
-                <LinearGradient colors={["#FDE68A", "#F59E0B"]} style={styles.revealIconInner}>
-                  {result.rewardType === "COIN" ? (
-                    <Coins color="#7C2D12" size={40} strokeWidth={2.2} />
-                  ) : (
-                    <Sparkles color="#7C2D12" size={40} strokeWidth={2.2} />
-                  )}
-                </LinearGradient>
+              <View style={styles.revealVisual}>
+                {result.rewardType === "COIN" ? (
+                  <LinearGradient colors={["#FDE68A", "#F59E0B"]} style={styles.revealCoinCircle}>
+                    <Coins color="#7C2D12" size={56} strokeWidth={2.2} />
+                  </LinearGradient>
+                ) : rewardVisualAvailable ? (
+                  <View style={styles.revealItemBox}>
+                    <RewardItemVisual imageUrl={rewardItem?.imageUrl ?? null} size={150} />
+                  </View>
+                ) : (
+                  <LinearGradient colors={["#FDE68A", "#F59E0B"]} style={styles.revealCoinCircle}>
+                    <Sparkles color="#7C2D12" size={56} strokeWidth={2.2} />
+                  </LinearGradient>
+                )}
               </View>
 
               <Text style={styles.revealReward}>
@@ -256,7 +268,7 @@ const styles = StyleSheet.create({
   },
   revealCard: {
     width: "100%",
-    maxWidth: 320,
+    maxWidth: 340,
     borderRadius: 24,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 24,
@@ -271,16 +283,28 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1,
   },
-  revealIcon: {
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  revealIconInner: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+  revealVisual: {
+    marginTop: 18,
+    marginBottom: 18,
+    height: 176,
     alignItems: "center",
     justifyContent: "center",
+  },
+  revealCoinCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  revealItemBox: {
+    width: 176,
+    height: 176,
+    borderRadius: 24,
+    backgroundColor: "#F5F3FF",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   revealReward: {
     color: "#111827",
