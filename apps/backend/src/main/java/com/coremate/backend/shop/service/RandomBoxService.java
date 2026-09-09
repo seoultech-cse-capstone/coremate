@@ -290,6 +290,7 @@ public class RandomBoxService {
         return new RandomBoxItemResponse(
                 avatarItem == null ? null : avatarItem.getItemId(),
                 avatarItem == null ? null : avatarItem.getItemName(),
+                avatarItem == null ? null : avatarItem.getImageUrl(),
                 item.getRewardType(),
                 item.getCoinAmount(),
                 item.getProbability().toPlainString()
