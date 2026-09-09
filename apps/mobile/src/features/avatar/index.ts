@@ -1,5 +1,6 @@
 export { avatarApi } from "./avatarApi";
 export { useMyAvatar, useUpdateEquippedItemsMutation } from "./useAvatarQueries";
+export { AvatarProfileSync } from "./AvatarProfileSync";
 export { AvatarStage, AvatarFaceThumbnail } from "./components/AvatarStage";
 export { RoomScene } from "./components/RoomScene";
 export { RoomBackdrop } from "./components/RoomBackdrop";
