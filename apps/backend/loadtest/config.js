@@ -20,7 +20,8 @@ export const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 // 인증이 필요 없는(또는 있어도 무해한) 가벼운 읽기 엔드포인트들.
 // 실제 홈/복습 탭 진입 시 호출되는 조회 API 위주로 골랐다.
 export const READ_ENDPOINTS = [
-  '/api/attendance/today',
+  // /api/attendance/today 는 오늘 출석 레코드가 없으면 404(정상 비즈니스 응답)라
+  // 데이터 상태에 의존적이고 에러율 지표를 오염시켜 제외. 대신 calendar 로 출석 조회 부하를 준다.
   '/api/attendance/calendar',
   '/api/v1/content/subjects',
   '/api/notifications/unread-count',

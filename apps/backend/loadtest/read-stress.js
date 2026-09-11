@@ -20,6 +20,9 @@ import { Trend, Counter } from 'k6/metrics';
 import { BASE_URL, READ_ENDPOINTS, loginAll, authParams } from './config.js';
 
 const peak = parseInt(__ENV.STAGE_PEAK || '300', 10);
+// think time(화면 사이 텀) 상한(초). 현실적 부하는 기본 3초.
+// 서버의 순수 한계(무릎 지점)를 찾으려면 THINK_TIME=0 으로 텀을 없애고 STAGE_PEAK 를 올린다.
+const thinkMax = parseFloat(__ENV.THINK_TIME !== undefined ? __ENV.THINK_TIME : '3');
 
 // 커스텀 지표: 성공 응답만 모은 지연(실패 응답의 빠른 5xx가 p95를 낮추는 착시 방지)
 const okDuration = new Trend('ok_req_duration', true);
@@ -66,6 +69,8 @@ export default function (data) {
       bizErrors.add(1);
     }
   }
-  // 실제 사용자처럼 화면 사이 텀. think time 이 없으면 비현실적으로 과한 부하가 된다.
-  sleep(Math.random() * 2 + 1); // 1~3초
+  // 실제 사용자처럼 화면 사이 텀. THINK_TIME=0 이면 텀 없이 최대 부하로 한계를 탐색한다.
+  if (thinkMax > 0) {
+    sleep(Math.random() * thinkMax); // 0~thinkMax초
+  }
 }

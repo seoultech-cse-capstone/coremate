@@ -21,20 +21,26 @@ CoreMate 백엔드가 **동시 사용자 몇 명까지 버티는지(한계점)**
 
 ## 실행
 
+> 스크립트가 `config.js` 를 import 하므로 `run - < file` (stdin) 방식은 안 된다.
+> **loadtest 디렉터리를 볼륨 마운트**(`-v`)하고 파일 경로로 실행한다.
+> 아래는 리포지토리 루트에서 실행하는 기준이다.
+
 ### 1) 스모크 (항상 먼저)
 VU 1명으로 로그인·토큰·엔드포인트가 정상인지만 확인. 에러가 하나라도 나면 실패.
 ```bash
-docker run --rm -i --network host \
+docker run --rm --network host \
+  -v "$PWD/apps/backend/loadtest:/lt" \
   -e LOADTEST_EMAIL=lt1@example.com -e LOADTEST_PW='P@ssw0rd!' \
-  grafana/k6 run - < smoke.js
+  grafana/k6 run /lt/smoke.js
 ```
 
 ### 2) 부하 → 스트레스
 VU를 단계적으로 올리며 한계점을 찾는다.
 ```bash
-docker run --rm -i --network host \
+docker run --rm --network host \
+  -v "$PWD/apps/backend/loadtest:/lt" \
   -e LOADTEST_EMAIL=lt1@example.com -e LOADTEST_PW='P@ssw0rd!' \
-  grafana/k6 run - < read-stress.js
+  grafana/k6 run /lt/read-stress.js
 ```
 
 여러 계정으로:
