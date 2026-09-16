@@ -50,6 +50,32 @@ export type WeaknessEvidenceLog = {
   isCorrect: boolean | null;
   /** AI가 진단의 직접 근거로 지목한 문항인지. 서버 evidence_refs 에서 온다. */
   citedByAi: boolean | null;
+  /** 사용자가 고른 선지의 문장. 문항에 선지 데이터가 없으면 null */
+  selectedAnswerText: string | null;
+  /** 정답 선지의 문장 */
+  correctAnswerText: string | null;
+  /** 그 선지를 고른 학습자가 무엇을 잘못 봤는지 한 문장(문항 진단 프로필) */
+  selectedAnswerReason: string | null;
+  /** 그 선지가 드러내는 오개념 제목. 코드만 있고 제목을 못 찾으면 null */
+  misconceptionTitle: string | null;
+};
+
+/** 한 개념에서 두 번 이상 반복된 오개념. */
+export type RepeatedMisconception = {
+  code: string;
+  title: string | null;
+  count: number;
+};
+
+/** 약점 개념과 이어진 개념(concept_relation). 눌러서 그 개념으로 이동한다. */
+export type RelatedConcept = {
+  conceptId: number;
+  conceptName: string;
+  /** PREREQUISITE(먼저 볼 개념) 또는 CONFUSING(헷갈리는 개념) */
+  relationType: string;
+  relationNote: string | null;
+  /** 같은 분석표에서도 약점이면 그 순위 */
+  weaknessRank: number | null;
 };
 
 export type ConceptLearningConfusionComparison = {
@@ -81,6 +107,15 @@ export type WeaknessConcept = {
   analysisStatus: string;
   confusedRelation: string | null;
   diagnosis: string;
+  /** AI가 쓴 원인 문장 */
+  likelyCause: string | null;
+  /** 개념별 풀이 수치. 예전 분석표는 저장값이 없어 0으로 온다. */
+  questionCount: number | null;
+  wrongCount: number | null;
+  longTimeCount: number | null;
+  hintUsedCount: number | null;
+  repeatedMisconceptions: RepeatedMisconception[];
+  relatedConcepts: RelatedConcept[];
   evidenceSummary: string;
   detailedExplanationText: string | null;
   conceptTip: string | null;
