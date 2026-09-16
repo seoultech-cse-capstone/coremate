@@ -12,6 +12,8 @@ export type {
   ConceptLearning,
   CreateWeaknessAnalysisReportRequest,
   EligibleSolveSession,
+  RelatedConcept,
+  RepeatedMisconception,
   WeaknessAnalysisReportDetail,
   WeaknessAnalysisReportSummary,
   WeaknessConcept,
