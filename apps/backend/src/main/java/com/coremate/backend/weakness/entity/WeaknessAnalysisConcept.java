@@ -88,6 +88,19 @@ public class WeaknessAnalysisConcept {
     @Column(name = "concept_tip", columnDefinition = "TEXT")
     private String conceptTip;
 
+    // 개념별 풀이 수치. 생성 시점에만 계산되던 값이라 저장하지 않으면 재열람 때 요약이 비어 버린다.
+    @Column(name = "question_count", nullable = false)
+    private int questionCount;
+
+    @Column(name = "wrong_count", nullable = false)
+    private int wrongCount;
+
+    @Column(name = "long_time_count", nullable = false)
+    private int longTimeCount;
+
+    @Column(name = "hint_used_count", nullable = false)
+    private int hintUsedCount;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -98,7 +111,8 @@ public class WeaknessAnalysisConcept {
             WeaknessType backendCandidateType, WeaknessType aiPrimaryType, String aiSecondarySignals,
             AiAnalysisStatus aiAnalysisStatus, Boolean typeAgreement, WeaknessType finalType,
             FinalTypeSource finalTypeSource, String reconciliationReason, CauseCode causeCode,
-            String confusedRelation, String diagnosis, String likelyCause, String conceptTip) {
+            String confusedRelation, String diagnosis, String likelyCause, String conceptTip,
+            int questionCount, int wrongCount, int longTimeCount, int hintUsedCount) {
         this.report = report;
         this.conceptId = conceptId;
         this.sortOrder = sortOrder;
@@ -118,5 +132,9 @@ public class WeaknessAnalysisConcept {
         this.diagnosis = diagnosis;
         this.likelyCause = likelyCause;
         this.conceptTip = conceptTip;
+        this.questionCount = questionCount;
+        this.wrongCount = wrongCount;
+        this.longTimeCount = longTimeCount;
+        this.hintUsedCount = hintUsedCount;
     }
 }

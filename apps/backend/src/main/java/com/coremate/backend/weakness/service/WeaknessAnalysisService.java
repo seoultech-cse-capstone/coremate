@@ -4,6 +4,8 @@ import com.coremate.backend.content.entity.CategoryLv1;
 import com.coremate.backend.content.entity.CategoryLv2;
 import com.coremate.backend.content.entity.Concept;
 import com.coremate.backend.content.entity.Subject;
+import com.coremate.backend.content.entity.CommonMistake;
+import com.coremate.backend.content.repository.CommonMistakeRepository;
 import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
@@ -23,6 +25,7 @@ import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportReq
 import com.coremate.backend.weakness.dto.response.EligibleSolveSessionResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportSummaryResponse;
+import com.coremate.backend.weakness.dto.response.RepeatedMisconceptionResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessConceptResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
 import com.coremate.backend.weakness.dto.type.AiAnalysisStatus;
@@ -53,6 +56,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -93,6 +97,7 @@ public class WeaknessAnalysisService {
     private final WeaknessAnalysisAiCallLogRepository aiCallLogRepository;
     private final WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
     private final ConceptRepository contentConceptRepository;
+    private final CommonMistakeRepository commonMistakeRepository;
     private final SolveLogRepository solveLogRepository;
     private final SolveSessionRepository weaknessSolveSessionRepository;
     private final IdempotencyGuard idempotencyGuard;
@@ -202,6 +207,10 @@ public class WeaknessAnalysisService {
                     .diagnosis(ai != null ? ai.diagnosis() : null)
                     .likelyCause(ai != null ? ai.likelyCause() : null)
                     .conceptTip(ai != null ? ai.conceptTip() : null)
+                    .questionCount(candidate.questionCount())
+                    .wrongCount(candidate.wrongCount())
+                    .longTimeCount(candidate.longTimeCount())
+                    .hintUsedCount(candidate.hintUsedCount())
                     .build());
 
             List<WeaknessEvidenceLogResponse> evidence = markCitedEvidence(
@@ -409,7 +418,9 @@ public class WeaknessAnalysisService {
     private WeaknessEvidenceLogResponse withCited(WeaknessEvidenceLogResponse log) {
         return new WeaknessEvidenceLogResponse(log.evidenceId(), log.solveLogId(), log.questionId(),
                 log.questionText(), log.evidenceType(), log.timeSpentSec(), log.expectedSolveSec(),
-                log.hintCount(), log.selectedAnswer(), log.correctAnswer(), log.isCorrect(), true);
+                log.hintCount(), log.selectedAnswer(), log.selectedAnswerText(), log.correctAnswer(),
+                log.correctAnswerText(), log.selectedAnswerReason(), log.misconceptionTitle(),
+                log.isCorrect(), true);
     }
 
     private void saveEvidenceLogs(Long reportId, Long conceptId, List<WeaknessEvidenceLogResponse> evidence) {
@@ -460,6 +471,7 @@ public class WeaknessAnalysisService {
                 candidate.wrongCount(), candidate.longTimeCount(), candidate.hintUsedCount());
         DiagnosticProfileService.ConceptProfileView profile =
                 diagnosticProfileService.loadConceptProfile(candidate.conceptId()).orElse(null);
+        EnrichedEvidence enriched = enrichEvidence(evidence);
         return new WeaknessConceptResponse(
                 concept.getAnalysisConceptId(),
                 candidate.conceptId(),
@@ -473,11 +485,94 @@ public class WeaknessAnalysisService {
                 cross.analysisStatus().name(),
                 ai != null ? ai.confusedRelation() : null,
                 ai != null ? ai.diagnosis() : null,
+                ai != null ? ai.likelyCause() : null,
+                candidate.questionCount(),
+                candidate.wrongCount(),
+                candidate.longTimeCount(),
+                candidate.hintUsedCount(),
+                enriched.repeated(),
                 evidenceSummary,
                 detailedExplanation(profile, candidate.conceptCore()),
                 ai != null ? ai.conceptTip() : null,
                 profile != null ? profile.toResponse() : null,
-                evidence);
+                enriched.logs());
+    }
+
+    /**
+     * 근거 문제에 "그 선지를 고른 이유"와 오개념 제목을 붙이고, 반복된 오개념을 함께 센다.
+     * 둘 다 검수된 콘텐츠(문항 진단 프로필·common_mistake)라 AI를 새로 부르지 않는다.
+     */
+    private EnrichedEvidence enrichEvidence(List<WeaknessEvidenceLogResponse> evidence) {
+        if (evidence.isEmpty()) {
+            return new EnrichedEvidence(evidence, List.of());
+        }
+        Map<Long, DiagnosticProfileService.QuestionProfileView> profiles = diagnosticProfileService
+                .loadQuestionProfiles(evidence.stream()
+                        .map(WeaknessEvidenceLogResponse::questionId)
+                        .filter(Objects::nonNull)
+                        .toList());
+
+        Map<Long, String> codeBySolveLogId = new LinkedHashMap<>();
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (WeaknessEvidenceLogResponse log : evidence) {
+            DiagnosticProfileService.QuestionProfileView profile = profiles.get(log.questionId());
+            if (profile == null) {
+                continue;
+            }
+            String code = profile.misconceptionCodeFor(log.selectedAnswer());
+            if (code == null) {
+                continue;
+            }
+            codeBySolveLogId.put(log.solveLogId(), code);
+            // 오개념은 오답일 때만 센다(맞았지만 오래 걸린 근거까지 세면 반복이 부풀려진다).
+            if (EvidenceType.WRONG.name().equals(log.evidenceType())) {
+                counts.merge(code, 1, Integer::sum);
+            }
+        }
+
+        Map<String, String> titles = titlesOf(Set.copyOf(codeBySolveLogId.values()));
+        List<WeaknessEvidenceLogResponse> enriched = evidence.stream()
+                .map(log -> {
+                    DiagnosticProfileService.QuestionProfileView profile = profiles.get(log.questionId());
+                    String code = codeBySolveLogId.get(log.solveLogId());
+                    if (profile == null && code == null) {
+                        return log;
+                    }
+                    return new WeaknessEvidenceLogResponse(
+                            log.evidenceId(), log.solveLogId(), log.questionId(), log.questionText(),
+                            log.evidenceType(), log.timeSpentSec(), log.expectedSolveSec(), log.hintCount(),
+                            log.selectedAnswer(), log.selectedAnswerText(),
+                            log.correctAnswer(), log.correctAnswerText(),
+                            profile != null ? profile.interpretationFor(log.selectedAnswer()) : null,
+                            code != null ? titles.get(code) : null,
+                            log.isCorrect(), log.citedByAi());
+                })
+                .toList();
+
+        List<RepeatedMisconceptionResponse> repeated = counts.entrySet().stream()
+                .filter(entry -> entry.getValue() >= 2)
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .map(entry -> new RepeatedMisconceptionResponse(
+                        entry.getKey(), titles.get(entry.getKey()), entry.getValue()))
+                .toList();
+        return new EnrichedEvidence(enriched, repeated);
+    }
+
+    /** 오개념 코드 → 제목. 파이프라인 코드가 아직 백필되지 않은 행은 빠지고, 화면은 제목 없이 횟수만 쓴다. */
+    private Map<String, String> titlesOf(Set<String> codes) {
+        if (codes.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> titles = new LinkedHashMap<>();
+        for (CommonMistake mistake : commonMistakeRepository.findAllByMistakeCodeIn(codes)) {
+            titles.put(mistake.getMistakeCode(), mistake.getMistakeTitle());
+        }
+        return titles;
+    }
+
+    /** 근거 문제에 해석을 붙인 결과와, 거기서 센 반복 오개념. */
+    private record EnrichedEvidence(List<WeaknessEvidenceLogResponse> logs,
+            List<RepeatedMisconceptionResponse> repeated) {
     }
 
     /** 상세 설명은 개념 진단 프로필의 설명을 우선 사용하고, 없으면 개념 한 줄 정의로 대체한다. */
@@ -548,6 +643,7 @@ public class WeaknessAnalysisService {
         DiagnosticProfileService.ConceptProfileView profile =
                 diagnosticProfileService.loadConceptProfile(concept.getConceptId()).orElse(null);
         String fallbackCore = contentConcept != null ? contentConcept.getOneLineDefinition() : null;
+        EnrichedEvidence enriched = enrichEvidence(evidence);
         return new WeaknessConceptResponse(
                 concept.getAnalysisConceptId(),
                 concept.getConceptId(),
@@ -561,11 +657,24 @@ public class WeaknessAnalysisService {
                 concept.getAiAnalysisStatus() != null ? concept.getAiAnalysisStatus().name() : null,
                 concept.getConfusedRelation(),
                 concept.getDiagnosis(),
-                null,
+                concept.getLikelyCause(),
+                concept.getQuestionCount(),
+                concept.getWrongCount(),
+                concept.getLongTimeCount(),
+                concept.getHintUsedCount(),
+                enriched.repeated(),
+                // 예전에 만든 분석표는 개념별 수치가 없어(0) 요약을 비운다. 새 분석표는 저장값으로 채운다.
+                concept.getQuestionCount() > 0 ? evidenceSummaryOf(concept) : null,
                 detailedExplanation(profile, fallbackCore),
                 concept.getConceptTip(),
                 profile != null ? profile.toResponse() : null,
-                evidence);
+                enriched.logs());
+    }
+
+    /** 저장된 개념별 수치로 만드는 풀이 요약. 생성 직후와 재열람에서 같은 문장이 나와야 한다. */
+    private String evidenceSummaryOf(WeaknessAnalysisConcept concept) {
+        return String.format("오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
+                concept.getWrongCount(), concept.getLongTimeCount(), concept.getHintUsedCount());
     }
 
     /**
@@ -575,9 +684,11 @@ public class WeaknessAnalysisService {
     private WeaknessEvidenceLogResponse toEvidenceResponse(WeaknessAnalysisEvidenceLog evidence, SolveLog log) {
         if (log == null) {
             return new WeaknessEvidenceLogResponse(evidence.getEvidenceLogId(), evidence.getSolveLogId(),
-                    null, null, evidence.getEvidenceType().name(), null, null, null, null, null, null,
-                    evidence.isCitedByAi());
+                    null, null, evidence.getEvidenceType().name(), null, null, null, null, null, null, null,
+                    null, null, null, evidence.isCitedByAi());
         }
+        Map<String, String> choiceTexts =
+                QuestionChoiceTexts.parse(log.getQuestion().getChoicesJson(), objectMapper);
         return new WeaknessEvidenceLogResponse(
                 evidence.getEvidenceLogId(),
                 evidence.getSolveLogId(),
@@ -588,7 +699,12 @@ public class WeaknessAnalysisService {
                 log.getExpectedSolveSecSnapshot(),
                 log.getHintCount(),
                 log.getSelectedAnswer(),
+                choiceTexts.get(log.getSelectedAnswer()),
                 log.getCorrectAnswerSnapshot(),
+                choiceTexts.get(log.getCorrectAnswerSnapshot()),
+                // 선지 해석·오개념 제목은 enrichEvidence 가 채운다.
+                null,
+                null,
                 log.isCorrect(),
                 evidence.isCitedByAi());
     }

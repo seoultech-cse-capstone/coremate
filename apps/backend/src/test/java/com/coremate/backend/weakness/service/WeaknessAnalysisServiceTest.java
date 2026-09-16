@@ -28,6 +28,9 @@ import com.coremate.backend.weakness.dto.ai.AiWeaknessAnalysisResponse;
 import com.coremate.backend.weakness.dto.type.AiAnalysisStatus;
 import com.coremate.backend.weakness.entity.WeaknessAnalysisEvidenceLog;
 import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportRequest;
+import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
+import com.coremate.backend.weakness.dto.response.WeaknessConceptResponse;
+import com.coremate.backend.weakness.dto.type.CauseCode;
 import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
 import com.coremate.backend.weakness.dto.type.WeaknessType;
 import com.coremate.backend.weakness.service.model.ConceptCandidate;
@@ -41,6 +44,8 @@ import com.coremate.backend.weakness.repository.WeaknessAnalysisReportRepository
 import com.coremate.backend.weakness.repository.WeaknessAnalysisReportViewLogRepository;
 import com.coremate.backend.weakness.repository.WeaknessAnalysisSessionRepository;
 import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
+import com.coremate.backend.content.entity.CommonMistake;
+import com.coremate.backend.content.repository.CommonMistakeRepository;
 import com.coremate.backend.content.repository.ConceptRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -76,6 +81,7 @@ class WeaknessAnalysisServiceTest {
     @Mock private WeaknessAnalysisAiCallLogRepository aiCallLogRepository;
     @Mock private WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
     @Mock private ConceptRepository contentConceptRepository;
+    @Mock private CommonMistakeRepository commonMistakeRepository;
     @Mock private SolveLogRepository solveLogRepository;
     @Mock private SolveSessionRepository weaknessSolveSessionRepository;
 
@@ -201,14 +207,77 @@ class WeaknessAnalysisServiceTest {
                 .containsExactly(true, false, true);
     }
 
+    /**
+     * 화면이 쓰는 값이 응답에 실리는지 본다: 원인 문장, 개념별 수치, 반복 오개념(제목 포함),
+     * 근거 문제의 "그 선지를 고른 이유".
+     */
+    @Test
+    void conceptResponseCarriesCauseCountsAndRepeatedMisconceptions() {
+        when(props.getCoinCost()).thenReturn(100);
+        when(props.getAiModelLabel()).thenReturn("model");
+        when(selectionValidator.validateAndLoad(anyLong(), any()))
+                .thenReturn(List.of(mock(SolveSession.class)));
+
+        WeaknessEvidenceLogResponse wrongA = evidence(9501L, "WRONG", "B");
+        WeaknessEvidenceLogResponse wrongB = evidence(9502L, "WRONG", "C");
+        ConceptCandidate candidate = new ConceptCandidate(9301L, "완전 이진 트리", "한 줄 정의",
+                3, 2, 0, 1, 60, new BigDecimal("0.800"), new BigDecimal("0.200"),
+                WeaknessType.CONCEPT_CONFUSION, List.of(wrongA, wrongB));
+        when(scoringService.score(any()))
+                .thenReturn(new WeaknessScoringResult(List.of(candidate), 3, 2, 0, 1, true));
+        when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any()))
+                .thenReturn(Optional.empty());
+        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of(
+                9501L, new DiagnosticProfileService.QuestionProfileView(
+                        "RECALL", Map.of("B", "CPT_M01"), Map.of("B", "B를 고른 이유")),
+                9502L, new DiagnosticProfileService.QuestionProfileView(
+                        "APPLICATION", Map.of("C", "CPT_M01"), Map.of("C", "C를 고른 이유"))));
+        // 중첩 stubbing 이 되지 않도록 목을 먼저 만들고 넘긴다.
+        CommonMistake mistake = commonMistake("CPT_M01", "완전 이진 트리와 포화 이진 트리를 같게 봄");
+        when(commonMistakeRepository.findAllByMistakeCodeIn(any())).thenReturn(List.of(mistake));
+        when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약",
+                List.of(new AiWeaknessAnalysisResponse.ConceptAnalysis(9301L, AiAnalysisStatus.SUPPORTED,
+                        WeaknessType.CONCEPT_CONFUSION, List.of(), CauseCode.REPEATED_MISCONCEPTION,
+                        "혼동한 관계", "진단", "원인 문장", "복습 팁", List.of())),
+                null));
+
+        WeaknessAnalysisReportDetailResponse detail = service.createReport(1L, request());
+        WeaknessConceptResponse concept = detail.weaknessConcepts().get(0);
+
+        assertThat(concept.likelyCause()).isEqualTo("원인 문장");
+        assertThat(concept.questionCount()).isEqualTo(3);
+        assertThat(concept.wrongCount()).isEqualTo(2);
+        assertThat(concept.hintUsedCount()).isEqualTo(1);
+        assertThat(concept.repeatedMisconceptions()).hasSize(1);
+        assertThat(concept.repeatedMisconceptions().get(0).code()).isEqualTo("CPT_M01");
+        assertThat(concept.repeatedMisconceptions().get(0).title())
+                .isEqualTo("완전 이진 트리와 포화 이진 트리를 같게 봄");
+        assertThat(concept.repeatedMisconceptions().get(0).count()).isEqualTo(2);
+        assertThat(concept.evidenceLogs()).extracting(WeaknessEvidenceLogResponse::selectedAnswerReason)
+                .containsExactly("B를 고른 이유", "C를 고른 이유");
+        assertThat(concept.evidenceLogs()).extracting(WeaknessEvidenceLogResponse::misconceptionTitle)
+                .containsOnly("완전 이진 트리와 포화 이진 트리를 같게 봄");
+    }
+
+    private CommonMistake commonMistake(String code, String title) {
+        CommonMistake mistake = mock(CommonMistake.class);
+        when(mistake.getMistakeCode()).thenReturn(code);
+        when(mistake.getMistakeTitle()).thenReturn(title);
+        return mistake;
+    }
+
     private WeaknessEvidenceLogResponse evidence(Long questionId, String type, String selectedAnswer) {
         return new WeaknessEvidenceLogResponse(null, questionId, questionId, "문제",
-                type, 60, 60, 0, selectedAnswer, "A", !"WRONG".equals(type), false);
+                type, 60, 60, 0, selectedAnswer, null, "A", null, null, null,
+                !"WRONG".equals(type), false);
     }
 
     private DiagnosticProfileService.QuestionProfileView profileView(String skillType,
             Map<String, String> misconceptionByOption) {
-        return new DiagnosticProfileService.QuestionProfileView(skillType, misconceptionByOption);
+        return new DiagnosticProfileService.QuestionProfileView(skillType, misconceptionByOption, Map.of());
     }
 
     @Test

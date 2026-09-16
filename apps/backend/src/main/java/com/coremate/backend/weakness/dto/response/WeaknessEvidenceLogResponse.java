@@ -31,8 +31,20 @@ public record WeaknessEvidenceLogResponse(
         @Schema(description = "사용자 선택 답", example = "A")
         String selectedAnswer,
 
+        @Schema(description = "사용자가 고른 선지의 문장")
+        String selectedAnswerText,
+
         @Schema(description = "정답", example = "B")
         String correctAnswer,
+
+        @Schema(description = "정답 선지의 문장")
+        String correctAnswerText,
+
+        @Schema(description = "그 선지를 고른 학습자가 무엇을 잘못 봤는지 한 문장. 문항 진단 프로필에서 온다")
+        String selectedAnswerReason,
+
+        @Schema(description = "그 선지가 드러내는 오개념 제목. common_mistake.mistake_code 로 잇는다")
+        String misconceptionTitle,
 
         @Schema(description = "정답 여부", example = "false")
         Boolean isCorrect,

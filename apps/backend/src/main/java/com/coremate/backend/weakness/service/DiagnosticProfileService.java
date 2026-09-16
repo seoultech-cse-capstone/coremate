@@ -81,13 +81,21 @@ public class DiagnosticProfileService {
 
     private QuestionProfileView toQuestionView(QuestionDiagnosticProfile profile) {
         Map<String, String> misconceptionByOption = new LinkedHashMap<>();
+        Map<String, String> interpretationByOption = new LinkedHashMap<>();
         for (AnswerMisconception entry : readList(
                 profile.getAnswerMisconceptionMap(), new TypeReference<List<AnswerMisconception>>() {})) {
-            if (entry.optionKey() != null && entry.misconceptionCode() != null) {
+            if (entry.optionKey() == null) {
+                continue;
+            }
+            if (entry.misconceptionCode() != null) {
                 misconceptionByOption.put(entry.optionKey(), entry.misconceptionCode());
             }
+            if (entry.interpretation() != null && !entry.interpretation().isBlank()) {
+                interpretationByOption.put(entry.optionKey(), entry.interpretation());
+            }
         }
-        return new QuestionProfileView(profile.getQuestionSkillType(), misconceptionByOption);
+        return new QuestionProfileView(
+                profile.getQuestionSkillType(), misconceptionByOption, interpretationByOption);
     }
 
     private ConceptProfileView toConceptView(ConceptDiagnosticProfile profile) {
@@ -126,8 +134,12 @@ public class DiagnosticProfileService {
         }
     }
 
-    /** 문항 프로필 조회 결과. misconceptionByOption: 선택지 키 → 오개념 코드. */
-    public record QuestionProfileView(String skillType, Map<String, String> misconceptionByOption) {
+    /**
+     * 문항 프로필 조회 결과.
+     * misconceptionByOption: 선택지 키 → 오개념 코드, interpretationByOption: 선택지 키 → 그 선지를 고른 해석.
+     */
+    public record QuestionProfileView(String skillType, Map<String, String> misconceptionByOption,
+            Map<String, String> interpretationByOption) {
 
         /** 정답 표시값(NONE)·미분류(OTHER)는 오개념 코드로 보지 않는다. */
         public String misconceptionCodeFor(String selectedAnswer) {
@@ -136,6 +148,11 @@ public class DiagnosticProfileService {
             }
             String code = misconceptionByOption.get(selectedAnswer);
             return code == null || NON_MISCONCEPTION_CODES.contains(code) ? null : code;
+        }
+
+        /** 그 선지를 고른 학습자가 무엇을 잘못 봤는지 한 문장. 검수된 콘텐츠라 AI를 새로 부르지 않는다. */
+        public String interpretationFor(String selectedAnswer) {
+            return selectedAnswer == null ? null : interpretationByOption.get(selectedAnswer);
         }
     }
 
