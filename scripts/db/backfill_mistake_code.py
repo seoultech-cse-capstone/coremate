@@ -5,6 +5,9 @@ DB의 common_mistake 에는 오개념 코드가 없고, 코드(예: ALG-C-01-01-
 제목으로 보여 주려면 문항 진단 프로필의 오개념 코드를 제목으로 되돌릴 수 있어야 해서,
 (개념 코드, 오해 제목)으로 짝지어 mistake_code 를 채운다.
 
+산출물이 있는 로컬에서만 쓸 수 있다(outputs/ 는 gitignore 대상). 산출물이 없는 팀원은
+같은 매핑을 담아 둔 scripts/db/backfill_mistake_code.sql 을 대신 돌리면 된다.
+
 실행 (파이프라인 venv 사용, DB 접속 정보는 infra/.env 를 그대로 씀):
     tools/ai-pipeline/.venv/bin/python scripts/db/backfill_mistake_code.py            # 미리보기
     tools/ai-pipeline/.venv/bin/python scripts/db/backfill_mistake_code.py --execute  # 실제 반영

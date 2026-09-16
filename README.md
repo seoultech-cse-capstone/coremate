@@ -29,6 +29,19 @@ coremate/
 
 ---
 
+## 백엔드를 새로 받았을 때 (2026-09-16 약점 분석표 개편)
+
+백엔드를 `docker compose -f infra/docker-compose.local.yml up -d --build` 로 다시 띄우면 새 컬럼은 자동으로 생긴다(`ddl-auto: update`). 한 가지만 직접 돌리면 된다.
+
+```bash
+docker exec -i coremate-mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -ucoremate coremate' \
+  < scripts/db/backfill_mistake_code.sql
+```
+
+`common_mistake.mistake_code` 를 채우는 스크립트다. 오개념 코드는 AI 파이프라인 산출물(`tools/ai-pipeline/outputs/`, gitignore 대상)에만 있어서 DB 에는 비어 있다. 이걸 돌리지 않으면 약점 분석표의 "반복된 오개념"이 제목 없이 횟수만 나온다. 여러 번 돌려도 결과는 같다.
+
+---
+
 ## 모바일 앱 실행
 
 앱을 여는 방법이 두 가지고, **플랫폼마다 쓸 수 있는 방법이 다르다.**
