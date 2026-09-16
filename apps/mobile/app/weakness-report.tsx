@@ -135,8 +135,12 @@ export default function WeaknessReportScreen() {
       if (concepts.length > 1) {
         chipsIndex = blocks.length;
         blocks.push(
-          <View
+          // 개념 이름이 길면 한 줄에 다 들어가지 않는다. 줄바꿈 대신 가로로 넘겨 본다.
+          <ScrollView
             key="chips"
+            contentContainerStyle={styles.chipsContent}
+            horizontal
+            showsHorizontalScrollIndicator={false}
             style={styles.chipsRow}
             onLayout={(event: LayoutChangeEvent) => {
               stickyHeight.current = event.nativeEvent.layout.height;
@@ -153,7 +157,7 @@ export default function WeaknessReportScreen() {
                 </Text>
               </Pressable>
             ))}
-          </View>,
+          </ScrollView>,
         );
       }
 
@@ -1095,14 +1099,17 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   chipsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+    flexGrow: 0,
     backgroundColor: "#F3F3F3",
     paddingVertical: 6,
   },
+  chipsContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingRight: 20,
+  },
   jumpChip: {
-    maxWidth: 160,
     borderRadius: 999,
     backgroundColor: "#ffffff",
     borderWidth: 1,
