@@ -31,7 +31,7 @@ public record AiWeaknessAnalysisRequest(Scope scope, Totals totals,
             @JsonProperty("slow_rate") double slowRate,
             @JsonProperty("hint_rate") double hintRate) {}
 
-    public record RepeatedMisconception(String code, int count) {}
+    public record RepeatedMisconception(String code, String title, int count) {}
 
     public record Evidence(String ref, String type,
             @JsonProperty("skill_type") String skillType,

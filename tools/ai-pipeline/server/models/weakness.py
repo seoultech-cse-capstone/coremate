@@ -33,6 +33,9 @@ class CandidateStats(BaseModel):
 
 class RepeatedMisconception(BaseModel):
     code: str
+    # 오개념 제목(예: "의사코드와 알고리즘을 같은 개념으로 봄"). 코드만으로는 무슨 착각인지 알 수 없어
+    # 백엔드가 common_mistake 에서 찾아 함께 보낸다. 백필 전 데이터는 비어 올 수 있다.
+    title: str | None = None
     count: int
 
 
