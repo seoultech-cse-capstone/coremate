@@ -43,10 +43,12 @@ export default function WeaknessReportScreen() {
   // 약점 목록에서 개념을 누르면 해당 카드로 내려간다. 카드마다 y 좌표를 기억해 둔다.
   const scrollRef = useRef<ScrollView>(null);
   const cardOffsets = useRef<Record<number, number>>({});
+  // 이동 칩이 상단에 고정되므로 그 높이만큼 더 올려야 카드 머리가 칩에 가리지 않는다.
+  const stickyHeight = useRef(0);
   const scrollToConcept = useCallback((analysisConceptId: number) => {
     const y = cardOffsets.current[analysisConceptId];
     if (y !== undefined) {
-      scrollRef.current?.scrollTo({ y: Math.max(y - 8, 0), animated: true });
+      scrollRef.current?.scrollTo({ y: Math.max(y - stickyHeight.current - 8, 0), animated: true });
     }
   }, []);
 
@@ -107,7 +109,13 @@ export default function WeaknessReportScreen() {
       if (concepts.length > 1) {
         chipsIndex = blocks.length;
         blocks.push(
-          <View key="chips" style={styles.chipsRow}>
+          <View
+            key="chips"
+            style={styles.chipsRow}
+            onLayout={(event: LayoutChangeEvent) => {
+              stickyHeight.current = event.nativeEvent.layout.height;
+            }}
+          >
             {concepts.map((concept, index) => (
               <Pressable
                 key={concept.analysisConceptId}
