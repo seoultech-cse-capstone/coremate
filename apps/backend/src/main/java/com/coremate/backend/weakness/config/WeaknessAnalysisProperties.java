@@ -43,8 +43,14 @@ public class WeaknessAnalysisProperties {
     /** AI 서버(Python ai-pipeline) 기본 URL. */
     private String aiServerBaseUrl = "http://localhost:8000";
 
-    /** AI 호출 읽기 타임아웃(초). */
-    private int aiTimeoutSec = 40;
+    /**
+     * AI 호출 읽기 타임아웃(초).
+     *
+     * AI 서버가 추론 모델을 쓰기 때문에 한 번 호출이 30초 안팎 걸린다. 실제 호출 기록(ai_call_logs)이
+     * 26.8s / 31.6s / 32.7s / 35.8s 라 기존 40초는 여유가 5초도 안 됐고, 실제로 한 번 타임아웃으로
+     * 생성이 실패했다. 실패하면 트랜잭션 롤백으로 코인은 돌아오지만 사용자는 오류 화면만 보게 된다.
+     */
+    private int aiTimeoutSec = 120;
 
     /** 교차검증 시 유형 구분도가 이 값 미만이면 AI 유형 채택, 이상이면 AMBIGUOUS. */
     private double typeSeparationThreshold = 0.3;
