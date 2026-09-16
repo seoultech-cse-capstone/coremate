@@ -43,6 +43,24 @@ public record WeaknessConceptResponse(
         @Schema(description = "약점 진단")
         String diagnosis,
 
+        @Schema(description = "AI가 쓴 약점의 원인 문장")
+        String likelyCause,
+
+        @Schema(description = "이 개념으로 푼 문항 수", example = "3")
+        Integer questionCount,
+
+        @Schema(description = "그중 틀린 문항 수", example = "3")
+        Integer wrongCount,
+
+        @Schema(description = "그중 기준 시간보다 오래 걸린 문항 수", example = "0")
+        Integer longTimeCount,
+
+        @Schema(description = "그중 힌트를 사용한 문항 수", example = "2")
+        Integer hintUsedCount,
+
+        @Schema(description = "두 번 이상 반복된 오개념 목록")
+        List<RepeatedMisconceptionResponse> repeatedMisconceptions,
+
         @Schema(description = "관련 풀이 기록 요약")
         String evidenceSummary,
 

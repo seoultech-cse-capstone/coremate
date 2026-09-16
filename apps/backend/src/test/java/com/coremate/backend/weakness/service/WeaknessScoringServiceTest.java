@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class WeaknessScoringServiceTest {
@@ -34,7 +35,7 @@ class WeaknessScoringServiceTest {
     @BeforeEach
     void setUp() {
         props = new WeaknessAnalysisProperties();
-        scoringService = new WeaknessScoringService(solveLogRepository, props);
+        scoringService = new WeaknessScoringService(solveLogRepository, props, new ObjectMapper());
     }
 
     @Test

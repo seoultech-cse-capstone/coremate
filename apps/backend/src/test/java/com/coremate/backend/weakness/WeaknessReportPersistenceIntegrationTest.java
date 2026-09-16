@@ -64,6 +64,10 @@ class WeaknessReportPersistenceIntegrationTest {
                 .sortOrder(0)
                 .weaknessScore(70)
                 .evidenceStrength(new BigDecimal("0.800"))
+                .questionCount(3)
+                .wrongCount(2)
+                .longTimeCount(0)
+                .hintUsedCount(1)
                 .build());
         // 개념 수(2)와 오답 수(4)를 다르게 둬야 목록의 "발견한 약점"이 어느 값을 세는지 구분된다.
         conceptRepository.save(WeaknessAnalysisConcept.builder()
@@ -101,6 +105,25 @@ class WeaknessReportPersistenceIntegrationTest {
         assertThat(detail.analysisReportId()).isEqualTo(reportId);
         assertThat(detail.weaknessConcepts()).hasSize(2);
         assertThat(reportRepository.findById(reportId).orElseThrow().getViewCount()).isEqualTo(1);
+    }
+
+    /**
+     * 개념별 수치는 생성 때만 계산되던 값이라 저장하지 않으면 재열람 응답의 풀이 요약이 빈다.
+     * 저장한 개념은 같은 요약이 나오고, 수치가 없는 예전 분석표는 요약을 비운 채 나머지만 준다.
+     */
+    @Test
+    void detailRestoresStoredCountsAndSummary() {
+        var detail = service.getReportDetail(1L, reportId);
+
+        var stored = detail.weaknessConcepts().get(0);
+        assertThat(stored.questionCount()).isEqualTo(3);
+        assertThat(stored.wrongCount()).isEqualTo(2);
+        assertThat(stored.hintUsedCount()).isEqualTo(1);
+        assertThat(stored.evidenceSummary()).isEqualTo("오답 2개, 오래 걸린 문제 0개, 힌트 사용 1개");
+
+        var legacy = detail.weaknessConcepts().get(1);
+        assertThat(legacy.questionCount()).isZero();
+        assertThat(legacy.evidenceSummary()).isNull();
     }
 
     @Test

@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * 결정론 스코어링: 선택된 회차의 풀이 로그를 개념별로 집계해 약점 후보·약점 점수·근거 충분도·
@@ -36,6 +37,7 @@ public class WeaknessScoringService {
 
     private final SolveLogRepository solveLogRepository;
     private final WeaknessAnalysisProperties props;
+    private final ObjectMapper objectMapper;
 
     public WeaknessScoringResult score(List<SolveSession> sessions) {
         List<Long> sessionIds = sessions.stream().map(SolveSession::getSolveSessionId).toList();
@@ -123,6 +125,8 @@ public class WeaknessScoringService {
     }
 
     private WeaknessEvidenceLogResponse toEvidence(SolveLog log) {
+        Map<String, String> choiceTexts =
+                QuestionChoiceTexts.parse(log.getQuestion().getChoicesJson(), objectMapper);
         return new WeaknessEvidenceLogResponse(
                 null,
                 log.getSolveLogId(),
@@ -133,7 +137,12 @@ public class WeaknessScoringService {
                 log.getExpectedSolveSecSnapshot(),
                 log.getHintCount(),
                 log.getSelectedAnswer(),
+                choiceTexts.get(log.getSelectedAnswer()),
                 log.getCorrectAnswerSnapshot(),
+                choiceTexts.get(log.getCorrectAnswerSnapshot()),
+                // 선지 해석과 오개념 제목은 문항 진단 프로필이 필요해 WeaknessAnalysisService 가 채운다.
+                null,
+                null,
                 log.isCorrect(),
                 // 이 단계에서는 아직 AI를 부르기 전이라 지목 여부를 알 수 없다.
                 // 생성 응답은 AI 응답을 받은 뒤 WeaknessAnalysisService 가 다시 채운다.
