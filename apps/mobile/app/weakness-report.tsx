@@ -1,6 +1,16 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, ChevronRight } from "lucide-react-native";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Info } from "lucide-react-native";
+import { useCallback, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  ActivityIndicator,
+  LayoutChangeEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -29,6 +39,130 @@ export default function WeaknessReportScreen() {
     resolvedReportId,
     accessToken,
   );
+
+  // 약점 목록에서 개념을 누르면 해당 카드로 내려간다. 카드마다 y 좌표를 기억해 둔다.
+  const scrollRef = useRef<ScrollView>(null);
+  const cardOffsets = useRef<Record<number, number>>({});
+  const scrollToConcept = useCallback((analysisConceptId: number) => {
+    const y = cardOffsets.current[analysisConceptId];
+    if (y !== undefined) {
+      scrollRef.current?.scrollTo({ y: Math.max(y - 8, 0), animated: true });
+    }
+  }, []);
+
+  const concepts = report?.weaknessConcepts ?? [];
+  const blocks: ReactNode[] = [];
+  let chipsIndex: number | null = null;
+
+  if (report) {
+    blocks.push(
+      <View key="scope">
+        <Text style={styles.scopeText}>{report.analysisScopeNameSnapshot}</Text>
+        {report.generatedAt ? (
+          <Text style={styles.dateText}>
+            {formatDate(report.generatedAt)} · 문제집 {report.selectedSessionCount}개
+          </Text>
+        ) : null}
+      </View>,
+    );
+
+    if (report.summaryText) {
+      blocks.push(
+        <Text key="conclusion" style={styles.conclusionText}>
+          {report.summaryText}
+        </Text>,
+      );
+    }
+
+    blocks.push(
+      <ScoreCard
+        key="score"
+        totalCount={report.totalQuestionCount}
+        wrongCount={report.totalWrongCount}
+        longTimeCount={report.totalLongTimeCount}
+        hintUsedCount={report.totalHintUsedCount}
+      />,
+    );
+
+    if (concepts.length > 0) {
+      blocks.push(
+        <View key="priority">
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>먼저 볼 약점</Text>
+            <Text style={styles.sectionHint}>위에서부터 보면 돼요</Text>
+          </View>
+          <View style={styles.card}>
+            {concepts.map((concept, index) => (
+              <PriorityRow
+                concept={concept}
+                index={index}
+                key={concept.analysisConceptId}
+                onPress={() => scrollToConcept(concept.analysisConceptId)}
+              />
+            ))}
+          </View>
+        </View>,
+      );
+
+      if (concepts.length > 1) {
+        chipsIndex = blocks.length;
+        blocks.push(
+          <View key="chips" style={styles.chipsRow}>
+            {concepts.map((concept, index) => (
+              <Pressable
+                key={concept.analysisConceptId}
+                style={styles.jumpChip}
+                onPress={() => scrollToConcept(concept.analysisConceptId)}
+              >
+                <Text numberOfLines={1} style={styles.jumpChipText}>
+                  {index + 1} {concept.conceptName}
+                </Text>
+              </Pressable>
+            ))}
+          </View>,
+        );
+      }
+
+      concepts.forEach((concept, index) => {
+        blocks.push(
+          <View
+            key={`card-${concept.analysisConceptId}`}
+            onLayout={(event: LayoutChangeEvent) => {
+              cardOffsets.current[concept.analysisConceptId] = event.nativeEvent.layout.y;
+            }}
+          >
+            <WeaknessConceptCard concept={concept} rank={index + 1} />
+          </View>,
+        );
+      });
+    }
+
+    if (report.selectedSessions.length > 0) {
+      blocks.push(
+        <View key="sessions" style={styles.card}>
+          <Text style={styles.sessionLabel}>분석에 쓴 문제집</Text>
+          {/* 각 회차를 눌러 실제 풀이 기록으로 넘어갈 수 있어야 한다(SCR-WEAK-05). */}
+          {report.selectedSessions.map((session) => (
+            <Pressable
+              key={session.solveSessionId}
+              style={styles.sessionRow}
+              onPress={() =>
+                router.push({
+                  pathname: "/mistake-exam-review",
+                  params: { solveSessionId: session.solveSessionId.toString() },
+                })
+              }
+            >
+              <Text numberOfLines={2} style={styles.sessionText}>
+                {session.title} · {session.wrongCount}/{session.totalQuestionCount} 오답
+              </Text>
+              <ChevronRight color="#94a3b8" size={18} strokeWidth={2.2} />
+            </Pressable>
+          ))}
+        </View>,
+      );
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -60,66 +194,13 @@ export default function WeaknessReportScreen() {
             </Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            <Text style={styles.scopeText}>{report.analysisScopeNameSnapshot}</Text>
-            {report.generatedAt ? (
-              <Text style={styles.dateText}>{formatDate(report.generatedAt)} 생성</Text>
-            ) : null}
-
-            <View style={styles.statsCard}>
-              <StatItem label="전체 문제" value={report.totalQuestionCount} />
-              <StatItem label="오답" value={report.totalWrongCount} />
-              <StatItem label="오래 걸림" value={report.totalLongTimeCount} />
-              <StatItem label="힌트 사용" value={report.totalHintUsedCount} />
-            </View>
-
-            {report.summaryText ? (
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryText}>{report.summaryText}</Text>
-              </View>
-            ) : null}
-
-            {report.analysisText ? (
-              <View style={styles.card}>
-                <Text style={styles.sectionTitle}>분석 내용</Text>
-                <Text style={styles.bodyText}>{report.analysisText}</Text>
-              </View>
-            ) : null}
-
-            {report.weaknessConcepts.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>약점 개념</Text>
-                {report.weaknessConcepts.map((concept) => (
-                  <WeaknessConceptCard concept={concept} key={concept.analysisConceptId} />
-                ))}
-              </View>
-            ) : null}
-
-            {report.selectedSessions.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>분석에 사용한 문제집</Text>
-                <View style={styles.card}>
-                  {/* 각 회차를 눌러 실제 풀이 기록으로 넘어갈 수 있어야 한다(SCR-WEAK-05). */}
-                  {report.selectedSessions.map((session) => (
-                    <Pressable
-                      key={session.solveSessionId}
-                      style={styles.sessionRow}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/mistake-exam-review",
-                          params: { solveSessionId: session.solveSessionId.toString() },
-                        })
-                      }
-                    >
-                      <Text style={styles.sessionText}>
-                        {session.title} · {session.wrongCount}/{session.totalQuestionCount} 오답
-                      </Text>
-                      <ChevronRight color="#94a3b8" size={18} strokeWidth={2.2} />
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ) : null}
+          <ScrollView
+            contentContainerStyle={styles.content}
+            ref={scrollRef}
+            showsVerticalScrollIndicator={false}
+            stickyHeaderIndices={chipsIndex === null ? undefined : [chipsIndex]}
+          >
+            {blocks}
           </ScrollView>
         )}
       </SafeAreaView>
@@ -127,12 +208,67 @@ export default function WeaknessReportScreen() {
   );
 }
 
-function StatItem({ label, value }: { label: string; value: number }) {
+function ScoreCard({
+  totalCount,
+  wrongCount,
+  longTimeCount,
+  hintUsedCount,
+}: {
+  totalCount: number;
+  wrongCount: number;
+  longTimeCount: number;
+  hintUsedCount: number;
+}) {
+  const correctCount = Math.max(totalCount - wrongCount, 0);
+  const correctRate = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
   return (
-    <View style={styles.statItem}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={styles.card}>
+      <View style={styles.scoreHeader}>
+        <Text style={styles.scoreTitle}>
+          {totalCount}문제 중 {correctCount}개 맞혔어요
+        </Text>
+        <Text style={styles.scoreRate}>정답률 {correctRate}%</Text>
+      </View>
+      <View style={styles.scoreBar}>
+        {correctCount > 0 ? (
+          <View style={[styles.scoreBarCorrect, { flex: correctCount }]} />
+        ) : null}
+        {wrongCount > 0 ? <View style={[styles.scoreBarWrong, { flex: wrongCount }]} /> : null}
+      </View>
+      <View style={styles.chipGroup}>
+        <Text style={[styles.countChip, styles.countChipWrong]}>오답 {wrongCount}</Text>
+        <Text style={styles.countChip}>오래 걸림 {longTimeCount}</Text>
+        <Text style={styles.countChip}>힌트 사용 {hintUsedCount}</Text>
+      </View>
     </View>
+  );
+}
+
+function PriorityRow({
+  concept,
+  index,
+  onPress,
+}: {
+  concept: WeaknessConcept;
+  index: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={[styles.priorityRow, index > 0 && styles.priorityRowDivider]} onPress={onPress}>
+      <View style={[styles.rankBadge, index === 0 && styles.rankBadgeFirst]}>
+        <Text style={[styles.rankText, index === 0 && styles.rankTextFirst]}>{index + 1}</Text>
+      </View>
+      <View style={styles.priorityBody}>
+        <Text numberOfLines={1} style={styles.priorityName}>
+          {concept.conceptName}
+        </Text>
+        <Text style={styles.prioritySub}>{evidenceSummaryOf(concept)}</Text>
+      </View>
+      {concept.finalType ? (
+        <Text style={styles.typeChip}>{label(WEAKNESS_TYPE_LABEL, concept.finalType)}</Text>
+      ) : null}
+      <ChevronRight color="#B6BECB" size={16} strokeWidth={2.4} />
+    </Pressable>
   );
 }
 
@@ -140,14 +276,8 @@ function StatItem({ label, value }: { label: string; value: number }) {
 const WEAKNESS_TYPE_LABEL: Record<string, string> = {
   CONCEPT_CONFUSION: "개념 혼동",
   APPLICATION_GAP: "적용 부족",
-  SPEED_FLUENCY: "속도·숙련 부족",
-  EXECUTION_ERROR: "풀이 실행 오류",
-};
-
-const TYPE_SOURCE_LABEL: Record<string, string> = {
-  AI: "AI 해석",
-  BOTH: "AI·풀이 기록 일치",
-  NONE: "판정 보류",
+  SPEED_FLUENCY: "속도 부족",
+  EXECUTION_ERROR: "풀이 실수",
 };
 
 const CAUSE_CODE_LABEL: Record<string, string> = {
@@ -157,20 +287,6 @@ const CAUSE_CODE_LABEL: Record<string, string> = {
   PROCEDURE_FLUENCY_GAP: "절차 숙련 부족",
   REPEATED_MISCONCEPTION: "같은 오개념 반복",
   CARELESS_EXECUTION: "실수·부주의",
-};
-
-const ANALYSIS_STATUS_LABEL: Record<string, string> = {
-  SUPPORTED: "근거 충분",
-  AMBIGUOUS: "근거 모호",
-  INSUFFICIENT: "근거 부족",
-};
-
-const SECONDARY_SIGNAL_LABEL: Record<string, string> = {
-  REPEATED_MISCONCEPTION: "같은 오개념 반복",
-  CONCEPT_RELATION_CONFUSION: "개념 관계 혼동",
-  HINT_DEPENDENCY: "힌트 의존",
-  SLOW_FLUENCY: "풀이 속도 느림",
-  INCONSISTENT_EXECUTION: "풀이 일관성 부족",
 };
 
 const EVIDENCE_TYPE_LABEL: Record<string, string> = {
@@ -187,102 +303,154 @@ function label(map: Record<string, string>, key: string | null): string {
   return map[key] ?? key;
 }
 
-function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
+/**
+ * 개념별 풀이 요약. 서버의 evidenceSummary 는 생성 직후 응답에만 있어서 다시 열면 비므로,
+ * 항상 남아 있는 근거 로그로 직접 센다(개념별 문항 수는 백엔드 작업 뒤에 붙인다).
+ */
+function evidenceSummaryOf(concept: WeaknessConcept): string {
+  const counts = concept.evidenceLogs.reduce<Record<string, number>>((acc, evidence) => {
+    acc[evidence.evidenceType] = (acc[evidence.evidenceType] ?? 0) + 1;
+    return acc;
+  }, {});
+  const parts = ["WRONG", "LONG_TIME", "HINT_USED", "ANSWER_CHANGED"]
+    .filter((type) => counts[type] > 0)
+    .map((type) => `${label(EVIDENCE_TYPE_LABEL, type)} ${counts[type]}개`);
+  return parts.length > 0 ? parts.join(" · ") : "근거 기록 없음";
+}
+
+function WeaknessConceptCard({ concept, rank }: { concept: WeaknessConcept; rank: number }) {
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [learningOpen, setLearningOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const learning = concept.conceptLearning;
+  const citedCount = concept.evidenceLogs.filter((evidence) => evidence.citedByAi).length;
+
   return (
     <View style={styles.card}>
       <View style={styles.conceptHeader}>
-        <Text style={styles.conceptName}>{concept.conceptName}</Text>
-        <Text style={styles.conceptScore}>약점 점수 {concept.weaknessScore}</Text>
+        <Text style={styles.rankLabel}>{rank}순위 약점</Text>
+        {concept.finalType ? (
+          <Text style={styles.typeChip}>{label(WEAKNESS_TYPE_LABEL, concept.finalType)}</Text>
+        ) : null}
       </View>
+      <Text style={styles.conceptName}>{concept.conceptName}</Text>
+      <Text style={styles.conceptStat}>{evidenceSummaryOf(concept)}</Text>
 
-      {/* 백엔드 판정과 AI 판정이 갈리면 최종 유형이 비는데, 그대로 두면 "유형 - (판정 보류)"
-          처럼 하이픈이 노출된다. 유형이 없을 때는 보류 상태만 문장으로 말한다. */}
-      <Text style={styles.metaText}>
-        {concept.finalType
-          ? `유형 ${label(WEAKNESS_TYPE_LABEL, concept.finalType)} (${label(
-              TYPE_SOURCE_LABEL,
-              concept.finalTypeSource,
-            )})`
-          : "유형 판정 보류"}{" "}
-        · 원인 {label(CAUSE_CODE_LABEL, concept.causeCode)} · 근거 강도{" "}
-        {concept.evidenceStrength} · 상태 {label(ANALYSIS_STATUS_LABEL, concept.analysisStatus)}
-      </Text>
-      {concept.confusedRelation ? (
-        <Text style={styles.metaText}>혼동 개념: {concept.confusedRelation}</Text>
-      ) : null}
-      {concept.secondarySignals.length > 0 ? (
-        <Text style={styles.metaText}>
-          부가 신호:{" "}
-          {concept.secondarySignals.map((s) => label(SECONDARY_SIGNAL_LABEL, s)).join(", ")}
-        </Text>
+      {/* 백엔드 판정과 AI 판정이 갈리면 유형을 비워 보낸다. 내부 용어 대신 이유만 알린다. */}
+      {concept.finalType ? null : (
+        <View style={styles.quietRow}>
+          <Info color="#94a3b8" size={14} strokeWidth={2} />
+          <Text style={styles.quietText}>
+            풀이 기록으로 본 유형과 AI 해석이 달라서 유형은 표시하지 않았어요.
+          </Text>
+        </View>
+      )}
+
+      {concept.diagnosis ? (
+        <View style={styles.block}>
+          <Text style={styles.blockLabel}>진단</Text>
+          <Text style={styles.diagnosisText}>{concept.diagnosis}</Text>
+        </View>
       ) : null}
 
-      <Text style={styles.diagnosisText}>{concept.diagnosis}</Text>
-      {concept.evidenceSummary ? (
-        <Text style={styles.evidenceSummaryText}>{concept.evidenceSummary}</Text>
-      ) : null}
-
-      {concept.detailedExplanationText ? (
-        <View style={styles.subBox}>
-          <Text style={styles.subBoxTitle}>상세 설명</Text>
-          <Text style={styles.subBoxText}>{concept.detailedExplanationText}</Text>
+      {concept.causeCode || concept.confusedRelation ? (
+        <View style={styles.block}>
+          <Text style={styles.blockLabel}>왜 틀렸을까</Text>
+          {concept.causeCode ? (
+            <Text style={styles.causeChip}>{label(CAUSE_CODE_LABEL, concept.causeCode)}</Text>
+          ) : null}
+          {concept.confusedRelation ? (
+            <Text style={styles.causeText}>{concept.confusedRelation}</Text>
+          ) : null}
         </View>
       ) : null}
 
       {concept.conceptTip ? (
         <View style={styles.tipBox}>
-          <Text style={styles.tipTitle}>학습 팁</Text>
+          <Text style={styles.tipTitle}>이렇게 복습해요</Text>
           <Text style={styles.tipText}>{concept.conceptTip}</Text>
         </View>
       ) : null}
 
-      {learning ? (
-        <View style={styles.subBox}>
-          <Text style={styles.subBoxTitle}>개념 학습 자료</Text>
-          {learning.conceptCore ? (
-            <Text style={styles.subBoxText}>핵심: {learning.conceptCore}</Text>
-          ) : null}
-          {learning.conceptExplanation ? (
-            <Text style={styles.subBoxText}>설명: {learning.conceptExplanation}</Text>
-          ) : null}
-          {learning.keyPoints.length > 0 ? (
-            <Text style={styles.subBoxText}>핵심 포인트: {learning.keyPoints.join(" / ")}</Text>
-          ) : null}
-          {learning.confusionComparisons.length > 0 ? (
-            <Text style={styles.subBoxText}>
-              혼동 비교:{" "}
-              {learning.confusionComparisons
-                .map((c) => `${c.comparedWith}(${c.difference})`)
-                .join(" / ")}
-            </Text>
-          ) : null}
-          {learning.prerequisiteConcepts.length > 0 ? (
-            <Text style={styles.subBoxText}>
-              선수 개념: {learning.prerequisiteConcepts.join(", ")}
-            </Text>
-          ) : null}
-          {learning.learningExample ? (
-            <Text style={styles.subBoxText}>예시: {learning.learningExample}</Text>
-          ) : null}
-          {learning.misconceptionNotes ? (
-            <Text style={styles.subBoxText}>오개념 노트: {learning.misconceptionNotes}</Text>
-          ) : null}
-          {learning.basicReviewPoints.length > 0 ? (
-            <Text style={styles.subBoxText}>
-              기초 복습 포인트: {learning.basicReviewPoints.join(" / ")}
-            </Text>
-          ) : null}
-        </View>
+      {concept.evidenceLogs.length > 0 ? (
+        <>
+          <Disclosure
+            open={evidenceOpen}
+            subLabel={citedCount > 0 ? `AI가 짚은 문제 ${citedCount}` : undefined}
+            title={`틀린 문제 ${concept.evidenceLogs.length}개`}
+            onPress={() => setEvidenceOpen((prev) => !prev)}
+          />
+          {evidenceOpen
+            ? concept.evidenceLogs.map((evidence) => (
+                <EvidenceLogRow evidence={evidence} key={evidence.evidenceId} />
+              ))
+            : null}
+        </>
       ) : null}
 
-      {concept.evidenceLogs.length > 0 ? (
-        <View style={styles.subBox}>
-          <Text style={styles.subBoxTitle}>근거 문제 기록 ({concept.evidenceLogs.length}건)</Text>
-          {concept.evidenceLogs.map((evidence) => (
-            <EvidenceLogRow evidence={evidence} key={evidence.evidenceId} />
-          ))}
-        </View>
+      {learning ? (
+        <>
+          <Disclosure
+            open={learningOpen}
+            title="개념 한눈에 보기"
+            onPress={() => setLearningOpen((prev) => !prev)}
+          />
+          {learningOpen ? (
+            <View style={styles.learningBox}>
+              {learning.conceptCore ? (
+                <LearningItem label="핵심" text={learning.conceptCore} />
+              ) : null}
+              {learning.keyPoints.length > 0 ? (
+                <LearningItem label="꼭 짚을 포인트" text={learning.keyPoints.join("\n")} />
+              ) : null}
+              {learning.confusionComparisons.length > 0 ? (
+                <LearningItem
+                  label="헷갈리는 짝"
+                  text={learning.confusionComparisons
+                    .map((comparison) => `${comparison.comparedWith} — ${comparison.difference}`)
+                    .join("\n")}
+                />
+              ) : null}
+
+              <Pressable style={styles.moreButton} onPress={() => setMoreOpen((prev) => !prev)}>
+                <Text style={styles.moreText}>
+                  {moreOpen ? "학습 자료 접기" : "설명·예시·기초 복습 더 보기"}
+                </Text>
+                {moreOpen ? (
+                  <ChevronUp color={BRAND_PURPLE} size={14} strokeWidth={2.4} />
+                ) : (
+                  <ChevronDown color={BRAND_PURPLE} size={14} strokeWidth={2.4} />
+                )}
+              </Pressable>
+
+              {moreOpen ? (
+                <>
+                  {learning.conceptExplanation ? (
+                    <LearningItem label="설명" text={learning.conceptExplanation} />
+                  ) : null}
+                  {learning.prerequisiteConcepts.length > 0 ? (
+                    <LearningItem
+                      label="선수 개념"
+                      text={learning.prerequisiteConcepts.join(", ")}
+                    />
+                  ) : null}
+                  {learning.learningExample ? (
+                    <LearningItem label="예시" text={learning.learningExample} />
+                  ) : null}
+                  {learning.misconceptionNotes ? (
+                    <LearningItem label="오개념 노트" text={learning.misconceptionNotes} />
+                  ) : null}
+                  {learning.basicReviewPoints.length > 0 ? (
+                    <LearningItem
+                      label="기초 복습 포인트"
+                      text={learning.basicReviewPoints.join("\n")}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+            </View>
+          ) : null}
+        </>
       ) : null}
 
       {/* 분석표를 읽고 나면 복습으로 이어져야 한다(SCR-WEAK-05). */}
@@ -295,9 +463,41 @@ function WeaknessConceptCard({ concept }: { concept: WeaknessConcept }) {
           })
         }
       >
-        <Text style={styles.conceptLinkText}>이 개념 문제집으로 가기</Text>
-        <ChevronRight color={BRAND_PURPLE} size={18} strokeWidth={2.4} />
+        <Text style={styles.conceptLinkText}>이 개념 문제집 풀기</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function Disclosure({
+  open,
+  subLabel,
+  title,
+  onPress,
+}: {
+  open: boolean;
+  subLabel?: string;
+  title: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable accessibilityRole="button" style={styles.disclosure} onPress={onPress}>
+      <Text style={styles.disclosureTitle}>{title}</Text>
+      {subLabel ? <Text style={styles.disclosureSub}>{subLabel}</Text> : null}
+      {open ? (
+        <ChevronUp color="#94a3b8" size={18} strokeWidth={2.4} />
+      ) : (
+        <ChevronDown color="#94a3b8" size={18} strokeWidth={2.4} />
+      )}
+    </Pressable>
+  );
+}
+
+function LearningItem({ label: itemLabel, text }: { label: string; text: string }) {
+  return (
+    <View style={styles.learningItem}>
+      <Text style={styles.learningLabel}>{itemLabel}</Text>
+      <Text style={styles.learningText}>{text}</Text>
     </View>
   );
 }
@@ -306,21 +506,16 @@ function EvidenceLogRow({ evidence }: { evidence: WeaknessEvidenceLog }) {
   return (
     <View style={[styles.evidenceRow, evidence.citedByAi && styles.citedEvidenceRow]}>
       <View style={styles.evidenceHeader}>
-        <Text style={styles.evidenceType}>
-          {label(EVIDENCE_TYPE_LABEL, evidence.evidenceType)}
-        </Text>
-        {evidence.citedByAi ? (
-          <Text style={styles.citedBadge}>AI가 지목한 근거</Text>
-        ) : null}
+        <Text style={styles.evidenceType}>{label(EVIDENCE_TYPE_LABEL, evidence.evidenceType)}</Text>
+        {evidence.citedByAi ? <Text style={styles.citedBadge}>AI가 짚은 문제</Text> : null}
       </View>
-      <Text style={styles.subBoxText}>{evidence.questionText}</Text>
+      <Text style={styles.evidenceQuestion}>{evidence.questionText}</Text>
       <Text style={styles.evidenceDetailText}>
-        정답 여부: {evidence.isCorrect === null ? "-" : evidence.isCorrect ? "정답" : "오답"} ·
-        선택: {evidence.selectedAnswer ?? "-"} · 정답: {evidence.correctAnswer ?? "-"}
+        내 답 {evidence.selectedAnswer ?? "-"} · 정답 {evidence.correctAnswer ?? "-"}
       </Text>
       <Text style={styles.evidenceDetailText}>
-        소요 시간: {evidence.timeSpentSec ?? "-"}초 (기준 {evidence.expectedSolveSec ?? "-"}초) ·
-        힌트 사용: {evidence.hintCount ?? "-"}회
+        {evidence.timeSpentSec ?? "-"}초 (기준 {evidence.expectedSolveSec ?? "-"}초) · 힌트{" "}
+        {evidence.hintCount ?? 0}회
       </Text>
     </View>
   );
@@ -359,30 +554,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
   },
-  sessionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    paddingVertical: 4,
-  },
-  conceptLinkButton: {
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BRAND_PURPLE,
-  },
-  conceptLinkText: {
-    color: BRAND_PURPLE,
-    fontFamily: FONT.pretendard,
-    fontSize: 14,
-    fontWeight: "700",
-  },
   stateArea: {
     flex: 1,
     alignItems: "center",
@@ -401,9 +572,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 44,
+    gap: 12,
   },
   scopeText: {
-    color: "#6D5DFB",
+    color: BRAND_PURPLE,
     fontFamily: FONT.pretendard,
     fontSize: 13,
     fontWeight: "700",
@@ -415,162 +587,335 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  statsCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    marginTop: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-  },
-  statItem: {
-    alignItems: "center",
-  },
-  statValue: {
-    color: "#1f2937",
+  conclusionText: {
+    color: "#111827",
     fontFamily: FONT.pretendard,
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  statLabel: {
-    marginTop: 4,
-    color: "#64748b",
-    fontFamily: FONT.pretendard,
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  summaryCard: {
-    borderRadius: 8,
-    backgroundColor: "#F1EFFF",
-    marginTop: 14,
-    padding: 16,
-  },
-  summaryText: {
-    color: "#45405f",
-    fontFamily: FONT.pretendard,
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 21,
+    fontSize: 19,
+    fontWeight: "800",
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   card: {
-    borderRadius: 8,
+    borderRadius: 14,
     backgroundColor: "#ffffff",
-    marginTop: 14,
     padding: 16,
   },
-  section: {
-    marginTop: 8,
-  },
-  sectionTitle: {
-    marginTop: 20,
-    marginBottom: 4,
-    color: "#1f2937",
-    fontFamily: FONT.pretendard,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  bodyText: {
-    color: "#334155",
-    fontFamily: FONT.pretendard,
-    fontSize: 14,
-    lineHeight: 22,
-  },
-  conceptHeader: {
+  scoreHeader: {
     flexDirection: "row",
+    alignItems: "baseline",
     justifyContent: "space-between",
-    alignItems: "center",
+    gap: 8,
   },
-  conceptName: {
+  scoreTitle: {
     color: "#1f2937",
     fontFamily: FONT.pretendard,
     fontSize: 15,
     fontWeight: "700",
   },
-  conceptScore: {
-    color: "#6D5DFB",
+  scoreRate: {
+    color: "#94a3b8",
     fontFamily: FONT.pretendard,
     fontSize: 12,
+    fontWeight: "600",
+  },
+  scoreBar: {
+    flexDirection: "row",
+    gap: 2,
+    height: 10,
+    marginTop: 10,
+  },
+  scoreBarCorrect: {
+    backgroundColor: BRAND_PURPLE,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 4,
+  },
+  scoreBarWrong: {
+    backgroundColor: "#FCA5A5",
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+  },
+  chipGroup: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 12,
+  },
+  countChip: {
+    color: "#334155",
+    backgroundColor: "#F1F2F5",
+    fontFamily: FONT.pretendard,
+    fontSize: 11.5,
+    fontWeight: "600",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  countChipWrong: {
+    color: "#dc2626",
+    backgroundColor: "#FEF2F2",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    color: "#1f2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  sectionHint: {
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 11.5,
+    fontWeight: "600",
+  },
+  priorityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+  },
+  priorityRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: "#EEF0F3",
+  },
+  rankBadge: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: BRAND_PURPLE,
+  },
+  rankBadgeFirst: {
+    backgroundColor: BRAND_PURPLE,
+    borderColor: BRAND_PURPLE,
+  },
+  rankText: {
+    color: "#5144cf",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  rankTextFirst: {
+    color: "#ffffff",
+  },
+  priorityBody: {
+    flex: 1,
+  },
+  priorityName: {
+    color: "#1f2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
     fontWeight: "700",
   },
-  diagnosisText: {
-    marginTop: 8,
-    color: "#334155",
-    fontFamily: FONT.pretendard,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  evidenceSummaryText: {
-    marginTop: 8,
+  prioritySub: {
+    marginTop: 1,
     color: "#64748b",
     fontFamily: FONT.pretendard,
     fontSize: 12,
+    fontWeight: "500",
+  },
+  typeChip: {
+    color: "#5144cf",
+    backgroundColor: "#F1EFFF",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "700",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    backgroundColor: "#F3F3F3",
+    paddingVertical: 6,
+  },
+  jumpChip: {
+    maxWidth: 160,
+    borderRadius: 999,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  jumpChipText: {
+    color: "#475569",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  conceptHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  rankLabel: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  conceptName: {
+    marginTop: 4,
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+  conceptStat: {
+    marginTop: 6,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 12.5,
+    fontWeight: "500",
+  },
+  quietRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginTop: 10,
+  },
+  quietText: {
+    flex: 1,
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "500",
     lineHeight: 18,
   },
+  block: {
+    marginTop: 16,
+  },
+  blockLabel: {
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 11.5,
+    fontWeight: "700",
+    marginBottom: 5,
+  },
+  diagnosisText: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    fontWeight: "600",
+    lineHeight: 23,
+  },
+  causeChip: {
+    alignSelf: "flex-start",
+    color: "#dc2626",
+    backgroundColor: "#FEF2F2",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "700",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  causeText: {
+    marginTop: 6,
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 13.5,
+    lineHeight: 21,
+  },
   tipBox: {
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: "#F1EFFF",
-    marginTop: 12,
-    padding: 12,
+    marginTop: 16,
+    padding: 13,
   },
   tipTitle: {
     color: "#5144cf",
     fontFamily: FONT.pretendard,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: "700",
   },
   tipText: {
     marginTop: 4,
-    color: "#494365",
+    color: "#3B3565",
     fontFamily: FONT.pretendard,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 13.5,
+    lineHeight: 21,
   },
-  sessionText: {
-    color: "#334155",
-    fontFamily: FONT.pretendard,
-    fontSize: 13,
-    fontWeight: "500",
-    marginTop: 6,
-  },
-  metaText: {
-    marginTop: 4,
-    color: "#94a3b8",
-    fontFamily: FONT.pretendard,
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  subBox: {
-    borderRadius: 8,
-    backgroundColor: "#F8FAFC",
+  disclosure: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     marginTop: 12,
-    padding: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#EEF0F3",
   },
-  subBoxTitle: {
-    color: "#334155",
+  disclosureTitle: {
+    flex: 1,
+    color: "#1f2937",
     fontFamily: FONT.pretendard,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700",
   },
-  subBoxText: {
-    marginTop: 6,
-    color: "#475569",
+  disclosureSub: {
+    color: "#94a3b8",
     fontFamily: FONT.pretendard,
     fontSize: 12,
-    lineHeight: 18,
+    fontWeight: "600",
+  },
+  learningBox: {
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    marginTop: 10,
+    padding: 13,
+    gap: 12,
+  },
+  learningItem: {
+    gap: 4,
+  },
+  learningLabel: {
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  learningText: {
+    color: "#475569",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  moreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  moreText: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "700",
   },
   evidenceRow: {
     marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    paddingTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#EEF0F3",
+    padding: 12,
   },
   // AI가 직접 근거로 지목한 문항은 나머지와 구분해 보여 준다.
   citedEvidenceRow: {
-    backgroundColor: "#F5F3FF",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginHorizontal: -10,
+    backgroundColor: "#F8F7FF",
+    borderColor: "#E3DEFF",
   },
   evidenceHeader: {
     flexDirection: "row",
@@ -579,7 +924,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   citedBadge: {
-    color: "#6D5DFB",
+    color: BRAND_PURPLE,
     backgroundColor: "#EDEAFE",
     fontFamily: FONT.pretendard,
     fontSize: 11,
@@ -595,11 +940,54 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
   },
+  evidenceQuestion: {
+    marginTop: 8,
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 13.5,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
   evidenceDetailText: {
     marginTop: 4,
     color: "#64748b",
     fontFamily: FONT.pretendard,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 11.5,
+    lineHeight: 17,
+  },
+  conceptLinkButton: {
+    marginTop: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 46,
+    borderRadius: 12,
+    backgroundColor: BRAND_PURPLE,
+  },
+  conceptLinkText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 14.5,
+    fontWeight: "700",
+  },
+  sessionLabel: {
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 11.5,
+    fontWeight: "700",
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    paddingTop: 6,
+  },
+  sessionText: {
+    flex: 1,
+    color: "#334155",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
+    lineHeight: 19,
   },
 });
