@@ -6,6 +6,7 @@ import com.coremate.backend.content.entity.Concept;
 import com.coremate.backend.content.entity.Subject;
 import com.coremate.backend.content.entity.CommonMistake;
 import com.coremate.backend.content.repository.CommonMistakeRepository;
+import com.coremate.backend.content.repository.ConceptRelationRepository;
 import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
@@ -25,6 +26,8 @@ import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportReq
 import com.coremate.backend.weakness.dto.response.EligibleSolveSessionResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportSummaryResponse;
+import com.coremate.backend.content.entity.ConceptRelation;
+import com.coremate.backend.weakness.dto.response.RelatedConceptResponse;
 import com.coremate.backend.weakness.dto.response.RepeatedMisconceptionResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessConceptResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
@@ -52,13 +55,16 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -98,6 +104,7 @@ public class WeaknessAnalysisService {
     private final WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
     private final ConceptRepository contentConceptRepository;
     private final CommonMistakeRepository commonMistakeRepository;
+    private final ConceptRelationRepository conceptRelationRepository;
     private final SolveLogRepository solveLogRepository;
     private final SolveSessionRepository weaknessSolveSessionRepository;
     private final IdempotencyGuard idempotencyGuard;
@@ -181,6 +188,8 @@ public class WeaknessAnalysisService {
 
         // 교차검증 + 개념/근거 저장
         Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> aiByConcept = indexAiByConcept(aiResponse);
+        Map<Long, List<RelatedConceptResponse>> relatedByConceptId = loadRelatedConcepts(
+                scoring.candidates().stream().map(ConceptCandidate::conceptId).toList());
         List<WeaknessConceptResponse> conceptResponses = new ArrayList<>();
         int sortOrder = 0;
         for (ConceptCandidate candidate : scoring.candidates()) {
@@ -218,7 +227,8 @@ public class WeaknessAnalysisService {
                     bundle.evidenceRefsByConceptId().get(candidate.conceptId()),
                     ai != null ? ai.evidenceRefs() : null);
             saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), evidence);
-            conceptResponses.add(toConceptResponse(concept, candidate, ai, cross, evidence));
+            conceptResponses.add(toConceptResponse(concept, candidate, ai, cross, evidence,
+                    relatedByConceptId.getOrDefault(candidate.conceptId(), List.of())));
         }
 
         report.markCompleted(aiResponse.overview(), null, props.getAiModelLabel(), props.getPromptVersion(),
@@ -347,11 +357,18 @@ public class WeaknessAnalysisService {
      */
     private List<AiWeaknessAnalysisRequest.RepeatedMisconception> topRepeatedMisconceptions(
             Map<String, Integer> counts) {
-        return counts.entrySet().stream()
+        List<Map.Entry<String, Integer>> top = counts.entrySet().stream()
                 .filter(e -> e.getValue() >= 2)
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .limit(MAX_REPEATED_MISCONCEPTIONS)
-                .map(e -> new AiWeaknessAnalysisRequest.RepeatedMisconception(e.getKey(), e.getValue()))
+                .toList();
+        // 코드만 보내면 AI 가 무슨 오개념인지 모른 채 원인을 써야 한다. 제목(20자 안팎)을 같이 보낸다.
+        Map<String, String> titles = titlesOf(top.stream()
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+        return top.stream()
+                .map(e -> new AiWeaknessAnalysisRequest.RepeatedMisconception(
+                        e.getKey(), titles.get(e.getKey()), e.getValue()))
                 .toList();
     }
 
@@ -466,7 +483,7 @@ public class WeaknessAnalysisService {
     // ----------------------------------------------------------------------- //
     private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept, ConceptCandidate candidate,
             AiWeaknessAnalysisResponse.ConceptAnalysis ai, CrossResult cross,
-            List<WeaknessEvidenceLogResponse> evidence) {
+            List<WeaknessEvidenceLogResponse> evidence, List<RelatedConceptResponse> relatedConcepts) {
         String evidenceSummary = String.format("오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
                 candidate.wrongCount(), candidate.longTimeCount(), candidate.hintUsedCount());
         DiagnosticProfileService.ConceptProfileView profile =
@@ -491,6 +508,7 @@ public class WeaknessAnalysisService {
                 candidate.longTimeCount(),
                 candidate.hintUsedCount(),
                 enriched.repeated(),
+                relatedConcepts,
                 evidenceSummary,
                 detailedExplanation(profile, candidate.conceptCore()),
                 ai != null ? ai.conceptTip() : null,
@@ -558,6 +576,78 @@ public class WeaknessAnalysisService {
         return new EnrichedEvidence(enriched, repeated);
     }
 
+    /** concept_relation 의 관계 유형(콘텐츠 파이프라인이 넣는 소문자 값). */
+    private static final String RELATION_PREREQUISITE = "prerequisite";
+    private static final String RELATION_CONFUSING = "confusing";
+    /** 카드가 길어지지 않게 유형별로 이만큼만 보여 준다. related 관계는 아직 쓰지 않는다. */
+    private static final int MAX_RELATED_PER_TYPE = 3;
+
+    /**
+     * 분석표에 실린 개념들의 「먼저 볼 개념」(prerequisite: source 가 선수)과
+     * 「헷갈리는 개념」(confusing: 양방향)을 개념별로 모은다. 관계가 없으면 빈 목록이다.
+     */
+    private Map<Long, List<RelatedConceptResponse>> loadRelatedConcepts(List<Long> conceptIdsInOrder) {
+        if (conceptIdsInOrder.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Integer> rankByConceptId = new LinkedHashMap<>();
+        for (int i = 0; i < conceptIdsInOrder.size(); i++) {
+            rankByConceptId.putIfAbsent(conceptIdsInOrder.get(i), i + 1);
+        }
+        Map<Long, List<RelatedConceptResponse>> related = new LinkedHashMap<>();
+        for (ConceptRelation relation : conceptRelationRepository.findActiveRelations(
+                List.of(RELATION_PREREQUISITE, RELATION_CONFUSING), rankByConceptId.keySet())) {
+            Long sourceId = relation.getSourceConcept().getConceptId();
+            Long targetId = relation.getTargetConcept().getConceptId();
+            if (RELATION_PREREQUISITE.equals(relation.getRelationType())) {
+                // 선수 관계는 방향이 있다. target 이 약점 개념일 때 source 가 「먼저 볼 개념」이다.
+                if (rankByConceptId.containsKey(targetId)) {
+                    addRelated(related, targetId, relation.getSourceConcept(), "PREREQUISITE",
+                            relation.getRelationNote(), rankByConceptId);
+                }
+            } else {
+                if (rankByConceptId.containsKey(sourceId)) {
+                    addRelated(related, sourceId, relation.getTargetConcept(), "CONFUSING",
+                            relation.getRelationNote(), rankByConceptId);
+                }
+                if (rankByConceptId.containsKey(targetId)) {
+                    addRelated(related, targetId, relation.getSourceConcept(), "CONFUSING",
+                            relation.getRelationNote(), rankByConceptId);
+                }
+            }
+        }
+        // 유형별 상한을 적용하고, 같은 분석표에서도 약점인 개념을 앞에 둔다.
+        Map<Long, List<RelatedConceptResponse>> capped = new LinkedHashMap<>();
+        related.forEach((conceptId, items) -> capped.put(conceptId, Stream.concat(
+                        pickTop(items, "PREREQUISITE").stream(), pickTop(items, "CONFUSING").stream())
+                .toList()));
+        return capped;
+    }
+
+    private void addRelated(Map<Long, List<RelatedConceptResponse>> related, Long weakConceptId,
+            Concept partner, String relationType, String note, Map<Long, Integer> rankByConceptId) {
+        if (partner.getConceptId().equals(weakConceptId)) {
+            return;
+        }
+        List<RelatedConceptResponse> items = related.computeIfAbsent(weakConceptId, key -> new ArrayList<>());
+        boolean duplicated = items.stream().anyMatch(item ->
+                item.conceptId().equals(partner.getConceptId()) && item.relationType().equals(relationType));
+        if (!duplicated) {
+            items.add(new RelatedConceptResponse(partner.getConceptId(), partner.getConceptName(),
+                    relationType, note, rankByConceptId.get(partner.getConceptId())));
+        }
+    }
+
+    private List<RelatedConceptResponse> pickTop(List<RelatedConceptResponse> items, String relationType) {
+        return items.stream()
+                .filter(item -> item.relationType().equals(relationType))
+                .sorted(Comparator.comparing((RelatedConceptResponse item) ->
+                                item.weaknessRank() == null ? Integer.MAX_VALUE : item.weaknessRank())
+                        .thenComparing(RelatedConceptResponse::conceptName))
+                .limit(MAX_RELATED_PER_TYPE)
+                .toList();
+    }
+
     /** 오개념 코드 → 제목. 파이프라인 코드가 아직 백필되지 않은 행은 빠지고, 화면은 제목 없이 횟수만 쓴다. */
     private Map<String, String> titlesOf(Set<String> codes) {
         if (codes.isEmpty()) {
@@ -591,10 +681,13 @@ public class WeaknessAnalysisService {
                 evidenceLogRepository.findByAnalysisReportId(report.getAnalysisReportId());
         Map<Long, SolveLog> solveLogsById = loadSolveLogs(evidenceLogs);
 
-        List<WeaknessConceptResponse> concepts = conceptRepository
-                .findByReport_AnalysisReportIdOrderBySortOrderAsc(report.getAnalysisReportId())
-                .stream()
-                .map(concept -> toConceptResponse(concept, evidenceLogs, solveLogsById))
+        List<WeaknessAnalysisConcept> savedConcepts = conceptRepository
+                .findByReport_AnalysisReportIdOrderBySortOrderAsc(report.getAnalysisReportId());
+        Map<Long, List<RelatedConceptResponse>> relatedByConceptId = loadRelatedConcepts(
+                savedConcepts.stream().map(WeaknessAnalysisConcept::getConceptId).toList());
+        List<WeaknessConceptResponse> concepts = savedConcepts.stream()
+                .map(concept -> toConceptResponse(concept, evidenceLogs, solveLogsById,
+                        relatedByConceptId.getOrDefault(concept.getConceptId(), List.of())))
                 .toList();
         // 회차 스냅샷에는 제목과 오답 수만 있어서, 전체 문항 수는 원본 회차에서 다시 읽는다.
         // 없으면 화면이 "13/ 오답"처럼 분모가 빈 채로 그려진다.
@@ -632,7 +725,8 @@ public class WeaknessAnalysisService {
     }
 
     private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept,
-            List<WeaknessAnalysisEvidenceLog> evidenceLogs, Map<Long, SolveLog> solveLogsById) {
+            List<WeaknessAnalysisEvidenceLog> evidenceLogs, Map<Long, SolveLog> solveLogsById,
+            List<RelatedConceptResponse> relatedConcepts) {
         List<WeaknessEvidenceLogResponse> evidence = evidenceLogs.stream()
                 .filter(e -> concept.getAnalysisConceptId().equals(e.getAnalysisConceptId()))
                 .map(e -> toEvidenceResponse(e, solveLogsById.get(e.getSolveLogId())))
@@ -663,6 +757,7 @@ public class WeaknessAnalysisService {
                 concept.getLongTimeCount(),
                 concept.getHintUsedCount(),
                 enriched.repeated(),
+                relatedConcepts,
                 // 예전에 만든 분석표는 개념별 수치가 없어(0) 요약을 비운다. 새 분석표는 저장값으로 채운다.
                 concept.getQuestionCount() > 0 ? evidenceSummaryOf(concept) : null,
                 detailedExplanation(profile, fallbackCore),

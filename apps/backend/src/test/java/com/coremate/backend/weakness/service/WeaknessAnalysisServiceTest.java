@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,6 +30,7 @@ import com.coremate.backend.weakness.dto.type.AiAnalysisStatus;
 import com.coremate.backend.weakness.entity.WeaknessAnalysisEvidenceLog;
 import com.coremate.backend.weakness.dto.request.CreateWeaknessAnalysisReportRequest;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
+import com.coremate.backend.weakness.dto.response.RelatedConceptResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessConceptResponse;
 import com.coremate.backend.weakness.dto.type.CauseCode;
 import com.coremate.backend.weakness.dto.response.WeaknessEvidenceLogResponse;
@@ -45,7 +47,10 @@ import com.coremate.backend.weakness.repository.WeaknessAnalysisReportViewLogRep
 import com.coremate.backend.weakness.repository.WeaknessAnalysisSessionRepository;
 import com.coremate.backend.weakness.service.model.WeaknessScoringResult;
 import com.coremate.backend.content.entity.CommonMistake;
+import com.coremate.backend.content.entity.Concept;
+import com.coremate.backend.content.entity.ConceptRelation;
 import com.coremate.backend.content.repository.CommonMistakeRepository;
+import com.coremate.backend.content.repository.ConceptRelationRepository;
 import com.coremate.backend.content.repository.ConceptRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -82,6 +87,7 @@ class WeaknessAnalysisServiceTest {
     @Mock private WeaknessAnalysisReportViewLogRepository reportViewLogRepository;
     @Mock private ConceptRepository contentConceptRepository;
     @Mock private CommonMistakeRepository commonMistakeRepository;
+    @Mock private ConceptRelationRepository conceptRelationRepository;
     @Mock private SolveLogRepository solveLogRepository;
     @Mock private SolveSessionRepository weaknessSolveSessionRepository;
 
@@ -260,6 +266,71 @@ class WeaknessAnalysisServiceTest {
                 .containsExactly("B를 고른 이유", "C를 고른 이유");
         assertThat(concept.evidenceLogs()).extracting(WeaknessEvidenceLogResponse::misconceptionTitle)
                 .containsOnly("완전 이진 트리와 포화 이진 트리를 같게 봄");
+    }
+
+    /**
+     * 개념 관계가 화면에 쓸 수 있는 형태로 응답에 실리는지 본다.
+     * prerequisite 은 방향이 있어 target 쪽 개념에만 붙고, confusing 은 양쪽에 붙는다.
+     */
+    @Test
+    void conceptResponseCarriesPrerequisiteAndConfusingRelations() {
+        when(props.getCoinCost()).thenReturn(100);
+        when(props.getAiModelLabel()).thenReturn("model");
+        when(selectionValidator.validateAndLoad(anyLong(), any()))
+                .thenReturn(List.of(mock(SolveSession.class)));
+
+        ConceptCandidate bigO = new ConceptCandidate(9301L, "빅오 표기법", "핵심",
+                2, 2, 0, 2, 70, new BigDecimal("0.800"), new BigDecimal("0.200"),
+                WeaknessType.CONCEPT_CONFUSION, List.of());
+        ConceptCandidate bigTheta = new ConceptCandidate(9302L, "빅세타 표기법", "핵심",
+                3, 3, 0, 0, 50, new BigDecimal("0.700"), new BigDecimal("0.100"),
+                WeaknessType.CONCEPT_CONFUSION, List.of());
+        when(scoringService.score(any()))
+                .thenReturn(new WeaknessScoringResult(List.of(bigO, bigTheta), 5, 5, 0, 2, true));
+        when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any()))
+                .thenReturn(Optional.empty());
+        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of());
+        when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of(), null));
+
+        // 중첩 stubbing 이 되지 않도록 관계 목을 먼저 만들어 둔다.
+        ConceptRelation prerequisite = relation("prerequisite", concept(9301L, "빅오 표기법"),
+                concept(9302L, "빅세타 표기법"), "빅세타는 상한 개념인 빅오 이해를 바탕으로 더 잘 이해된다.");
+        ConceptRelation confusing = relation("confusing", concept(9302L, "빅세타 표기법"),
+                concept(9401L, "빅오메가 표기법"), "하한과 상하한 경계를 혼동하기 쉽다.");
+        when(conceptRelationRepository.findActiveRelations(any(), any()))
+                .thenReturn(List.of(prerequisite, confusing));
+
+        WeaknessAnalysisReportDetailResponse detail = service.createReport(1L, request());
+
+        assertThat(detail.weaknessConcepts().get(0).relatedConcepts()).isEmpty();
+
+        List<RelatedConceptResponse> related = detail.weaknessConcepts().get(1).relatedConcepts();
+        assertThat(related).extracting(RelatedConceptResponse::relationType)
+                .containsExactly("PREREQUISITE", "CONFUSING");
+        assertThat(related.get(0).conceptName()).isEqualTo("빅오 표기법");
+        // 같은 분석표에서도 약점인 개념은 순위를 함께 준다(화면의 "1순위 약점" 표시용).
+        assertThat(related.get(0).weaknessRank()).isEqualTo(1);
+        assertThat(related.get(1).conceptName()).isEqualTo("빅오메가 표기법");
+        assertThat(related.get(1).weaknessRank()).isNull();
+    }
+
+    private Concept concept(Long id, String name) {
+        Concept concept = mock(Concept.class);
+        when(concept.getConceptId()).thenReturn(id);
+        // 관계의 반대쪽 개념 이름만 응답에 실려서, 한쪽 이름은 안 읽힌다(strict stubs 회피).
+        lenient().when(concept.getConceptName()).thenReturn(name);
+        return concept;
+    }
+
+    private ConceptRelation relation(String type, Concept source, Concept target, String note) {
+        ConceptRelation relation = mock(ConceptRelation.class);
+        when(relation.getRelationType()).thenReturn(type);
+        when(relation.getSourceConcept()).thenReturn(source);
+        when(relation.getTargetConcept()).thenReturn(target);
+        when(relation.getRelationNote()).thenReturn(note);
+        return relation;
     }
 
     private CommonMistake commonMistake(String code, String title) {

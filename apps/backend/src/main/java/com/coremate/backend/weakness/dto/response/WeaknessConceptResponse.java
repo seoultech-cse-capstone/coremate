@@ -61,6 +61,9 @@ public record WeaknessConceptResponse(
         @Schema(description = "두 번 이상 반복된 오개념 목록")
         List<RepeatedMisconceptionResponse> repeatedMisconceptions,
 
+        @Schema(description = "먼저 볼 개념·헷갈리는 개념. concept_relation 에서 오며 없으면 빈 목록")
+        List<RelatedConceptResponse> relatedConcepts,
+
         @Schema(description = "관련 풀이 기록 요약")
         String evidenceSummary,
 
