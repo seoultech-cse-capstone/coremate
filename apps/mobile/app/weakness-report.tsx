@@ -476,11 +476,13 @@ function WeaknessConceptCard({
       {hasCause || concept.causeCode || concept.confusedRelation ? (
         <View style={styles.block}>
           <Text style={styles.blockLabel}>왜 틀렸을까</Text>
+          {/*
+            "2번"만 쓰면 바로 위 「틀린 문제 3개」와 선지 기호 때문에 문제 번호·선지 번호로 읽힌다.
+            카드 맨 윗줄 요약과 같은 "같은 착각 N번"으로 통일한다.
+          */}
           {repeated.map((item) => (
             <View key={item.code} style={styles.misRow}>
-              <Text style={[styles.countPill, item.count >= 2 && styles.countPillHot]}>
-                {item.count}번
-              </Text>
+              <Text style={styles.countPill}>같은 착각 {item.count}번</Text>
               <Text style={styles.misText}>{item.title ?? "확인되지 않은 오개념"}</Text>
             </View>
           ))}
@@ -938,9 +940,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 3,
   },
+  // 백엔드가 2회 이상만 내려주므로(enrichEvidence 의 count >= 2 필터) 색 분기가 따로 없다.
   countPill: {
-    color: "#64748b",
-    backgroundColor: "#F1F2F5",
+    color: "#dc2626",
+    backgroundColor: "#FEF2F2",
     fontFamily: FONT.pretendard,
     fontSize: 11,
     fontWeight: "800",
@@ -948,10 +951,6 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 5,
     overflow: "hidden",
-  },
-  countPillHot: {
-    color: "#dc2626",
-    backgroundColor: "#FEF2F2",
   },
   misText: {
     flex: 1,
