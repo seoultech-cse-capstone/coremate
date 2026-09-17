@@ -8,6 +8,13 @@ import type {
   WeaknessAnalysisReportSummary,
 } from "./types";
 
+/**
+ * 분석표 생성 응답을 기다릴 시간. 백엔드는 AI 응답을 최대 120초(`weakness.analysis.ai-timeout-sec`)
+ * 기다리므로, 앱이 그보다 먼저 끊으면 서버는 계속 분석해 코인까지 쓰는데 화면에는 실패로만
+ * 보인다. 백엔드가 포기하는 시점 뒤에 두려고 120초에 여유를 더했다.
+ */
+const CREATE_REPORT_TIMEOUT_MS = 150_000;
+
 export type EligibleSolveSessionFilters = {
   subjectId?: number;
   categoryLv1Id?: number;
@@ -67,7 +74,11 @@ export const weaknessApi = {
       .post<ApiEnvelope<WeaknessAnalysisReportDetail>>(
         "/api/v1/weakness/reports",
         request,
-        { accessToken, headers: { "Idempotency-Key": idempotencyKey } },
+        {
+          accessToken,
+          headers: { "Idempotency-Key": idempotencyKey },
+          timeoutMs: CREATE_REPORT_TIMEOUT_MS,
+        },
       )
       .then((res) => res.data);
   },
