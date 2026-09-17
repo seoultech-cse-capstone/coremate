@@ -3,6 +3,12 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type RequestOptions = {
   headers?: Record<string, string>;
   accessToken?: string;
+  /**
+   * 응답을 기다릴 최대 시간(ms). 주지 않으면 플랫폼 기본값을 그대로 쓴다(iOS는 60초).
+   * 서버가 60초보다 오래 걸릴 수 있는 요청에만 붙인다 — 앱이 먼저 끊으면 서버는 계속
+   * 처리하는데(코인 차감 같은 부수효과까지 끝난다) 화면에는 실패로만 보인다.
+   */
+  timeoutMs?: number;
 };
 
 type BodyRequestOptions = RequestOptions & {
@@ -134,42 +140,58 @@ async function request<TResponse>(
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
+  // 타임아웃을 지정한 요청에만 중단 신호를 단다. 타이머는 응답 본문까지 다 읽은 뒤에
+  // 푼다 — 그 전에 풀면 본문을 읽는 동안은 무제한으로 기다리게 된다.
+  const controller = options.timeoutMs === undefined ? null : new AbortController();
+  const timeoutId = controller
+    ? setTimeout(() => controller.abort(), options.timeoutMs)
+    : null;
 
-  const data = await parseJson(response);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: controller?.signal,
+    });
 
-  if (response.status === 401 && options.accessToken && !isRetry) {
-    // 재발급을 시도하기 "전에" 사유를 본다. 해지된 세션으로 재발급을 부르면 어차피
-    // 같은 이유로 거절당하는 요청을 한 번 더 보내는 셈이고, 사용자에게 띄울 사유도
-    // 잃어버린다.
-    const revokedCode = toRevokedCode(data);
-    if (revokedCode) {
-      await authHandlers?.onSessionRevoked(revokedCode);
+    const data = await parseJson(response);
+
+    if (response.status === 401 && options.accessToken && !isRetry) {
+      // 재발급을 시도하기 "전에" 사유를 본다. 해지된 세션으로 재발급을 부르면 어차피
+      // 같은 이유로 거절당하는 요청을 한 번 더 보내는 셈이고, 사용자에게 띄울 사유도
+      // 잃어버린다.
+      const revokedCode = toRevokedCode(data);
+      if (revokedCode) {
+        await authHandlers?.onSessionRevoked(revokedCode);
+        throw new HttpError(response.status, data);
+      }
+
+      // 세션이 끝난 건 맞지만 사용자가 이유를 아는 경우. 조용히 로그아웃만 한다.
+      if (readErrorCode(data) === SESSION_EXPIRED_CODE) {
+        await authHandlers?.onRefreshFailed();
+        throw new HttpError(response.status, data);
+      }
+
+      // code가 없는 401 = 단순 만료. 지금까지와 동일하게 조용히 재발급한다.
+      // 재시도는 자기 타이머를 새로 단다. 여기서 반환하면 아래 finally가 바로 돌아
+      // 이번 요청의 타이머는 풀린다.
+      const newAccessToken = await refreshAccessToken();
+      if (newAccessToken) {
+        return request<TResponse>(method, path, { ...options, accessToken: newAccessToken }, true);
+      }
+    }
+
+    if (!response.ok) {
       throw new HttpError(response.status, data);
     }
 
-    // 세션이 끝난 건 맞지만 사용자가 이유를 아는 경우. 조용히 로그아웃만 한다.
-    if (readErrorCode(data) === SESSION_EXPIRED_CODE) {
-      await authHandlers?.onRefreshFailed();
-      throw new HttpError(response.status, data);
-    }
-
-    // code가 없는 401 = 단순 만료. 지금까지와 동일하게 조용히 재발급한다.
-    const newAccessToken = await refreshAccessToken();
-    if (newAccessToken) {
-      return request<TResponse>(method, path, { ...options, accessToken: newAccessToken }, true);
+    return data as TResponse;
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
     }
   }
-
-  if (!response.ok) {
-    throw new HttpError(response.status, data);
-  }
-
-  return data as TResponse;
 }
 
 async function parseJson(response: Response): Promise<unknown> {
