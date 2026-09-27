@@ -1,0 +1,19 @@
+# AWS(ECS) 배포 환경 프로필. 태스크 정의가 SPRING_PROFILES_ACTIVE=dev 로 켠다.
+#
+# 여기에는 "로컬과 달라야 하는 동작"만 둔다. 접속 정보와 시크릿(DB 주소·비밀번호, JWT, 메일,
+# Firebase, 구글 클라이언트 ID)은 전부 ECS 태스크 정의가 Parameter Store 에서 꺼내 환경변수로
+# 주입한다 — infra/aws/ecs-task-definition.json 참고.
+spring:
+  jpa:
+    # 로컬 편의로 켜 둔 SQL 로그를 끈다. 요청마다 수십 줄씩 CloudWatch 로 흘러가 로그 요금만 늘린다.
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Swagger 는 인증 없이 열려 있어(SecurityConfig permitAll) 배포 환경에서는 문서와 UI 를 모두 끈다.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

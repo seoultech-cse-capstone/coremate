@@ -30,6 +30,7 @@ spring:
 # main 에 기본값이 생기면 조용히 실제 발송으로 바뀌므로 명시해 둔다.
 firebase:
   credentials-path:
+  credentials-json:
 
 jwt:
   secret: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
