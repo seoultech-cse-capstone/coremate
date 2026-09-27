@@ -1,0 +1,237 @@
+subject_code: DATABASE
+db_subject_code: DB
+subject_name: 데이터베이스
+subject_name_en: Databases
+
+taxonomy_rules:
+  category_lv1_count: "5~7"
+  category_lv2_per_lv1: "2~6"
+  concepts_per_lv2: "3~10"
+
+taxonomy_scope:
+  scope_summary: "데이터베이스 과목은 데이터 모델링, 관계형 모델, SQL, 정규화, 인덱스와 질의 처리, 트랜잭션, 동시성 제어, 회복, 데이터베이스 운영 기초를 중심으로 구성한다."
+
+  include_topics:
+    - 데이터베이스 개요
+    - DBMS
+    - 데이터 독립성
+    - 스키마
+    - 인스턴스
+    - 3단계 스키마 구조
+    - 데이터 모델
+    - 개체 관계 모델
+    - ERD
+    - 엔티티
+    - 속성
+    - 관계
+    - 카디널리티
+    - 식별 관계
+    - 비식별 관계
+    - 관계형 모델
+    - 릴레이션
+    - 튜플
+    - 속성 도메인
+    - 후보키
+    - 기본키
+    - 외래키
+    - 슈퍼키
+    - 무결성 제약조건
+    - 참조 무결성
+    - 관계 대수
+    - 선택 연산
+    - 프로젝트 연산
+    - 조인 연산
+    - 집합 연산
+    - SQL
+    - DDL
+    - DML
+    - DCL
+    - SELECT
+    - JOIN
+    - GROUP BY
+    - HAVING
+    - 서브쿼리
+    - 뷰
+    - 인덱스
+    - B+트리 인덱스
+    - 해시 인덱스
+    - 클러스터드 인덱스
+    - 논클러스터드 인덱스
+    - 질의 처리
+    - 질의 최적화
+    - 실행 계획
+    - 정규화
+    - 함수 종속
+    - 부분 함수 종속
+    - 이행 함수 종속
+    - 제1정규형
+    - 제2정규형
+    - 제3정규형
+    - BCNF
+    - 반정규화
+    - 트랜잭션
+    - ACID
+    - 직렬 가능성
+    - 동시성 제어
+    - 잠금
+    - 2단계 잠금
+    - 교착 상태
+    - 격리 수준
+    - 회복
+    - 로그 기반 회복
+    - 체크포인트
+    - NoSQL 기초
+    - CAP 정리
+
+  exclude_topics:
+    - 배열
+    - 연결 리스트
+    - 스택
+    - 큐
+    - 해시 테이블 구현
+    - 이진 탐색 트리 구조
+    - AVL 트리
+    - 레드 블랙 트리
+    - 그래프 탐색
+    - DFS
+    - BFS
+    - 다익스트라 알고리즘
+    - 동적 계획법
+    - 그리디 알고리즘
+    - 운영체제 프로세스
+    - 운영체제 스레드
+    - CPU 스케줄링
+    - 가상 메모리
+    - 페이지 교체 알고리즘
+    - 파일시스템 구현
+    - TCP
+    - UDP
+    - IP
+    - HTTP
+    - DNS
+    - 네트워크 라우팅
+    - CPU 파이프라인
+    - 캐시 메모리 하드웨어
+    - 명령어 집합 구조
+    - 논리 게이트
+    - 조합 논리 회로
+    - 순차 논리 회로
+    - Spring Data JPA 사용법
+    - ORM 프레임워크 사용법
+    - MySQL 설치 및 콘솔 명령어
+    - 특정 클라우드 DB 서비스 운영
+
+  overlap_policy: "자료구조 과목에서 더 중심적으로 다루는 트리·해시 자료구조의 일반 구현은 데이터베이스 taxonomy에 넣지 않는다. 데이터베이스에서는 B+트리·해시가 인덱스와 질의 성능 맥락에서 사용되는 개념만 다룬다. 운영체제의 파일시스템·메모리 관리, 네트워크의 통신 프로토콜, 백엔드 프레임워크 사용법은 제외한다."
+
+  duplicate_policy: "같은 concept_name 또는 같은 의미의 concept는 taxonomy 전체에서 한 번만 등장시킨다. SQL 문법과 관계 대수처럼 연결되는 개념도 각 개념의 주된 학습 위치를 하나로 정한다."
+
+  concept_granularity_policy: "하위 concept는 데이터베이스 문제 생성 기준이 될 수 있을 정도로 작아야 하지만, 특정 DBMS 명령어나 제품별 옵션 하나만 과도하게 쪼개는 것은 피한다. 정의, 비교, 오해, 예시, 적용 문제를 만들 수 있는 모델링·질의·정규화·트랜잭션 개념 단위를 우선한다."
+
+concept_rules:
+  one_line_definition: "한 문장"
+  core_summary: "2~4문장"
+  core_keywords: "3~5개"
+  key_properties: "3~6개"
+
+  review_status_default: draft
+  is_active_default: false
+  version_no_default: 1
+
+source_policy:
+  raw_pdf_storage: "전공서적 PDF 원문은 data/raw/{SUBJECT_CODE}/에만 로컬 보관하고 GitHub와 서비스 DB에는 저장하지 않는다."
+  concept_generation_policy: "PDF 원문을 그대로 복사하지 않고, source_chunks를 근거로 공통 조사 템플릿에 맞게 재구성한다."
+  source_refs_policy: "개념과 문제에는 출처 확인용 source_refs 메타데이터를 남긴다."
+  insufficient_source_policy: "관련 source_chunks가 부족한 개념은 insufficient_source를 true로 표시하고 사람 검수 대상으로 둔다."
+
+relation_rules:
+  allowed_relation_types:
+    - related
+    - confusing
+    - prerequisite
+
+  prerequisite_direction: "source_concept_code는 먼저 알아야 하는 개념, target_concept_code는 이후에 배우는 개념으로 둔다."
+  bidirectional_policy: "related와 confusing은 의미상 양방향 관계다. 테스트 JSON에서는 한 방향만 저장할 수 있고, DB 저장 시 양방향 row 저장 또는 조회 시 양방향 검색 방식 중 하나를 선택한다."
+
+common_mistake_rules:
+  mistakes_per_concept: "2~4"
+  mistake_code_pattern: "{concept_code}_M{index}"
+  correction_text_usage: "correction_text는 문제 풀이 중 물음표 힌트 원문으로 재사용한다."
+  correction_text_policy: "정답을 직접 알려주기보다, 사용자가 어떤 데이터베이스 개념이나 제약 조건 차이를 구분해야 하는지 방향을 잡아주는 1~2문장으로 작성한다."
+
+  review_status_default: draft
+  is_active_default: false
+
+question_rules:
+  question_format: MCQ_4
+  questions_per_concept: 7
+
+  # 개념당 만들 난이도 구성. 기존 문항의 난이도를 뺀 나머지를 그 회차에 요청한다.
+  # 기존 생성분이 난이도 1~3에 몰려 있어 4~5를 명시적으로 배분한다.
+  difficulty_mix:
+    - 1
+    - 2
+    - 2
+    - 3
+    - 3
+    - 4
+    - 5
+
+  choice_key_type: key
+  answer_keys:
+    - A
+    - B
+    - C
+    - D
+
+  difficulty_levels:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+
+  difficulty_source_default: ai_initial
+
+  question_types:
+    - definition
+    - comparison
+    - misconception
+    - example
+    - application
+
+  hint_policy:
+    use_hint_mistake_code: true
+    hint_field_name: hint_mistake_code
+    correction_snapshot_field_name: hint_correction_text_snapshot
+    no_hint_value: null
+
+  source_type_default: ai_generated
+  review_status_default: draft
+  is_active_default: false
+  version_no_default: 1
+
+  eligibility_defaults:
+    is_daily_quiz_eligible: true
+    is_mock_eligible: true
+    is_concept_practice_eligible: true
+
+  content_hash:
+    enabled: true
+    algorithm: sha256
+    purpose: "문제 중복 생성 방지"
+
+review_rules:
+  ai_review_verdicts:
+    - pass
+    - revise
+    - reject
+
+  human_review_statuses:
+    - draft
+    - reviewed
+    - approved
+    - rejected
+    - archived
+
+  review_policy: "AI review는 자동 품질 점검 결과일 뿐이며, 사람이 최종 승인하기 전까지 question의 review_status는 draft로 둔다."
+

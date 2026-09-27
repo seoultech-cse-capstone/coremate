@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any
 
 from dotenv import load_dotenv
@@ -29,6 +30,9 @@ elif AI_PROVIDER == "gemini":
     EMBEDDING_MODEL = GEMINI_EMBEDDING_MODEL
 else:
     raise RuntimeError("AI_PROVIDER는 openai 또는 gemini여야 합니다.")
+
+MAX_RETRIES = 4
+RETRY_BASE_SLEEP_SEC = 2
 
 _openai_client: OpenAI | None = None
 _gemini_client: Any | None = None
@@ -75,7 +79,7 @@ def _call_openai_json(
     schema: dict[str, Any],
     model: str | None,
     reasoning_effort: str,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     selected_model = _require_model(model or DEFAULT_MODEL, "OPENAI_MODEL")
 
     response = _get_openai_client().responses.create(
@@ -95,7 +99,18 @@ def _call_openai_json(
         },
     )
 
-    return json.loads(response.output_text)
+    usage = getattr(response, "usage", None)
+    input_details = getattr(usage, "input_tokens_details", None)
+    output_details = getattr(usage, "output_tokens_details", None)
+    meta = {
+        "model": getattr(response, "model", None) or selected_model,
+        "input_tokens": getattr(usage, "input_tokens", None),
+        "cached_tokens": getattr(input_details, "cached_tokens", None),
+        "output_tokens": getattr(usage, "output_tokens", None),
+        "reasoning_tokens": getattr(output_details, "reasoning_tokens", None),
+    }
+
+    return json.loads(response.output_text), meta
 
 
 def _call_gemini_json(
@@ -104,7 +119,7 @@ def _call_gemini_json(
     user_prompt: str,
     schema: dict[str, Any],
     model: str | None,
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     selected_model = _require_model(model or DEFAULT_MODEL, "GEMINI_MODEL")
 
     response = _get_gemini_client().models.generate_content(
@@ -120,7 +135,16 @@ def _call_gemini_json(
     if not response.text:
         raise RuntimeError("Gemini 응답이 비어 있습니다.")
 
-    return json.loads(response.text)
+    usage = getattr(response, "usage_metadata", None)
+    meta = {
+        "model": selected_model,
+        "input_tokens": getattr(usage, "prompt_token_count", None),
+        "cached_tokens": getattr(usage, "cached_content_token_count", None),
+        "output_tokens": getattr(usage, "candidates_token_count", None),
+        "reasoning_tokens": getattr(usage, "thoughts_token_count", None),
+    }
+
+    return json.loads(response.text), meta
 
 
 def call_ai_json(
@@ -132,25 +156,65 @@ def call_ai_json(
     model: str | None = None,
     reasoning_effort: str = "low",
 ) -> dict[str, Any]:
-    if AI_PROVIDER == "openai":
-        return _call_openai_json(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema_name=schema_name,
-            schema=schema,
-            model=model,
-            reasoning_effort=reasoning_effort,
-        )
+    """호출 결과 JSON만 필요한 배치 스크립트용. 호출 메타데이터는 버린다."""
+    payload, _ = call_ai_json_with_meta(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        schema_name=schema_name,
+        schema=schema,
+        model=model,
+        reasoning_effort=reasoning_effort,
+    )
+    return payload
 
-    if AI_PROVIDER == "gemini":
-        return _call_gemini_json(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            schema=schema,
-            model=model,
-        )
 
-    raise RuntimeError("AI_PROVIDER는 openai 또는 gemini여야 합니다.")
+def call_ai_json_with_meta(
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    schema_name: str,
+    schema: dict[str, Any],
+    model: str | None = None,
+    reasoning_effort: str = "low",
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """결과 JSON과 함께 실제 사용된 모델명·토큰 사용량을 돌려준다.
+
+    런타임 호출(약점분석)은 어느 모델로 얼마를 썼는지 로그에 남겨야 해서 이쪽을 쓴다.
+    meta 의 토큰 값은 프로바이더가 안 주면 None 이다.
+    """
+    # 수백~수천 회를 도는 루프라 일시적인 429/5xx 한 번에 실행 전체가 죽지 않도록 재시도한다.
+    last_error: Exception | None = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            if AI_PROVIDER == "openai":
+                return _call_openai_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    schema_name=schema_name,
+                    schema=schema,
+                    model=model,
+                    reasoning_effort=reasoning_effort,
+                )
+
+            if AI_PROVIDER == "gemini":
+                return _call_gemini_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    schema=schema,
+                    model=model,
+                )
+
+            raise RuntimeError("AI_PROVIDER는 openai 또는 gemini여야 합니다.")
+        except (RuntimeError, json.JSONDecodeError) as error:
+            raise
+        except Exception as error:  # API 호출 실패(네트워크/레이트리밋/일시 오류)
+            last_error = error
+            if attempt == MAX_RETRIES - 1:
+                break
+            time.sleep(RETRY_BASE_SLEEP_SEC * (2 ** attempt))
+
+    raise RuntimeError(f"AI 호출이 {MAX_RETRIES}회 모두 실패했습니다: {last_error}") from last_error
 
 
 def create_embedding(text: str) -> list[float]:

@@ -4,33 +4,76 @@ subject_name: 자료구조
 subject_name_en: Data Structures
 
 taxonomy_rules:
-  category_lv1_count: "4~7"
+  category_lv1_count: "5~7"
   category_lv2_per_lv1: "2~6"
   concepts_per_lv2: "3~10"
 
 taxonomy_scope:
-  scope_summary: "자료구조 과목은 자료를 저장하고 조직하는 구조, 표현 방식, 기본 연산, 자료구조의 성질을 중심으로 구성한다."
+  scope_summary: "자료구조 과목은 데이터를 저장하고 조직하는 추상 자료형, 선형 자료구조, 트리, 해시, 그래프 표현, 자료구조별 연산 성질과 복잡도를 중심으로 구성한다."
 
   include_topics:
+    - 자료구조 개요
     - 추상 자료형
+    - 자료형과 자료구조의 차이
     - 시간 복잡도
     - 공간 복잡도
     - 점근 표기법
+    - 최선 평균 최악 경우
     - 배열
+    - 동적 배열
+    - 인덱스 접근
+    - 순차 저장 구조
     - 연결 리스트
+    - 단일 연결 리스트
+    - 이중 연결 리스트
+    - 원형 연결 리스트
+    - 노드
+    - 포인터 연결
     - 스택
+    - LIFO
     - 큐
+    - FIFO
+    - 원형 큐
     - 덱
+    - 우선순위 큐
     - 트리
+    - 트리 용어
+    - 루트
+    - 부모 자식 관계
+    - 높이
+    - 깊이
+    - 차수
     - 이진 트리
     - 포화 이진 트리
     - 완전 이진 트리
+    - 균형 트리
     - 이진 탐색 트리
     - AVL 트리
+    - 레드 블랙 트리
     - 힙
+    - 최소 힙
+    - 최대 힙
+    - 힙 삽입
+    - 힙 삭제
     - 해시 테이블
+    - 해시 함수
+    - 해시 충돌
+    - 체이닝
+    - 개방 주소법
+    - 선형 조사
+    - 이차 조사
+    - 이중 해싱
+    - 적재율
     - 그래프 기본
+    - 정점
+    - 간선
+    - 방향 그래프
+    - 무방향 그래프
+    - 가중 그래프
+    - 인접 행렬
+    - 인접 리스트
     - 그래프 표현
+    - 그래프 순회 개념
     - DFS
     - BFS
 
@@ -44,20 +87,50 @@ taxonomy_scope:
     - 계수 정렬
     - 기수 정렬
     - 버킷 정렬
+    - 정렬 안정성
+    - 분할 정복
+    - 동적 계획법
+    - 그리디 알고리즘
+    - 백트래킹
     - 최단 경로
     - 다익스트라 알고리즘
     - 벨만-포드 알고리즘
+    - 플로이드-워셜 알고리즘
     - 최소 신장 트리
     - 프림 알고리즘
     - 크루스칼 알고리즘
     - 위상 정렬
-    - 분할 정복
+    - 문자열 매칭 알고리즘
+    - KMP 알고리즘
+    - 라빈-카프 알고리즘
+    - 운영체제 프로세스
+    - 운영체제 스레드
+    - 가상 메모리
+    - 페이지 교체
+    - 데이터베이스 트랜잭션
+    - SQL
+    - 정규화
+    - 데이터베이스 인덱스 설계
+    - B+트리 인덱스
+    - 네트워크 프로토콜
+    - TCP
+    - UDP
+    - IP
+    - CPU 파이프라인
+    - 캐시 메모리 하드웨어
+    - 명령어 집합 구조
+    - 논리 게이트
+    - 조합 논리 회로
+    - 순차 논리 회로
+    - Java Collection Framework 사용법
+    - Python list 구현 세부 사용법
+    - 특정 언어 API 사용법
 
-  overlap_policy: "알고리즘 과목에서 더 중심적으로 다루는 개념은 자료구조 taxonomy에 넣지 않는다."
+  overlap_policy: "알고리즘 과목에서 더 중심적으로 다루는 정렬·탐색 알고리즘 설계, 그래프 최단 경로·최소 신장 트리·동적 계획법·그리디는 자료구조 taxonomy에 넣지 않는다. 데이터베이스 과목에서 인덱스 설계 맥락으로 다루는 B+트리와 해시 인덱스, 운영체제 과목의 메모리 관리, 컴퓨터구조 과목의 캐시 하드웨어는 제외한다."
 
-  duplicate_policy: "같은 concept_name 또는 같은 의미의 concept는 taxonomy 전체에서 한 번만 등장시킨다."
+  duplicate_policy: "같은 concept_name 또는 같은 의미의 concept는 taxonomy 전체에서 한 번만 등장시킨다. 선형 구조, 트리, 그래프처럼 여러 장에서 다시 등장하는 기초 개념도 중복 배치하지 않는다."
 
-  concept_granularity_policy: "하위 concept는 문제 생성 기준이 될 수 있을 정도로 작아야 하지만, 단순 연산 하나만 과도하게 쪼개지는 것은 피한다."
+  concept_granularity_policy: "하위 concept는 자료구조 문제 생성 기준이 될 수 있을 정도로 작아야 하지만, 단순 메서드 이름이나 특정 언어 문법 하나만 과도하게 쪼개는 것은 피한다. 정의, 비교, 오해, 예시, 적용 문제를 만들 수 있는 자료구조 성질과 연산 단위를 우선한다."
 
 concept_rules:
   one_line_definition: "한 문장"
@@ -88,14 +161,25 @@ common_mistake_rules:
   mistakes_per_concept: "2~4"
   mistake_code_pattern: "{concept_code}_M{index}"
   correction_text_usage: "correction_text는 문제 풀이 중 물음표 힌트 원문으로 재사용한다."
-  correction_text_policy: "정답을 직접 알려주기보다, 사용자가 어떤 개념을 구분해야 하는지 방향을 잡아주는 1~2문장으로 작성한다."
+  correction_text_policy: "정답을 직접 알려주기보다, 사용자가 어떤 자료구조 성질이나 연산 차이를 구분해야 하는지 방향을 잡아주는 1~2문장으로 작성한다."
 
   review_status_default: draft
   is_active_default: false
 
 question_rules:
   question_format: MCQ_4
-  questions_per_concept: 2
+  questions_per_concept: 7
+
+  # 개념당 만들 난이도 구성. 기존 문항의 난이도를 뺀 나머지를 그 회차에 요청한다.
+  # 기존 생성분이 난이도 1~3에 몰려 있어 4~5를 명시적으로 배분한다.
+  difficulty_mix:
+    - 1
+    - 2
+    - 2
+    - 3
+    - 3
+    - 4
+    - 5
 
   choice_key_type: key
   answer_keys:

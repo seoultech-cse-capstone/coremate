@@ -1,3 +1,104 @@
 spring:
   application:
     name: backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/coremate?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: coremate
+    # 호스트에서 직접 실행(bootRun)할 때도 infra/.env 의 값을 그대로 쓰도록 환경변수 참조.
+    # (Docker 로 띄우는 백엔드는 compose 가 SPRING_DATASOURCE_PASSWORD 로 주입)
+    password: ${MYSQL_PASSWORD:coremate}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+    open-in-view: false
+    # 시드 SQL(spring.sql.init)을 Hibernate 가 테이블을 만든 "뒤에" 실행시킨다.
+    # 기본값(false)이면 테이블이 없는 상태에서 INSERT 가 돌아 실패한다.
+    defer-datasource-initialization: true
+
+  sql:
+    init:
+      # 정책 시드. 서비스 동작에 필요한 데이터이므로 매 기동마다 적용한다.
+      # 모든 파일은 멱등(ON DUPLICATE KEY UPDATE)해야 한다 — db/seed/README.md 참고.
+      mode: always
+      # 번호가 곧 FK 순서다. 03 avatar_items -> 04 random_boxes -> 05 shop_products -> 06 random_box_items.
+      # 03~06 은 아직 주석만 있는 빈 파일이다. 지금 다 등록해 두면 내용을 채울 때 이 줄을 안 건드린다.
+      data-locations: classpath:db/seed/01_reward_policies.sql,classpath:db/seed/02_paid_products.sql,classpath:db/seed/03_avatar_items.sql,classpath:db/seed/04_random_boxes.sql,classpath:db/seed/05_shop_products.sql,classpath:db/seed/06_random_box_items.sql
+      encoding: UTF-8
+      # 시드 실패로 앱 기동이 막히지 않게 하되, 실패는 로그로 남는다.
+      continue-on-error: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+firebase:
+  # FCM 발송용 서비스 계정 JSON 경로. git 미추적이라 없는 환경이 있을 수 있고,
+  # 그 경우 알림만 빠진 채로 기동한다(FirebaseConfig 참고).
+  # 기본값은 호스트에서 bootRun 할 때 기준. Docker 는 compose 가 절대경로로 주입한다.
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:secrets/firebase-service-account.json}
+  # 서비스 계정 JSON 내용 자체. 파일을 둘 수 없는 배포 환경(ECS)에서 시크릿으로 주입하며,
+  # 값이 있으면 credentials-path 보다 우선한다. 로컬은 비워 두고 위 파일 경로를 쓴다.
+  credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
+
+oauth:
+  google:
+    # 구글 로그인 idToken 의 aud(수신자) 검증에 쓰는 웹 클라이언트 ID. 공개값이라 시크릿은 아니다.
+    # 프론트 GoogleSignin 의 webClientId 와 같은 값이어야 하며, 없으면 구글 로그인만 실패한다.
+    client-id: ${GOOGLE_CLIENT_ID:}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiry-sec: 3600      # 1시간
+  refresh-token-expiry-sec: 604800   # 7일
+
+password-reset:
+  code-ttl-sec: 300           # 인증번호 유효시간 5분
+  token-ttl-sec: 600          # 재설정 토큰 유효시간 10분
+  resend-cooldown-sec: 60     # 재발송 쿨다운 60초
+  code-length: 6              # 인증번호 자릿수
+  max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
+
+signup-email:
+  code-ttl-sec: 300           # 인증번호 유효시간 5분
+  verified-ttl-sec: 1800      # 인증 완료 상태 유효시간 30분(이 안에 회원가입 완료해야 함)
+  resend-cooldown-sec: 60     # 재발송 쿨다운 60초
+  code-length: 6              # 인증번호 자릿수
+  max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
+
+weakness:
+  analysis:
+    # AI 서버(Python ai-pipeline) 주소. 기본값 localhost 는 호스트에서 bootRun 할 때 기준이고,
+    # 백엔드가 컨테이너 안에서 돌 때는 그 localhost 가 컨테이너 자신이라 절대 닿지 않는다.
+    # Docker 는 compose 가 host.docker.internal 로 덮어쓴다.
+    ai-server-base-url: ${WEAKNESS_ANALYSIS_AI_SERVER_BASE_URL:http://localhost:8000}
+    # 약점 후보로 채택할 최소 약점 점수.
+    #
+    # 점수 = 100 * (0.5*오답률 + 0.3*롱타임률 + 0.2*힌트률) 인데, 롱타임은 "맞췄지만 오래 걸린"
+    # 문제만 세므로 오답률과 롱타임률이 한 문항에서 동시에 오를 수 없다. 그래서 개념의 문제를
+    # 전부 틀려도 50점, 힌트까지 다 써야 70점이 상한이다. 기본값 60 은 사실상 도달하지 못해
+    # 실제 풀이로는 후보가 한 번도 잡히지 않았다(20문항·13오답·힌트4 회차에서 최고 58점).
+    #
+    # 40 이면 "개념 문제의 대부분(80% 이상)을 틀림"이 후보로 잡히고, 절반만 틀린 개념은 걸러진다.
+    # 근거 충분도(min-evidence-strength)가 두 번째 관문으로 남아 있어 문항 수가 적은 개념은
+    # 점수가 높아도 통과하지 못한다.
+    min-weakness-score: 40

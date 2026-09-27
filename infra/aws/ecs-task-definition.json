@@ -1,0 +1,85 @@
+{
+  "family": "coremate-dev-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "2048",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "executionRoleArn": "arn:aws:iam::334478199632:role/coremate-dev-ecs-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::334478199632:role/coremate-dev-backend-task-role",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "334478199632.dkr.ecr.ap-northeast-2.amazonaws.com/coremate-dev-backend:bootstrap",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8080, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "SPRING_PROFILES_ACTIVE", "value": "dev" },
+        { "name": "SPRING_DATASOURCE_USERNAME", "value": "coremate_admin" },
+        { "name": "SPRING_DATA_REDIS_HOST", "value": "localhost" },
+        { "name": "WEAKNESS_ANALYSIS_AI_SERVER_BASE_URL", "value": "http://localhost:8000" },
+        { "name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=50" }
+      ],
+      "secrets": [
+        { "name": "SPRING_DATASOURCE_URL", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/db/url" },
+        { "name": "SPRING_DATASOURCE_PASSWORD", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/db/password" },
+        { "name": "JWT_SECRET", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/jwt-secret" },
+        { "name": "GOOGLE_CLIENT_ID", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/google-client-id" },
+        { "name": "MAIL_USERNAME", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-username" },
+        { "name": "MAIL_PASSWORD", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-password" },
+        { "name": "FIREBASE_CREDENTIALS_JSON", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/firebase-credentials-json" }
+      ],
+      "dependsOn": [
+        { "containerName": "redis", "condition": "START" },
+        { "containerName": "ai-server", "condition": "START" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/coremate-dev-backend",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "backend"
+        }
+      }
+    },
+    {
+      "name": "ai-server",
+      "image": "334478199632.dkr.ecr.ap-northeast-2.amazonaws.com/coremate-dev-ai-server:bootstrap",
+      "essential": true,
+      "environment": [
+        { "name": "AI_PROVIDER", "value": "openai" },
+        { "name": "OPENAI_MODEL", "value": "gpt-5.4" }
+      ],
+      "secrets": [
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/ai/openai-api-key" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/coremate-dev-backend",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "ai-server"
+        }
+      }
+    },
+    {
+      "name": "redis",
+      "image": "public.ecr.aws/docker/library/redis:7.2-alpine",
+      "essential": true,
+      "command": ["redis-server", "--bind", "127.0.0.1", "--save", "", "--appendonly", "no"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/coremate-dev-backend",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "redis"
+        }
+      }
+    }
+  ]
+}

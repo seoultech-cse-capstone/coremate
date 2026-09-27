@@ -1,0 +1,118 @@
+import { httpClient } from "../../shared/api/httpClient";
+import type {
+  ApiEnvelope,
+  CreateWeaknessAnalysisReportRequest,
+  EligibleSolveSession,
+  WeaknessAnalysisCost,
+  WeaknessAnalysisReportDetail,
+  WeaknessAnalysisReportSummary,
+} from "./types";
+
+/**
+ * 분석표 생성 응답을 기다릴 시간. 백엔드는 AI 응답을 최대 120초(`weakness.analysis.ai-timeout-sec`)
+ * 기다리므로, 앱이 그보다 먼저 끊으면 서버는 계속 분석해 코인까지 쓰는데 화면에는 실패로만
+ * 보인다. 백엔드가 포기하는 시점 뒤에 두려고 120초에 여유를 더했다.
+ */
+const CREATE_REPORT_TIMEOUT_MS = 150_000;
+
+export type EligibleSolveSessionFilters = {
+  subjectId?: number;
+  categoryLv1Id?: number;
+  categoryLv2Id?: number;
+  conceptId?: number;
+};
+
+/**
+ * 사용자 약점 분석 REST 호출. 전부 회원 전용.
+ */
+export const weaknessApi = {
+  getEligibleSessions(
+    accessToken: string,
+    filters: EligibleSolveSessionFilters = {},
+  ): Promise<EligibleSolveSession[]> {
+    const params = new URLSearchParams();
+    if (filters.subjectId !== undefined) {
+      params.set("subjectId", String(filters.subjectId));
+    }
+    if (filters.categoryLv1Id !== undefined) {
+      params.set("categoryLv1Id", String(filters.categoryLv1Id));
+    }
+    if (filters.categoryLv2Id !== undefined) {
+      params.set("categoryLv2Id", String(filters.categoryLv2Id));
+    }
+    if (filters.conceptId !== undefined) {
+      params.set("conceptId", String(filters.conceptId));
+    }
+    const query = params.toString();
+
+    return httpClient
+      .get<ApiEnvelope<EligibleSolveSession[]>>(
+        `/api/v1/weakness/eligible-solve-sessions${query ? `?${query}` : ""}`,
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+
+  // 생성 확인 화면(SCR-WEAK-03)의 "필요한 코인". 생성 요청과 같은 정책을 읽으므로 실제 차감액과 같다.
+  getAnalysisCost(accessToken: string): Promise<WeaknessAnalysisCost> {
+    return httpClient
+      .get<ApiEnvelope<WeaknessAnalysisCost>>("/api/v1/weakness/analysis-cost", {
+        accessToken,
+      })
+      .then((res) => res.data);
+  },
+
+  // 동기 호출: AI 해석까지 끝난 뒤 완성된 분석표를 응답으로 받는다(시간이 걸릴 수 있음).
+  // 코인이 차감되는 요청이라 서버가 Idempotency-Key 헤더를 필수로 요구한다. 헤더가 없으면
+  // IDEMPOTENCY_KEY_REQUIRED 로 거절당해 생성 자체가 안 된다.
+  createReport(
+    request: CreateWeaknessAnalysisReportRequest,
+    accessToken: string,
+    idempotencyKey: string,
+  ): Promise<WeaknessAnalysisReportDetail> {
+    return httpClient
+      .post<ApiEnvelope<WeaknessAnalysisReportDetail>>(
+        "/api/v1/weakness/reports",
+        request,
+        {
+          accessToken,
+          headers: { "Idempotency-Key": idempotencyKey },
+          timeoutMs: CREATE_REPORT_TIMEOUT_MS,
+        },
+      )
+      .then((res) => res.data);
+  },
+
+  getReports(accessToken: string): Promise<WeaknessAnalysisReportSummary[]> {
+    return httpClient
+      .get<ApiEnvelope<WeaknessAnalysisReportSummary[]>>(
+        "/api/v1/weakness/reports",
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+
+  getReportDetail(
+    analysisReportId: number,
+    accessToken: string,
+  ): Promise<WeaknessAnalysisReportDetail> {
+    return httpClient
+      .get<ApiEnvelope<WeaknessAnalysisReportDetail>>(
+        `/api/v1/weakness/reports/${analysisReportId}`,
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+
+  deleteReport(
+    analysisReportId: number,
+    accessToken: string,
+  ): Promise<WeaknessAnalysisReportSummary> {
+    return httpClient
+      .delete<ApiEnvelope<WeaknessAnalysisReportSummary>>(
+        `/api/v1/weakness/reports/${analysisReportId}`,
+        { accessToken },
+      )
+      .then((res) => res.data);
+  },
+};

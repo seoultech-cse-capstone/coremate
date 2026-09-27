@@ -1,0 +1,204 @@
+{
+  "frameWidth": 76,
+  "frameHeight": 54,
+  "frames": [
+    {
+      "index": 0,
+      "name": "closed",
+      "file": "00_closed.png"
+    },
+    {
+      "index": 1,
+      "name": "hop1_a",
+      "file": "01_hop1_a.png"
+    },
+    {
+      "index": 2,
+      "name": "hop1_b",
+      "file": "02_hop1_b.png"
+    },
+    {
+      "index": 3,
+      "name": "hop1_c",
+      "file": "03_hop1_c.png"
+    },
+    {
+      "index": 4,
+      "name": "hop2_a",
+      "file": "04_hop2_a.png"
+    },
+    {
+      "index": 5,
+      "name": "hop2_b",
+      "file": "05_hop2_b.png"
+    },
+    {
+      "index": 6,
+      "name": "hop2_c",
+      "file": "06_hop2_c.png"
+    },
+    {
+      "index": 7,
+      "name": "hop3_a",
+      "file": "07_hop3_a.png"
+    },
+    {
+      "index": 8,
+      "name": "hop3_b",
+      "file": "08_hop3_b.png"
+    },
+    {
+      "index": 9,
+      "name": "hop3_c",
+      "file": "09_hop3_c.png"
+    },
+    {
+      "index": 10,
+      "name": "swing1",
+      "file": "10_swing1.png"
+    },
+    {
+      "index": 11,
+      "name": "swing2",
+      "file": "11_swing2.png"
+    },
+    {
+      "index": 12,
+      "name": "swing3",
+      "file": "12_swing3.png"
+    },
+    {
+      "index": 13,
+      "name": "swing4",
+      "file": "13_swing4.png"
+    },
+    {
+      "index": 14,
+      "name": "swing5",
+      "file": "14_swing5.png"
+    },
+    {
+      "index": 15,
+      "name": "swing6",
+      "file": "15_swing6.png"
+    },
+    {
+      "index": 16,
+      "name": "swing7",
+      "file": "16_swing7.png"
+    },
+    {
+      "index": 17,
+      "name": "open",
+      "file": "17_open.png"
+    }
+  ],
+  "sequence": [
+    {
+      "frame": 0,
+      "name": "closed",
+      "durationMs": 250
+    },
+    {
+      "frame": 1,
+      "name": "hop1_a",
+      "durationMs": 60
+    },
+    {
+      "frame": 2,
+      "name": "hop1_b",
+      "durationMs": 60
+    },
+    {
+      "frame": 3,
+      "name": "hop1_c",
+      "durationMs": 60
+    },
+    {
+      "frame": 0,
+      "name": "closed",
+      "durationMs": 320
+    },
+    {
+      "frame": 4,
+      "name": "hop2_a",
+      "durationMs": 60
+    },
+    {
+      "frame": 5,
+      "name": "hop2_b",
+      "durationMs": 60
+    },
+    {
+      "frame": 6,
+      "name": "hop2_c",
+      "durationMs": 60
+    },
+    {
+      "frame": 0,
+      "name": "closed",
+      "durationMs": 320
+    },
+    {
+      "frame": 7,
+      "name": "hop3_a",
+      "durationMs": 60
+    },
+    {
+      "frame": 8,
+      "name": "hop3_b",
+      "durationMs": 60
+    },
+    {
+      "frame": 9,
+      "name": "hop3_c",
+      "durationMs": 60
+    },
+    {
+      "frame": 0,
+      "name": "closed",
+      "durationMs": 150
+    },
+    {
+      "frame": 10,
+      "name": "swing1",
+      "durationMs": 40
+    },
+    {
+      "frame": 11,
+      "name": "swing2",
+      "durationMs": 40
+    },
+    {
+      "frame": 12,
+      "name": "swing3",
+      "durationMs": 40
+    },
+    {
+      "frame": 13,
+      "name": "swing4",
+      "durationMs": 40
+    },
+    {
+      "frame": 14,
+      "name": "swing5",
+      "durationMs": 40
+    },
+    {
+      "frame": 15,
+      "name": "swing6",
+      "durationMs": 40
+    },
+    {
+      "frame": 16,
+      "name": "swing7",
+      "durationMs": 40
+    },
+    {
+      "frame": 17,
+      "name": "open",
+      "durationMs": 400
+    }
+  ],
+  "totalMs": 2260
+}
