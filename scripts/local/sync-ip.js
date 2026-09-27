@@ -42,6 +42,13 @@ function main() {
   }
 
   const original = fs.readFileSync(ENV_PATH, "utf-8");
+
+  // https 주소는 배포 서버(CloudFront)다. 로컬 백엔드용 LAN IP 로 덮어쓰면 배포 서버에 붙지 못하므로 그대로 둔다.
+  if (/EXPO_PUBLIC_API_BASE_URL=https:\/\//.test(original)) {
+    console.log("[sync-ip] 배포 서버(https)를 가리키고 있어 .env 를 그대로 둡니다.");
+    return;
+  }
+
   const updated = original.replace(
     /(EXPO_PUBLIC_API_BASE_URL=https?:\/\/)([^:/\s]+)/,
     `$1${ip}`
