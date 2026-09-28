@@ -34,7 +34,8 @@ const ENDPOINTS = [
   { name: 'content_subjects', method: 'GET', path: '/api/v1/content/subjects', weight: 2 },     // 전역·준정적, 캐시 없음(후보)
   { name: 'progress_summary', method: 'GET', path: '/api/v1/progress/concepts/summary', weight: 2 }, // 사용자별 집계(후보)
   { name: 'progress_subjects', method: 'GET', path: '/api/v1/progress/subjects', weight: 2 },   // 집계(후보)
-  { name: 'attendance_today', method: 'GET', path: '/api/attendance/today', weight: 1 },
+  // 주의: /api/attendance/today 는 오늘 출석 기록이 없으면 설계상 404(ATTENDANCE_NOT_FOUND).
+  // 갓 만든 테스트 계정에선 100% 404 라 실패율을 왜곡한다. 포함하려면 계정에 먼저 체크인을 시드하라.
   { name: 'user_me', method: 'GET', path: '/api/users/me', weight: 1 },
   { name: 'notif_unread', method: 'GET', path: '/api/notifications/unread-count', weight: 1 },
 ];
