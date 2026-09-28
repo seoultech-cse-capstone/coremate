@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -39,6 +40,15 @@ public class GlobalExceptionHandler {
         log.warn("Malformed request body: {}", e.getMostSpecificCause().getMessage());
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of(ErrorCode.INVALID_INPUT));
+    }
+
+    // 매핑이 없는 경로. 핸들러가 없으면 아래 catch-all 로 떨어져 404 가 500 "서버 오류"로 나간다.
+    // 폐쇄된 API 를 부르는 앱 화면이 서버 장애처럼 보이므로, 어떤 경로였는지 한 줄만 남기고 404 로 돌려준다.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException e) {
+        log.warn("No handler for {} /{}", e.getHttpMethod(), e.getResourcePath());
+        return ResponseEntity.status(ErrorCode.RESOURCE_NOT_FOUND.getStatus())
+                .body(ErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
     @ExceptionHandler(Exception.class)
