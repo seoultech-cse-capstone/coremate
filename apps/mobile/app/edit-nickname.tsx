@@ -1,57 +1,19 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { useAuth, useRequireMember } from "../src/features/auth";
 import {
   detailStyles,
   SettingsDetailLayout,
 } from "../src/features/settings/components/SettingsDetailLayout";
-import { useMyProfile, userApi } from "../src/features/user";
-import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
+import { useMyProfile } from "../src/features/user";
 
-const NICKNAME_MAX_LENGTH = 6;
-
+// 무료 닉네임 변경은 정책상 막혀 있다(#202). 백엔드 PATCH /api/users/me/nickname 도 폐쇄돼,
+// 이 화면에서 직접 바꾸려 하면 서버 오류만 난다. 상점의 닉네임 변경권으로 안내한다(#246).
 export default function EditNicknameScreen() {
   useRequireMember();
   const { accessToken } = useAuth();
-  const queryClient = useQueryClient();
   const profileQuery = useMyProfile(accessToken);
-
-  const [nickname, setNickname] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [nicknameTaken, setNicknameTaken] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const canSubmit =
-    nickname.trim().length > 0 && nickname.trim().length <= NICKNAME_MAX_LENGTH && !isSubmitting;
-
-  const handleSubmit = async () => {
-    if (!canSubmit || !accessToken) {
-      return;
-    }
-    setIsSubmitting(true);
-    setErrorMessage(null);
-    setNicknameTaken(false);
-    try {
-      const result = await userApi.updateNickname(nickname.trim(), accessToken);
-      queryClient.setQueryData(
-        ["user", "me"],
-        (current: typeof profileQuery.data) =>
-          current ? { ...current, nickname: result.nickname } : current,
-      );
-      router.back();
-    } catch (error) {
-      if (getApiErrorCode(error) === "DUPLICATE_NICKNAME") {
-        setNicknameTaken(true);
-      } else {
-        setErrorMessage(getApiErrorMessage(error, "닉네임 수정에 실패했습니다."));
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <SettingsDetailLayout title="닉네임 수정">
@@ -66,35 +28,12 @@ export default function EditNicknameScreen() {
               <Text style={detailStyles.fieldText}>{profileQuery.data?.nickname}</Text>
             </View>
 
-            <Text style={[detailStyles.label, { marginTop: 16 }]}>새 닉네임</Text>
-            <TextInput
-              maxLength={NICKNAME_MAX_LENGTH}
-              placeholder="새 닉네임을 입력하세요"
-              placeholderTextColor="#94a3b8"
-              style={detailStyles.field}
-              value={nickname}
-              onChangeText={(text) => {
-                setNickname(text);
-                setNicknameTaken(false);
-              }}
-            />
-
             <Text style={detailStyles.helperText}>
-              닉네임은 다른 사용자와 중복될 수 없으며, 최대 {NICKNAME_MAX_LENGTH}자까지 가능합니다.
+              닉네임은 상점의 닉네임 변경권으로 바꿀 수 있어요.
             </Text>
-            {nicknameTaken ? (
-              <Text style={styles.errorText}>이미 사용 중인 닉네임입니다.</Text>
-            ) : null}
-            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-            <Pressable
-              disabled={!canSubmit}
-              style={[detailStyles.primaryButton, !canSubmit && styles.disabledButton]}
-              onPress={handleSubmit}
-            >
-              <Text style={detailStyles.primaryButtonText}>
-                {isSubmitting ? "저장 중…" : "중복 확인 및 저장"}
-              </Text>
+            <Pressable style={detailStyles.primaryButton} onPress={() => router.push("/avatar-shop")}>
+              <Text style={detailStyles.primaryButtonText}>상점에서 닉네임 바꾸기</Text>
             </Pressable>
           </>
         )}
@@ -102,15 +41,3 @@ export default function EditNicknameScreen() {
     </SettingsDetailLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  errorText: {
-    marginTop: 8,
-    color: "#dc2626",
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-});

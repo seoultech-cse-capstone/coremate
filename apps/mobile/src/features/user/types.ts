@@ -27,14 +27,6 @@ export type UpdateMyProfileRequest = {
   schoolEmail?: string;
 };
 
-/** PATCH /api/users/me/nickname 응답. UserSummaryResponse와 1:1 대응 */
-export type UpdateNicknameResult = {
-  userId: number;
-  nickname: string;
-  level: number;
-  avatarImageUrl: string | null;
-};
-
 /** GET /api/users/me/subject-stats 항목. UserSubjectStatResponse와 1:1 대응 */
 export type UserSubjectStat = {
   subjectId: number;

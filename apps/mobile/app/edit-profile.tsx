@@ -83,7 +83,7 @@ export default function EditProfileScreen() {
             <View style={detailStyles.field}>
               <Text style={detailStyles.fieldText}>{profileQuery.data?.nickname}</Text>
             </View>
-            <Text style={detailStyles.helperText}>닉네임은 설정 &gt; 닉네임 수정에서 바꿀 수 있습니다.</Text>
+            <Text style={detailStyles.helperText}>닉네임은 상점의 닉네임 변경권으로 바꿀 수 있습니다.</Text>
 
             <Text style={[detailStyles.label, { marginTop: 16 }]}>학교</Text>
             <TextInput
