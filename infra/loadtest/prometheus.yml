@@ -1,0 +1,14 @@
+# Prometheus 스크레이프 설정 (이슈 #273)
+# 부하테스트 중 백엔드 메트릭을 5초 간격으로 긁는다(무릎 지점 순간을 놓치지 않게 촘촘히).
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: coremate-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # docker-compose.local.yml 의 backend 서비스. 같은 네트워크라 이름으로 해석된다.
+      - targets: ["backend:8080"]
+        labels:
+          service: coremate-backend

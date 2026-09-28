@@ -1,0 +1,65 @@
+# CoreMate 부하테스트 관측 스택 (이슈 #273): Prometheus + Grafana
+#
+# 기존 로컬 스택(docker-compose.local.yml)의 backend 를 Prometheus 가 긁고 Grafana 로 본다.
+# 같은 도커 네트워크(coremate-local_default)에 붙여야 'backend:8080' 이름 해석이 된다.
+#
+# [실행 순서]
+#   1) 앱 스택 먼저:  docker compose -f docker-compose.local.yml up --build -d
+#      (actuator 의존성이 추가됐으므로 backend 는 --build 로 다시 빌드해야 /actuator/prometheus 가 뜬다)
+#   2) 관측 스택:     docker compose -f loadtest/docker-compose.observability.yml up -d
+#   3) Grafana 접속:  http://localhost:3001  (admin / admin)
+#      - 대시보드 'CoreMate Load Test' 가 자동 프로비저닝돼 있다.
+#   4) 내리기:        docker compose -f loadtest/docker-compose.observability.yml down
+#
+# 확인: curl http://localhost:8080/actuator/prometheus | head  → 메트릭이 나와야 한다.
+
+name: coremate-observability
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: coremate-prometheus
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=6h"
+    networks:
+      - coremate
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: coremate-grafana
+    restart: unless-stopped
+    ports:
+      # 3001 로 노출(프론트/기타 3000 충돌 회피).
+      - "127.0.0.1:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # 부하 측정용 로컬 대시보드라 익명 조회 허용(편의). 외부 노출 안 함.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - coremate
+
+networks:
+  # 앱 스택(docker-compose.local.yml, project=coremate-local)이 만든 네트워크를 재사용.
+  coremate:
+    external: true
+    name: coremate-local_default
+
+volumes:
+  prometheus_data:
+  grafana_data:

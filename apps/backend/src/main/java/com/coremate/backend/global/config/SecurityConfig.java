@@ -56,7 +56,10 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                // 부하테스트 관측용(이슈 #273). Prometheus 가 인증 없이 메트릭을 긁는다.
+                                // 로컬 127.0.0.1 바인딩이라 외부 노출은 없다.
+                                "/actuator/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/solve-sessions/concept",

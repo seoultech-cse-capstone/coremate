@@ -108,3 +108,19 @@ weakness:
     # 근거 충분도(min-evidence-strength)가 두 번째 관문으로 남아 있어 문항 수가 적은 개념은
     # 점수가 높아도 통과하지 못한다.
     min-weakness-score: 40
+
+# 부하테스트 관측용(이슈 #273). Prometheus 가 /actuator/prometheus 를 긁어 Grafana 로 본다.
+# 노출 범위를 health·prometheus·metrics 로 한정한다(운영에서도 과다 노출 방지).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  metrics:
+    tags:
+      # 그래프에서 인스턴스/앱 구분용 공통 태그.
+      application: coremate-backend
+    distribution:
+      # http.server.requests 를 히스토그램으로 내보내 Grafana 에서 p95/p99 를 계산할 수 있게 한다.
+      percentiles-histogram:
+        http.server.requests: true
