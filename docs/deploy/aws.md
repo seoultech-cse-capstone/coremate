@@ -107,6 +107,28 @@ EXPO_PUBLIC_API_BASE_URL=https://dupz4in9l5zw6.cloudfront.net
 `npm start` 때 도는 `sync-ip` 는 https 주소를 건드리지 않는다. 로컬 백엔드로 돌아가려면 `http://<PC LAN IP>:8080` 으로
 되돌리면 된다. Metro 가 떠 있으면 완전히 껐다 켜야 반영된다.
 
+## 안드로이드 릴리스 APK (팀 배포용)
+
+운영 서버 주소가 들어간 설치 파일을 만든다. 주소는 빌드할 때 앱에 박히므로 명령행 환경변수로 넘긴다
+(`.env` 의 LAN IP 보다 우선한다).
+
+```bash
+cd apps/mobile
+npx expo prebuild -p android --no-install   # app.json 을 바꿨을 때만(알림 아이콘 등 네이티브 설정)
+cd android
+JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home \
+ANDROID_HOME=$HOME/Library/Android/sdk \
+EXPO_PUBLIC_API_BASE_URL=https://dupz4in9l5zw6.cloudfront.net \
+./gradlew assembleRelease
+```
+
+- 결과: `apps/mobile/android/app/build/outputs/apk/release/app-release.apk` (약 160MB, Android 7.0 이상, 첫 빌드 약 20분).
+- ⚠️ **JDK 21 로 빌드할 것.** Android Studio 내장 JDK(25)로는 CMake 설정 단계가 "restricted method" 경고로 실패한다.
+- 서명은 템플릿 기본 debug 키다(개발 빌드와 같은 키라 카카오 키 해시 `Xo8WBi6jzSxKDVR4drqm84yr9iU=` 가 그대로 통한다).
+  Play 스토어에 올릴 때는 새 업로드 키를 만들어 안전하게 보관하고, 그 키의 SHA-1·키 해시를 카카오·구글 콘솔에 추가해야 한다.
+- 카카오·네이버 로그인은 각 개발자 콘솔에서 테스트 앱(카카오)·개발 중(네이버) 상태라 **등록된 테스터만** 된다.
+  출시 전에 카카오는 본 앱 키로 바꿔 다시 빌드하고, 네이버는 검수를 받아야 한다.
+
 ## 비용 (2026-09 기준, 월)
 
 | 항목 | 금액 |
