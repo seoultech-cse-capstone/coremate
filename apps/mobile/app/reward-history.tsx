@@ -47,6 +47,42 @@ const REWARD_TYPE_LABEL: Record<string, string> = {
   PREMIUM_DAILY_COIN: "프리미엄 일일 코인",
 };
 
+// 서버 xp_logs.reason(XpReason) enum 전체.
+const XP_REASON_LABEL: Record<string, string> = {
+  CONCEPT_PRACTICE_XP: "개념 문제집",
+  CATEGORY_MOCK_XP: "챕터 모의고사",
+  SUBJECT_MOCK_XP: "과목 모의고사",
+  DAILY_QUIZ_XP: "오늘의 퀴즈",
+  ATTENDANCE_XP: "출석 보상",
+};
+
+// 서버 currency_logs.reason(CurrencyReason) enum 전체. 코인 탭은 reward_type 이 아니라 이 값을 준다.
+// 두 enum 은 이름이 비슷하지만 다르다(예: CATEGORY_MOCK_FIRST_PASS_COIN ↔ CATEGORY_MOCK_FIRST_PASS_REWARD).
+const CURRENCY_REASON_LABEL: Record<string, string> = {
+  DAILY_QUIZ_REWARD: "오늘의 퀴즈 보상",
+  ATTENDANCE_REWARD: "출석 보상",
+  CATEGORY_MOCK_FIRST_PASS_REWARD: "챕터 모의고사 첫 통과",
+  SUBJECT_MOCK_FIRST_PASS_REWARD: "과목 모의고사 첫 통과",
+  CATEGORY_MOCK_RETRY_REWARD: "챕터 모의고사 재응시",
+  SUBJECT_MOCK_RETRY_REWARD: "과목 모의고사 재응시",
+  LEVEL_UP_REWARD: "레벨 달성 보상",
+  STARTER_PACK: "가입 축하 보상",
+  RANDOM_BOX_PURCHASE: "랜덤박스 구매",
+  ROOM_THEME_PURCHASE: "방 테마 구매",
+  NICKNAME_CHANGE: "닉네임 변경",
+  GENDER_CHANGE: "성별 변경",
+  WEAKNESS_ANALYSIS_CREATE: "약점 분석표 생성",
+  AD_REWARD: "광고 보상",
+  PREMIUM_DAILY_COIN: "프리미엄 일일 코인",
+  PREMIUM_SIGNUP_BONUS: "프리미엄 가입 보너스",
+  COIN_PACKAGE_PURCHASE: "코인 패키지 구매",
+  SHOP_ITEM_PURCHASE: "상점 구매",
+  RANDOM_BOX_REWARD: "랜덤박스 보상",
+  ADMIN_GRANT: "운영자 지급",
+  REFUND: "환불",
+  DUPLICATE_ITEM_REFUND: "중복 아이템 환급",
+};
+
 // 서버 reward_logs.skip_reason enum 전체.
 const SKIP_REASON_LABEL: Record<string, string> = {
   DAILY_LIMIT_EXCEEDED: "일일 한도 초과",
@@ -110,7 +146,7 @@ export default function RewardHistoryScreen() {
     if (tab === "xp") {
       return (xpLogsQuery.data ?? []).map((log) => ({
         id: `xp-${log.xpLogId}`,
-        title: label(REWARD_TYPE_LABEL, log.reason),
+        title: label(XP_REASON_LABEL, log.reason),
         subtitle: `${formatDate(log.createdAt)} · 누적 ${log.totalXpAfter}`,
         value: `${signed(log.amount)} XP`,
         muted: false,
@@ -119,7 +155,7 @@ export default function RewardHistoryScreen() {
 
     return (currencyLogsQuery.data ?? []).map((log) => ({
       id: `coin-${log.currencyLogId}`,
-      title: label(REWARD_TYPE_LABEL, log.reason),
+      title: label(CURRENCY_REASON_LABEL, log.reason),
       subtitle: `${formatDate(log.createdAt)} · 잔액 ${log.balanceAfter}`,
       value: `${signed(log.amount)} 코인`,
       muted: log.amount < 0,

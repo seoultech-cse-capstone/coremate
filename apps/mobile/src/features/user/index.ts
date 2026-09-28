@@ -5,6 +5,5 @@ export type { LevelProgress } from "./levelProgress";
 export type {
   MyProfile,
   UpdateMyProfileRequest,
-  UpdateNicknameResult,
   UserSubjectStat,
 } from "./types";
