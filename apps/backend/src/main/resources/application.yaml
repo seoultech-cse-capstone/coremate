@@ -78,6 +78,12 @@ password-reset:
   code-length: 6              # 인증번호 자릿수
   max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
 
+idempotency:
+  # 멱등성 키 보존 기간(일). 매일 자정 스케줄러가 created_at 이 이 기간을 지난 키를 삭제한다.
+  # 멱등성 판정에 필요한 건 클라이언트 재시도 윈도우(더블클릭·네트워크 재시도·오프라인 재전송)뿐이라
+  # 1일이면 충분하다. 오래 보관할수록 테이블만 커진다.
+  retention-days: 1
+
 signup-email:
   code-ttl-sec: 300           # 인증번호 유효시간 5분
   verified-ttl-sec: 1800      # 인증 완료 상태 유효시간 30분(이 안에 회원가입 완료해야 함)
