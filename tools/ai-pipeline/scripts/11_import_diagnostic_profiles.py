@@ -60,7 +60,7 @@ def _json_text(value: Any) -> str | None:
 
 
 def _require_tables(cursor: Any) -> None:
-    """스키마는 백엔드(JPA ddl-auto)가 만든다. 백엔드를 한 번도 띄우지 않았으면 안내한다."""
+    """스키마는 백엔드(Flyway 마이그레이션)가 만든다. 백엔드를 한 번도 띄우지 않았으면 안내한다."""
     cursor.execute(
         """
         SELECT COUNT(*) AS n FROM information_schema.tables

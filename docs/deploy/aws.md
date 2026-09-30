@@ -75,8 +75,34 @@ CloudWatch 로그 그룹 `/ecs/coremate-dev-backend` (14일 보관). 스트림 �
   `db.t4g.micro`, 20GB gp3, Single-AZ, 백업 1일, 파라미터 그룹 `coremate-dev-mysql84-params`
   (`utf8mb4_unicode_ci`, `time_zone=Asia/Seoul`).
 - private DB 서브넷에만 있고, 보안 그룹이 백엔드 태스크에서 오는 3306 만 허용한다. 로컬에서 직접 붙을 수 없다.
-- 스키마는 백엔드의 `ddl-auto: update` 가 관리한다. **엔티티를 바꾼 PR 이 main 에 가면 운영 DB 에 바로 ALTER 가 나간다.**
-  컬럼 삭제·이름 변경은 반영되지 않으므로(예: #229) 그런 변경은 머지 전에 RDS 에 DDL 을 직접 실행해야 한다.
+- 스키마와 정책 시드는 **Flyway 마이그레이션**(`apps/backend/src/main/resources/db/migration`)이 관리한다. 새 태스크가
+  뜰 때 아직 적용하지 않은 파일을 실행해 `flyway_schema_history` 에 남기고, 이어서 Hibernate 가 엔티티와 테이블이 맞는지
+  검사한다(`ddl-auto: validate`). 안 맞으면 태스크가 뜨지 않고 서킷 브레이커가 이전 버전으로 되돌린다. 작성 규칙은 그 폴더의 `README.md`.
+- ⚠️ **앱이 이전 버전으로 돌아가도 DB 는 돌아가지 않는다.** 적용된 마이그레이션은 남는다(Flyway 무료판은 되돌리기가 없다).
+  그래서 마이그레이션은 직전 버전 코드와 같이 돌아도 되게 쓰고, 컬럼 삭제·이름 변경은 두 번의 배포로 나눈다.
+
+### Flyway 전환 (도입 후 첫 배포)
+
+Flyway 를 넣고 처음 main 에 배포하면, 운영 DB 는 테이블은 있는데 이력 테이블이 없다. 백엔드가 이 상태를 `V1__baseline` 이
+적용된 것으로 기록하고(`spring.flyway.baseline-on-migrate`) 정책 시드(`R__`)를 한 번 실행한다(멱등이라 값은 그대로).
+
+전제는 **운영 스키마 = V1** 이다. 배포 전에 아래 방법으로 `scripts/db/schema_fingerprint.sql` 을 운영에 돌려, 빈 MySQL 8.4 에
+Flyway 로 만든 DB 에서 같은 파일을 돌린 결과와 MD5 가 같은지 본다(2026-09-30 기준값 `e174a734c3b315f1d46f0aae662d49ea`, 51개 테이블).
+전환이 끝나면 `application.yaml` 의 `baseline-on-migrate` 를 지운다.
+
+### 운영 DB 에 조회 돌리기
+
+RDS 에는 로컬에서 붙을 수 없어서, 일회성 태스크 `coremate-dev-db-import` 를 `--overrides` 로 실행해 `import` 컨테이너의
+command 를 `mysql ... -e "쿼리"` 로 바꾸고 `fetch` 컨테이너는 command 를 `--version` 으로 바꿔 아무것도 받지 않게 한다.
+결과는 로그 스트림 `db-import/import/…` 에 남는다(한 번에 1~2분).
+
+⚠️ **command 를 덮어쓰지 않고 돌리면 아래 「초기 데이터」 덤프를 운영 DB 에 다시 붓는다(기존 데이터를 덮어씀).**
+
+- 적용 이력: `SELECT installed_rank, version, description, type, success, installed_on FROM flyway_schema_history ORDER BY installed_rank;`
+- **마이그레이션이 중간에 실패했을 때**: MySQL DDL 은 문장마다 바로 확정되므로 실패한 파일의 앞부분은 이미 적용돼 있고,
+  이력에 `success = 0` 행이 남아 이후 배포가 전부 막힌다. 반쯤 적용된 변경을 손으로 되돌리고,
+  `DELETE FROM flyway_schema_history WHERE success = 0;` 로 실패 기록을 지운 뒤, 고친 파일로 다시 배포한다
+  (그 파일이 처음부터 다시 돈다. 마저 적용해 버리면 재실행이 "이미 있음"으로 또 실패한다).
 
 ### 초기 데이터 (2026-09-28 적재)
 

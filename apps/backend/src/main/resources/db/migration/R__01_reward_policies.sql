@@ -1,5 +1,5 @@
 -- =============================================================================
--- 01_reward_policies.sql
+-- R__01_reward_policies.sql
 --
 -- 보상 정책 시드. 더미가 아니라 서비스 동작에 필요한 정책 데이터다.
 -- 이 행이 없으면 RewardService.grantPolicyReward() 가 모든 보상을
@@ -14,41 +14,19 @@
 --   - 중복 판정 축이 둘이다. first_reward_only = 범위별 "평생" 1회,
 --     scope_daily_once = 같은 범위 "하루" 1회(2026-08-11 신설). 서로 독립이다.
 --
--- 스키마는 JPA 엔티티(ddl-auto)가 만든다. 이 파일은 INSERT 전용이다.
--- reward_type 이 UNIQUE 라 재실행해도 UPDATE 로 수렴한다(멱등).
+-- Flyway 반복 마이그레이션(R__)이다. 스키마는 V 마이그레이션이 만들고 이 파일은 데이터만
+-- 넣는다. 파일 내용이 바뀐 배포에서 통째로 다시 실행되므로 멱등이어야 한다 —
+-- reward_type 이 UNIQUE 라 다시 실행돼도 UPDATE 로 수렴한다.
+--
+-- 정책을 끄려면 행을 지우지 말고 is_active 를 FALSE 로 바꾼다. 파일에서 행을 지워도
+-- DB 의 행은 그대로 남아 계속 지급된다. DB 에서 DELETE 하지도 않는다 — reward_logs /
+-- xp_logs 의 reward_policy_id 가 "이 지급이 어떤 정책 때문이었는지"를 가리켜서, 지우면
+-- 과거 지급 근거가 끊긴다(DR-REWARD-06 의 "기존 정책은 비활성화" 방침과 같다).
+--
+-- ⚠️ 다시 실행될 때 파일에 있는 행은 파일 값으로 덮어쓴다. 관리자가 화면에서 정책을
+--    고치는 기능(AR-ADMIN-04)이 생기면 이 파일을 고칠 때마다 그 변경이 되돌아가므로,
+--    그때는 이 테이블을 V 마이그레이션(바꿀 행만 UPDATE)으로 관리한다.
 -- =============================================================================
-
--- ---------------------------------------------------------------------------
--- [0] 선언되지 않은 정책 비활성화
---
--- 이 파일이 "현재 살아 있는 정책의 전부"가 되게 만드는 단계다.
--- 아래 목록에 없는 reward_type 은 is_active = FALSE 로 끈다.
--- RewardService 는 findByRewardTypeAndActiveTrue 로 조회하므로 꺼진 정책은
--- 즉시 무시되고, 해당 보상은 POLICY_NOT_FOUND 로 스킵된다.
---
--- 행을 DELETE 하지 않는 이유: reward_logs / xp_logs 의 reward_policy_id 가
--- "이 지급이 어떤 정책 때문이었는지"를 가리킨다. 지우면 과거 지급 근거가 끊긴다.
--- (DR-REWARD-06 의 "기존 정책은 비활성화하고 새 정책을 추가" 방침과 같다.)
---
--- ⚠️ 로컬·개발 단계 전용이다. 시드 목록에 없는 정책은 예외 없이 꺼지므로,
---    DB 에서 직접 만든 정책도 다음 기동에 비활성화된다.
---    AR-ADMIN-04(관리자가 reward_policies 를 관리) 기능이 생기거나 운영에
---    배포할 때는 이 [0] 단계를 제거해야 한다. 관리자가 화면에서 만든 정책이
---    배포·재기동 때 조용히 꺼지기 때문이다.
---    배포 준비 시 Flyway 로 옮기면서 함께 정리할 항목이다.
--- ---------------------------------------------------------------------------
-UPDATE reward_policies
-   SET is_active = FALSE, updated_at = NOW()
- WHERE is_active = TRUE
-   AND reward_type NOT IN (
-       'CONCEPT_PRACTICE_XP', 'CATEGORY_MOCK_XP', 'SUBJECT_MOCK_XP',
-       'CATEGORY_MOCK_FIRST_PASS_COIN', 'SUBJECT_MOCK_FIRST_PASS_COIN',
-       'CATEGORY_MOCK_RETRY_COIN', 'SUBJECT_MOCK_RETRY_COIN',
-       'DAILY_QUIZ_COMPLETE', 'ATTENDANCE_REWARD',
-       'LEVEL_UP_5', 'LEVEL_UP_10', 'LEVEL_UP_20',
-       'LEVEL_UP_30', 'LEVEL_UP_40', 'LEVEL_UP_50',
-       'STARTER_PACK', 'AD_REWARD', 'PREMIUM_DAILY_COIN', 'PREMIUM_SIGNUP_BONUS'
-   );
 
 -- ---------------------------------------------------------------------------
 -- XP 보상 (정답률 무관, 완료 + 일일 한도로 판정)

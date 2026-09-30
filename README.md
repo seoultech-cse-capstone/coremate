@@ -29,9 +29,32 @@ coremate/
 
 ---
 
+## 백엔드를 새로 받았을 때 (2026-09-30 Flyway 도입)
+
+DB 스키마와 정책 시드를 이제 **Flyway 마이그레이션**(`apps/backend/src/main/resources/db/migration`)이 관리한다. 엔티티를 바꾸면 같은 PR 에 마이그레이션 파일을 넣어야 한다. **enum 상수를 추가할 때도 마찬가지다** — 예전엔 백엔드가 뜰 때마다 enum 목록을 알아서 맞춰 줬지만 이제는 아니다. 규칙은 그 폴더의 `README.md`.
+
+로컬은 다시 띄우기만 하면 된다. 기존 데이터는 그대로 남는다.
+
+```bash
+docker compose -f infra/docker-compose.local.yml up -d --build
+```
+
+- **MySQL 이 8.0 → 8.4 로 바뀐다**(운영과 같은 버전). 처음 뜰 때 기존 데이터를 자동으로 업그레이드하고, 그 뒤로는 8.0 으로 되돌릴 수 없다. dev 를 아직 머지하지 않은 옛 브랜치에서 compose 를 통째로 다시 띄우면 MySQL 이 뜨지 않으니, 브랜치에 dev 를 먼저 머지한다.
+- 백엔드가 뜨면서 기존 DB 를 "V1 적용됨"으로 기록하고(`flyway_schema_history` 테이블이 생긴다) 정책 시드를 한 번 넣는다. 그 뒤로는 시드가 매번 돌지 않는다.
+- 백엔드가 `Schema validation: missing column [...] in table [...]` 로 뜨지 않으면, 로컬 DB 가 최신 엔티티를 못 따라온 상태다(한동안 백엔드를 안 띄움). Flyway 직전 백엔드로 한 번 띄워 빠진 컬럼을 채운 뒤 돌아온다. `--no-deps` 를 빼면 MySQL 이 8.0 으로 다시 만들어져 뜨지 않는다.
+
+  ```bash
+  git switch --detach f241cb4
+  docker compose -f infra/docker-compose.local.yml up -d --build --no-deps backend
+  git switch dev
+  docker compose -f infra/docker-compose.local.yml up -d --build backend
+  ```
+
+---
+
 ## 백엔드를 새로 받았을 때 (2026-09-16 약점 분석표 개편)
 
-백엔드를 `docker compose -f infra/docker-compose.local.yml up -d --build` 로 다시 띄우면 새 컬럼은 자동으로 생긴다(`ddl-auto: update`). 한 가지만 직접 돌리면 된다.
+이때 생긴 컬럼은 지금은 마이그레이션에 들어 있다. 한 가지만 직접 돌리면 된다.
 
 ```bash
 docker exec -i coremate-mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -ucoremate coremate' \
