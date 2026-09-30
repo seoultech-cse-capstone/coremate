@@ -9,7 +9,7 @@
 --
 -- !! 선행 조건 !!
 --   이 스크립트는 CREATE TABLE 을 하지 않는다(INSERT 전용).
---   스키마는 JPA 엔티티로부터 Hibernate(ddl-auto: update)가 생성하므로,
+--   스키마는 백엔드가 기동할 때 Flyway 마이그레이션이 생성하므로,
 --   반드시 백엔드를 dev 프로파일로 "한 번" 기동해 테이블이 만들어진 뒤 실행해야 한다.
 --     예) SPRING_PROFILES_ACTIVE=dev ./gradlew :backend:bootRun   (테이블 생성 후 종료)
 --
