@@ -13,6 +13,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -22,8 +23,14 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 // XP/코인/아이템/랜덤박스 보상 판정 결과를 통합으로 남기는 로그.
+// 인덱스는 db/migration/V2 가 만든다. 여기 선언은 엔티티에서도 스키마가 보이게 하려는 것이다.
 @Entity
-@Table(name = "reward_logs")
+@Table(
+        name = "reward_logs",
+        indexes = {
+                @Index(name = "idx_reward_logs_scope", columnList = "user_id,reward_type,target_type,target_id,created_at")
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
