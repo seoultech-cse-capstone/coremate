@@ -90,13 +90,39 @@ Flyway 를 넣고 처음 main 에 배포하면, 운영 DB 는 테이블은 있�
 Flyway 로 만든 DB 에서 같은 파일을 돌린 결과와 MD5 가 같은지 본다(2026-09-30 기준값 `e174a734c3b315f1d46f0aae662d49ea`, 51개 테이블).
 전환이 끝나면 `application.yaml` 의 `baseline-on-migrate` 를 지운다.
 
+**2026-09-30 대조 결과: 일치.** 운영 51개 테이블 지문이 기준값과 한 줄도 다르지 않았다(MD5 `e174a734…` 동일).
+
 ### 운영 DB 에 조회 돌리기
 
-RDS 에는 로컬에서 붙을 수 없어서, 일회성 태스크 `coremate-dev-db-import` 를 `--overrides` 로 실행해 `import` 컨테이너의
-command 를 `mysql ... -e "쿼리"` 로 바꾸고 `fetch` 컨테이너는 command 를 `--version` 으로 바꿔 아무것도 받지 않게 한다.
-결과는 로그 스트림 `db-import/import/…` 에 남는다(한 번에 1~2분).
+RDS 에는 로컬에서 붙을 수 없어서, 일회성 태스크 `coremate-dev-db-import` 의 두 컨테이너 command 를 `--overrides` 로 바꿔
+돌린다. `fetch` 는 `--version` 으로 바꿔 아무것도 받지 않게 하고, `import` 는 SQL 만 실행하게 한다. 결과는 로그 스트림
+`db-import/import/…` 에 남는다(한 번에 1~2분).
 
 ⚠️ **command 를 덮어쓰지 않고 돌리면 아래 「초기 데이터」 덤프를 운영 DB 에 다시 붓는다(기존 데이터를 덮어씀).**
+`import` 의 기본 command 가 `gunzip -c /work/coremate-baseline.sql.gz | mysql ... coremate` 다.
+
+CloudShell 에서 돌린다. SQL 은 파일로 올리고(작업 → 파일 업로드) 환경변수로 넘긴다 — 셸 따옴표에 걸리지 않고,
+overrides 는 8KB 까지라 주석 줄은 뺀다. 2026-09-30 스키마 대조를 이 형태로 돌렸다.
+
+```bash
+grep -v '^--' query.sql > q.sql
+jq -n --rawfile sql q.sql '{containerOverrides:[
+  {name:"fetch",  command:["--version"]},
+  {name:"import", command:["echo Q-BEGIN; MYSQL_PWD=\"$DB_PASSWORD\" mysql -h \"$DB_HOST\" -u coremate_admin -N coremate -e \"$Q\"; echo \"Q-END rc=$?\""],
+                  environment:[{name:"Q", value:$sql}]}]}' > ov.json
+jq -r '.containerOverrides[] | "\(.name) => \(.command | join(" "))"' ov.json   # 실행 전에 눈으로 확인
+grep -c -E 'gunzip|/work' ov.json                                                # 0 이어야 한다
+
+T=$(aws ecs run-task --cluster coremate-dev-cluster --task-definition coremate-dev-db-import --launch-type FARGATE \
+  --network-configuration 'awsvpcConfiguration={subnets=[subnet-08c7d3c717f2d8cb7,subnet-018c335c9a65b8185],securityGroups=[sg-03d7b22381ec12c08],assignPublicIp=ENABLED}' \
+  --overrides file://ov.json --query 'tasks[0].taskArn' --output text)
+aws ecs wait tasks-stopped --cluster coremate-dev-cluster --tasks "$T"
+aws logs get-log-events --log-group-name /ecs/coremate-dev-backend --log-stream-name "db-import/import/${T##*/}" \
+  --start-from-head --query 'events[].message' --output json | jq -r '.[]' > out.txt
+sed -n '/^Q-BEGIN$/,/^Q-END/p' out.txt | sed '1d;$d'   # 결과만. 마지막 줄 Q-END rc=0 이 mysql 성공
+```
+
+스키마 대조는 `query.sql` 자리에 `scripts/db/schema_fingerprint.sql` 을 넣고, 마지막 줄에 `| md5sum` 을 붙여 기준값과 비교한다.
 
 - 적용 이력: `SELECT installed_rank, version, description, type, success, installed_on FROM flyway_schema_history ORDER BY installed_rank;`
 - **마이그레이션이 중간에 실패했을 때**: MySQL DDL 은 문장마다 바로 확정되므로 실패한 파일의 앞부분은 이미 적용돼 있고,
