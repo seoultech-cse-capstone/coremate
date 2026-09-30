@@ -12,27 +12,20 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # 스키마는 Flyway 마이그레이션(db/migration)이 만든다. Hibernate 는 엔티티와 테이블이
+      # 맞는지만 검사해, 테이블·컬럼이 없거나 타입이 다르면 기동을 멈춘다 — db/migration/README.md 참고.
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
     show-sql: true
     open-in-view: false
-    # 시드 SQL(spring.sql.init)을 Hibernate 가 테이블을 만든 "뒤에" 실행시킨다.
-    # 기본값(false)이면 테이블이 없는 상태에서 INSERT 가 돌아 실패한다.
-    defer-datasource-initialization: true
 
-  sql:
-    init:
-      # 정책 시드. 서비스 동작에 필요한 데이터이므로 매 기동마다 적용한다.
-      # 모든 파일은 멱등(ON DUPLICATE KEY UPDATE)해야 한다 — db/seed/README.md 참고.
-      mode: always
-      # 번호가 곧 FK 순서다. 03 avatar_items -> 04 random_boxes -> 05 shop_products -> 06 random_box_items.
-      # 03~06 은 아직 주석만 있는 빈 파일이다. 지금 다 등록해 두면 내용을 채울 때 이 줄을 안 건드린다.
-      data-locations: classpath:db/seed/01_reward_policies.sql,classpath:db/seed/02_paid_products.sql,classpath:db/seed/03_avatar_items.sql,classpath:db/seed/04_random_boxes.sql,classpath:db/seed/05_shop_products.sql,classpath:db/seed/06_random_box_items.sql
-      encoding: UTF-8
-      # 시드 실패로 앱 기동이 막히지 않게 하되, 실패는 로그로 남는다.
-      continue-on-error: false
+  flyway:
+    # 테이블은 있는데 이력(flyway_schema_history)이 없는 DB — Flyway 도입 전부터 쓰던 운영·로컬 DB — 를
+    # V1__baseline 이 적용된 상태로 간주하고 V2 부터 실행한다. 빈 DB 는 V1 부터 전부 실행하므로 영향이 없다.
+    # 모든 환경에 이력 테이블이 생기면 지운다. 켜 둔 채면 엉뚱한 DB 에 붙어도 조용히 V1 로 간주하기 때문이다.
+    baseline-on-migrate: true
 
   data:
     redis:
@@ -77,6 +70,12 @@ password-reset:
   resend-cooldown-sec: 60     # 재발송 쿨다운 60초
   code-length: 6              # 인증번호 자릿수
   max-verify-attempts: 5      # 인증번호 검증 최대 시도 횟수
+
+idempotency:
+  # 멱등성 키 보존 기간(일). 매일 자정 스케줄러가 created_at 이 이 기간을 지난 키를 삭제한다.
+  # 멱등성 판정에 필요한 건 클라이언트 재시도 윈도우(더블클릭·네트워크 재시도·오프라인 재전송)뿐이라
+  # 1일이면 충분하다. 오래 보관할수록 테이블만 커진다.
+  retention-days: 1
 
 signup-email:
   code-ttl-sec: 300           # 인증번호 유효시간 5분

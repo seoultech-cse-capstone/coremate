@@ -23,6 +23,7 @@ import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.problemset.dto.response.QuestionChoiceResponse;
 import com.coremate.backend.problemset.dto.type.QuestionFormat;
 import com.coremate.backend.problemset.dto.type.QuestionType;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -32,12 +33,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -46,11 +50,17 @@ public class DailyQuizService {
     private static final int DAILY_QUIZ_QUESTION_COUNT = 6;
     private static final ZoneId KST_ZONE = ZoneId.of("Asia/Seoul");
 
+    // 오늘의 퀴즈 전역 세트 캐시. 날짜를 키에 넣으므로 자정이 지나면 자동으로 새 키가 되어
+    // 별도 무효화가 필요 없다. TTL 은 메모리 회수용 안전장치일 뿐이라 하루보다 넉넉히 잡는다.
+    private static final String DAILY_QUIZ_SET_CACHE_KEY_PREFIX = "daily-quiz:set:";
+    private static final Duration DAILY_QUIZ_SET_CACHE_TTL = Duration.ofHours(26);
+
     private final DailyQuizSetRepository dailyQuizSetRepository;
     private final DailyQuizQuestionPickerRepository dailyQuizQuestionPickerRepository;
     private final DailyQuizAnswerLogRepository dailyQuizAnswerLogRepository;
     private final AttendanceService attendanceService;
     private final DailyQuizSetInitializer dailyQuizSetInitializer;
+    private final StringRedisTemplate stringRedisTemplate;
 
     // 오늘의 퀴즈 세트 생성을 한 번에 하나만 하도록 묶는다. 인스턴스가 여러 개면 이 잠금이
     // 닿지 않지만, 그때는 유니크 제약에 걸린 쪽이 createIfAbsent 안에서 예외를 삼키고
@@ -69,9 +79,58 @@ public class DailyQuizService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DailyQuizSetResponse getTodayDailyQuiz(Long userId) {
         LocalDate today = LocalDate.now();
-        List<DailyQuizSet> quizEntries = getOrCreateDailyQuizSet(today);
+        // 세트(문항·선지 등)는 전 사용자 공통이고 당일 불변이라 캐시에서 가져온다.
+        // 사용자마다 다른 solvedToday 만 매번 가벼운 출석 조회로 채워 응답을 조립한다.
+        DailyQuizSetResponse cachedSet = getCachedDailyQuizSet(today);
         boolean solvedToday = attendanceService.hasAttended(userId, today);
-        return toSetResponse(quizEntries, solvedToday);
+        return withSolvedToday(cachedSet, solvedToday);
+    }
+
+    // 오늘의 전역 퀴즈 세트를 Redis 에서 읽고, 없으면 DB 에서 만들어 캐시에 채운다.
+    // 캐시된 응답의 solvedToday 는 의미 없는 자리값(false)이며 호출 측에서 덮어쓴다.
+    private DailyQuizSetResponse getCachedDailyQuizSet(LocalDate today) {
+        String key = DAILY_QUIZ_SET_CACHE_KEY_PREFIX + today;
+        DailyQuizSetResponse cached = readSetFromCache(key);
+        if (cached != null) {
+            return cached;
+        }
+        DailyQuizSetResponse set = toSetResponse(getOrCreateDailyQuizSet(today), false);
+        writeSetToCache(key, set);
+        return set;
+    }
+
+    private DailyQuizSetResponse readSetFromCache(String key) {
+        try {
+            String cached = stringRedisTemplate.opsForValue().get(key);
+            if (cached == null) {
+                return null;
+            }
+            return objectMapper.readValue(cached, DailyQuizSetResponse.class);
+        } catch (Exception e) {
+            // 캐시는 성능 최적화일 뿐이라, Redis 장애나 값 손상 시 조용히 DB 로 폴백한다.
+            log.warn("오늘의 퀴즈 캐시 조회 실패, DB 로 폴백한다. key={}", key, e);
+            return null;
+        }
+    }
+
+    private void writeSetToCache(String key, DailyQuizSetResponse set) {
+        try {
+            stringRedisTemplate.opsForValue()
+                    .set(key, objectMapper.writeValueAsString(set), DAILY_QUIZ_SET_CACHE_TTL);
+        } catch (Exception e) {
+            // 캐시 저장 실패는 응답에 영향을 주지 않는다.
+            log.warn("오늘의 퀴즈 캐시 저장 실패. key={}", key, e);
+        }
+    }
+
+    private DailyQuizSetResponse withSolvedToday(DailyQuizSetResponse set, boolean solvedToday) {
+        return new DailyQuizSetResponse(
+                set.dailyQuizSetId(),
+                set.quizDate(),
+                set.totalQuestionCount(),
+                solvedToday,
+                set.questions()
+        );
     }
 
     // 제출된 답안을 오늘 세트와 대조하고, 완료 시 출석/보상 처리를 한 번만 수행한다.
