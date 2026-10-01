@@ -1,18 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, StyleSheet, View, type GestureResponderEvent } from "react-native";
 
-import {
-  AVATAR_FOOT_X_RATIO,
-  AVATAR_FOOT_Y_RATIO,
-  AVATAR_SLEEP_STAGE_HEIGHT,
-  AVATAR_SLEEP_STAGE_WIDTH,
-  AVATAR_STAGE_HEIGHT,
-  AVATAR_STAGE_WIDTH,
-  AVATAR_WIDTH_IN_CELLS,
-  AvatarSleepStage,
-  AvatarStage,
-  getAvatarDotPx,
-} from "./AvatarStage";
+import { AvatarSleepStage, AvatarStage } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 import { useAuth } from "../../auth";
 import { useAvatarEquip } from "../AvatarEquipContext";
@@ -27,6 +16,7 @@ import {
   getFurnitureLayout,
   type FurnitureType,
 } from "../roomFurniture";
+import { getPetX, getRoomAvatarMetrics, getSleepAvatarRect, getStandStart } from "../roomAvatarLayout";
 import { useFrameSequence } from "../useFrameSequence";
 
 // AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
@@ -56,22 +46,8 @@ const HOP_PERIOD_MS = 250;
 const HOP_AMPLITUDE_PX = 12;
 const WALK_SPEED_PX_PER_SEC = 220;
 const MIN_WALK_DURATION_MS = 300;
-// 수면 캔버스(384x216, 48x27도트)는 원본이 1도트=8px라, 세트 배율(도트당 실제 px)을
-// 그 8로 나눠야 AvatarSleepStage의 scale prop과 단위가 맞는다.
-export const SLEEP_RAW_PX_PER_DOT = 8;
-// AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
-export const SLEEP_AVATAR_OFFSET_DOTS = { x: 4, y: -12 };
-// 처음 서 있는 자리: 바닥 가로 가운데, 세로 65% 지점(발 접지 기준).
-export const STAND_START_RATIO = { x: 0.5, y: 0.65 };
-
-// 펫: 프레임 애니메이션 없는 정지 이미지라, 강아지 원본(18x13도트)을 기준 상자로 두고
-// contain으로 맞춘다(거북이는 더 납작해서 상자 안에서 살짝 작게 보인다 — 의도된 동작).
-export const PET_BOX_WIDTH_DOTS = 18;
-export const PET_BOX_HEIGHT_DOTS = 13;
-// 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
+// 펫은 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
 const PET_FOLLOW_DELAY_MS = 220;
-// 아바타 발밑 기준 오른쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
-export const PET_FOLLOW_OFFSET_CELLS = 0.55;
 
 function isWithinRect(
   rect: { left: number; top: number; right: number; bottom: number },
@@ -100,7 +76,7 @@ type RoomSceneProps = {
  * 배치된 책상·침대를 탭하면 거기로 걸어가서 앉거나 눕고, 다시 탭하면 일어난다.
  */
 export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
-  const { placements, placementIdByType } = useRoomFurniture();
+  const { placements, placementIdByType, posedFurniture, isRoomSettled } = useRoomFurniture();
   const { equipped } = useAvatarEquip();
   const { accessToken } = useAuth();
   const savePose = useSavePoseMutation(accessToken);
@@ -153,45 +129,83 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
 
   const width = layout?.width ?? 0;
   const floorHeight = (layout?.floorHeight ?? 0) + bottomOverflow;
-  // 아바타 너비를 타일 1칸 크기로 고정한다(dotPx 그대로 쓰면 훨씬 커서 요청대로 조정).
-  const avatarScale = layout ? (AVATAR_WIDTH_IN_CELLS * layout.cellWidth) / AVATAR_STAGE_WIDTH : 0;
-  const avatarRenderWidth = AVATAR_STAGE_WIDTH * avatarScale;
-  const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
-  const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
-  const feetOffsetY = avatarRenderHeight * AVATAR_FOOT_Y_RATIO;
-  // 펫·가구 전부 아바타와 같은 "도트당 화면 px"를 쓴다 — 공통 dotPx(배경 격자
-  // 기준)가 아니라 이 값이어야 아바타와 나란히 있을 때 도트 크기가 어긋나지
-  // 않는다. 각자 원본 도트 수만큼만 자연히 크거나 작게 보이므로 항목별 축소
-  // 비율이 따로 필요 없다.
-  const avatarDotPx = layout ? getAvatarDotPx(layout.cellWidth) : 0;
-  const petBoxWidth = PET_BOX_WIDTH_DOTS * avatarDotPx;
-  const petBoxHeight = PET_BOX_HEIGHT_DOTS * avatarDotPx;
-  const petOffsetX = layout ? PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
+  // 아바타·그림자·펫 크기는 친구 방(RoomSnapshot)과 같은 계산을 쓴다.
+  const {
+    scale: avatarScale,
+    width: avatarRenderWidth,
+    height: avatarRenderHeight,
+    footOffsetX: feetOffsetX,
+    footOffsetY: feetOffsetY,
+    shadowWidth,
+    shadowHeight,
+    dotPx: avatarDotPx,
+    petWidth: petBoxWidth,
+    petHeight: petBoxHeight,
+  } = getRoomAvatarMetrics(layout?.cellWidth ?? 0);
 
   const bedPlacement = placements.bed;
   const bedLayout =
     bedPlacement && layout
       ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight, avatarDotPx)
       : null;
-  const sleepScale = bedLayout ? bedLayout.scale / SLEEP_RAW_PX_PER_DOT : 0;
-  const sleepLeft = bedLayout ? bedLayout.containerLeft + SLEEP_AVATAR_OFFSET_DOTS.x * bedLayout.scale : 0;
-  const sleepTop = bedLayout ? bedLayout.containerTop + SLEEP_AVATAR_OFFSET_DOTS.y * bedLayout.scale : 0;
+  const sleepRect = bedLayout ? getSleepAvatarRect(bedLayout) : null;
 
-  // 바닥 크기를 알게 되면 아바타(와 펫) 시작 위치를 한 번만 잡는다.
-  useEffect(() => {
-    if (width > 0 && !hasPositioned) {
-      const startX = width * STAND_START_RATIO.x;
-      const startY = floorHeight * STAND_START_RATIO.y;
-      posX.setValue(startX);
-      posY.setValue(startY);
-      currentPosRef.current = { x: startX, y: startY };
-      const petStartX = Math.max(0, startX + petOffsetX);
+  // 걷지 않고 그 자리에 바로 둔다(처음 위치, 앉은 가구를 옮긴 경우). 펫도 옆자리로 옮긴다.
+  const placeAvatarAt = useCallback(
+    (x: number, y: number) => {
+      posX.setValue(x);
+      posY.setValue(y);
+      currentPosRef.current = { x, y };
+      const petStartX = getPetX(x, layout?.cellWidth ?? 0, width);
       petX.setValue(petStartX);
-      petY.setValue(startY);
-      petCurrentPosRef.current = { x: petStartX, y: startY };
-      setHasPositioned(true);
+      petY.setValue(y);
+      petCurrentPosRef.current = { x: petStartX, y };
+    },
+    [layout, width, posX, posY, petX, petY],
+  );
+
+  // 바닥 크기와 방 응답을 알게 되면 아바타(와 펫) 시작 위치를 한 번만 잡는다. 마지막에 앉거나
+  // 누운 가구가 방에 있으면 거기서 그 포즈로, 아니면 기본 자리에 서서 시작한다(FR-AVATAR-06).
+  // 서버에 이미 있는 포즈라 다시 저장하지 않는다.
+  useEffect(() => {
+    if (!layout || !isRoomSettled || hasPositioned) {
+      return;
     }
-  }, [width, floorHeight, hasPositioned, posX, posY, petX, petY, petOffsetX]);
+    const posedPosition = posedFurniture ? placements[posedFurniture] : undefined;
+    const start =
+      posedFurniture && posedPosition
+        ? getFurnitureInteractionAnchor(posedFurniture, posedPosition, layout.cellWidth, layout.rowHeight, avatarDotPx)
+        : getStandStart(width, floorHeight);
+    placeAvatarAt(Math.round(start.x), Math.round(start.y));
+    setOccupancy(posedFurniture && posedPosition ? posedFurniture : null);
+    setHasPositioned(true);
+  }, [layout, isRoomSettled, hasPositioned, posedFurniture, placements, avatarDotPx, width, floorHeight, placeAvatarAt]);
+
+  // 앉거나 누운 채로 그 가구를 인벤토리에서 옮기면 옮긴 자리로 따라가고, 빼면 그 자리에서 일어난다.
+  // 서버도 배치를 저장할 때 같은 규칙으로 포즈를 잇거나 비우므로 여기서 다시 저장하지 않는다.
+  const occupiedPosition = occupancy ? placements[occupancy] : undefined;
+  useEffect(() => {
+    if (!occupancy || !layout) {
+      return;
+    }
+    if (!occupiedPosition) {
+      setOccupancy(null);
+      return;
+    }
+    const anchor = getFurnitureInteractionAnchor(
+      occupancy,
+      occupiedPosition,
+      layout.cellWidth,
+      layout.rowHeight,
+      avatarDotPx,
+    );
+    const x = Math.round(anchor.x);
+    const y = Math.round(anchor.y);
+    // 막 걸어와 앉은 경우처럼 이미 그 자리면 그대로 둔다(따라오던 펫을 끊지 않게).
+    if (x !== currentPosRef.current.x || y !== currentPosRef.current.y) {
+      placeAvatarAt(x, y);
+    }
+  }, [occupancy, occupiedPosition, layout, avatarDotPx, placeAvatarAt]);
 
   const startWalk = (
     from: { x: number; y: number },
@@ -261,7 +275,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     });
   };
 
-  // 아바타보다 살짝 늦게, 아바타 옆자리(petOffsetX)를 향해 걸어온다. 사람과 같은
+  // 아바타보다 살짝 늦게, 아바타 옆자리(getPetX)를 향해 걸어온다. 사람과 같은
   // 통통 튐(HOP_PERIOD_MS/HOP_AMPLITUDE_PX)을 그대로 쓴다. 도착 지점만 맞추면
   // 되므로 아바타의 실시간 좌표를 계속 추적할 필요 없이(리스너 없이) 목표점
   // 하나만 넘기면 충분하다.
@@ -383,7 +397,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       if (petFollowTimeoutRef.current) {
         clearTimeout(petFollowTimeoutRef.current);
       }
-      const petTargetX = Math.min(Math.max(targetX + petOffsetX, 0), width);
+      const petTargetX = getPetX(targetX, cellWidth, width);
       const petTargetY = targetY;
       petFollowTimeoutRef.current = setTimeout(() => {
         startPetWalk(petCurrentPosRef.current, petTargetX, petTargetY);
@@ -442,18 +456,18 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 바뀔 때마다 이 서브트리(AvatarSleepStage)와 아래 서기/앉기 서브트리
                 (AvatarStage)를 통째로 교체하면, 그 순간 처음 마운트되는 쪽 이미지가
                 디코드되며 깜빡인다. 둘 다 항상 그려두고 안 보이는 쪽만 투명하게 둔다. */}
-            {bedLayout ? (
+            {sleepRect ? (
               <View
                 style={{
                   position: "absolute",
-                  left: sleepLeft,
-                  top: sleepTop,
-                  width: AVATAR_SLEEP_STAGE_WIDTH * sleepScale,
-                  height: AVATAR_SLEEP_STAGE_HEIGHT * sleepScale,
+                  left: sleepRect.left,
+                  top: sleepRect.top,
+                  width: sleepRect.width,
+                  height: sleepRect.height,
                   opacity: occupancy === "bed" ? 1 : 0,
                 }}
               >
-                <AvatarSleepStage frame={sleepFrame} hairKey={hairKey ?? undefined} scale={sleepScale} />
+                <AvatarSleepStage frame={sleepFrame} hairKey={hairKey ?? undefined} scale={sleepRect.scale} />
               </View>
             ) : null}
             <View style={{ opacity: occupancy === "bed" ? 0 : 1 }}>
@@ -463,11 +477,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 style={[
                   styles.shadow,
                   {
-                    width: avatarRenderWidth * 0.6,
-                    height: avatarRenderWidth * 0.6 * 0.35,
+                    width: shadowWidth,
+                    height: shadowHeight,
                     transform: [
-                      { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
-                      { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
+                      { translateX: Animated.subtract(posX, shadowWidth / 2) },
+                      { translateY: Animated.subtract(posY, shadowHeight / 2) },
                     ],
                   },
                 ]}

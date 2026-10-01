@@ -12,6 +12,7 @@ import {
   FURNITURE_SETS,
   FURNITURE_TYPES,
   furnitureTypeFromImageUrl,
+  getPosedFurniture,
   placementsFromRoom,
   type FurniturePosition,
   type FurnitureType,
@@ -25,6 +26,14 @@ type RoomFurnitureContextValue = {
   placements: Placements;
   /** 배치된 가구의 서버 placementId. 포즈 저장(PATCH /room/pose)이 이 값을 요구한다. */
   placementIdByType: Partial<Record<FurnitureType, number>>;
+  /**
+   * 서버에 남은 마지막 포즈의 가구(앉은 책상·누운 침대). 서 있었으면 null. 내 방이 이 포즈로 시작한다.
+   * placements와 같은 방 응답에서 함께 파생해야 한다 — 따로 읽으면 앱 시작 때 포즈만 먼저 도착해
+   * "앉을 가구가 없다"로 잘못 판단한다.
+   */
+  posedFurniture: "desk" | "bed" | null;
+  /** 방 응답을 받았는지. 게스트는 받을 방이 없고, 첫 요청이 실패하면 재시도를 기다리지 않는다. */
+  isRoomSettled: boolean;
   /**
    * position이 null이면 치운다. 격자 범위를 벗어나면 안쪽으로 당겨서 놓는다.
    * 다른 가구와 칸이 겹치면 놓지 않고 false를 돌려준다(치우기는 항상 true).
@@ -71,6 +80,12 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
     }
     return map;
   }, [roomQuery.data]);
+
+  const posedFurniture = useMemo(
+    () => (roomQuery.data ? getPosedFurniture(roomQuery.data) : null),
+    [roomQuery.data],
+  );
+  const isRoomSettled = !accessToken || roomQuery.isFetched || roomQuery.failureCount > 0;
 
   // FurnitureType → 보유 userItemId. 배치 저장 시 서버가 userItemId를 요구한다.
   const typeToUserItemId = useMemo(() => {
@@ -143,8 +158,8 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<RoomFurnitureContextValue>(
-    () => ({ placements, placementIdByType, setPlacement }),
-    [placements, placementIdByType, setPlacement],
+    () => ({ placements, placementIdByType, posedFurniture, isRoomSettled, setPlacement }),
+    [placements, placementIdByType, posedFurniture, isRoomSettled, setPlacement],
   );
 
   return <RoomFurnitureContext.Provider value={value}>{children}</RoomFurnitureContext.Provider>;
