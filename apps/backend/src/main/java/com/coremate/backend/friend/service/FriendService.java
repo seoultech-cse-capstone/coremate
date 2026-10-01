@@ -34,6 +34,7 @@ import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -217,8 +218,11 @@ public class FriendService {
         }
     }
 
+    // 거절된 관계는 거절한 쪽(그 요청을 받았던 사람)만 다시 요청할 수 있다. 거절당한 쪽에는 요청이
+    // 계속 대기 중인 것처럼 보이므로(거절은 알리지 않는다, FR-FRIEND-04) 그쪽의 재요청은 중복 요청으로 막는다.
     private Friend reopenRequestIfPossible(Friend friend, User requester, User receiver) {
-        if (friend.getStatus() == FriendStatus.REJECTED) {
+        if (friend.getStatus() == FriendStatus.REJECTED
+                && friend.getReceiver().getUserId().equals(requester.getUserId())) {
             friend.reopen(requester, receiver);
             return friend;
         }
@@ -327,18 +331,24 @@ public class FriendService {
     }
 
     private FriendSearchUserResponse toFriendSearchUserResponse(Long currentUserId, User user) {
-        FriendStatus relationshipStatus = friendRepository
-                .findByUserLowIdAndUserHighId(lowId(currentUserId, user.getUserId()), highId(currentUserId, user.getUserId()))
-                .map(Friend::getStatus)
-                .orElse(null);
+        Optional<Friend> relation = friendRepository
+                .findByUserLowIdAndUserHighId(lowId(currentUserId, user.getUserId()), highId(currentUserId, user.getUserId()));
 
         return new FriendSearchUserResponse(
                 user.getUserId(),
                 user.getNickname(),
                 user.getSchoolName(),
                 user.getLevel(),
-                relationshipStatus
+                relation.map(friend -> visibleStatus(friend, currentUserId)).orElse(null),
+                relation.map(friend -> resolveDirection(friend, currentUserId)).orElse(null)
         );
+    }
+
+    // 내가 보낸 요청이 거절됐으면 나에게는 계속 대기 중으로 보여 준다. 거절은 알리지 않는다(FR-FRIEND-04).
+    private FriendStatus visibleStatus(Friend friend, Long currentUserId) {
+        boolean rejectedMyRequest = friend.getStatus() == FriendStatus.REJECTED
+                && friend.getRequester().getUserId().equals(currentUserId);
+        return rejectedMyRequest ? FriendStatus.REQUESTED : friend.getStatus();
     }
 
     private boolean hasAttendedToday(Long userId) {

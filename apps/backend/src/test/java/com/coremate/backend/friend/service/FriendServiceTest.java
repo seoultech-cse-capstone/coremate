@@ -9,6 +9,7 @@ import com.coremate.backend.friend.dto.request.SendFriendRequest;
 import com.coremate.backend.friend.dto.response.FriendPokeResponse;
 import com.coremate.backend.friend.dto.response.FriendProfileResponse;
 import com.coremate.backend.friend.dto.response.FriendRequestResponse;
+import com.coremate.backend.friend.dto.response.FriendSearchUserResponse;
 import com.coremate.backend.friend.dto.type.FriendStatus;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
@@ -177,6 +178,66 @@ class FriendServiceTest {
                 .isInstanceOf(CoreMateException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.FRIEND_POKE_DAILY_LIMIT_EXCEEDED);
+    }
+
+    @Test
+    void rejectedRequesterSeesPendingAndCannotRequestAgainButRejecterCan() {
+        User requester = createUser("alice7@example.com", "alice7");
+        User receiver = createUser("bob7@example.com", "bob7");
+        FriendRequestResponse request = friendService.sendRequest(
+                requester.getUserId(),
+                SendFriendRequest.builder().receiverId(receiver.getUserId()).build()
+        );
+        friendService.respond(
+                receiver.getUserId(),
+                RespondFriendRequest.builder()
+                        .friendId(request.friendId())
+                        .status(FriendStatus.REJECTED)
+                        .build()
+        );
+
+        // 거절당한 쪽에는 요청이 계속 대기 중으로 보이고, 다시 보내면 중복 요청으로 막힌다.
+        FriendSearchUserResponse seenByRequester = searchOne(requester, "bob7");
+        assertThat(seenByRequester.relationshipStatus()).isEqualTo(FriendStatus.REQUESTED);
+        assertThat(seenByRequester.direction()).isEqualTo("SENT");
+        assertThatThrownBy(() -> friendService.sendRequest(
+                requester.getUserId(),
+                SendFriendRequest.builder().receiverId(receiver.getUserId()).build()
+        ))
+                .isInstanceOf(CoreMateException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FRIEND_REQUEST_DUPLICATED);
+
+        // 거절한 쪽은 거절 상태를 그대로 보고, 마음을 바꾸면 먼저 요청할 수 있다.
+        FriendSearchUserResponse seenByReceiver = searchOne(receiver, "alice7");
+        assertThat(seenByReceiver.relationshipStatus()).isEqualTo(FriendStatus.REJECTED);
+        assertThat(seenByReceiver.direction()).isEqualTo("RECEIVED");
+
+        FriendRequestResponse reopened = friendService.sendRequest(
+                receiver.getUserId(),
+                SendFriendRequest.builder().receiverId(requester.getUserId()).build()
+        );
+        assertThat(reopened.status()).isEqualTo(FriendStatus.REQUESTED);
+        assertThat(reopened.requesterId()).isEqualTo(receiver.getUserId());
+        assertThat(searchOne(requester, "bob7").direction()).isEqualTo("RECEIVED");
+    }
+
+    @Test
+    void userSearchMatchesNicknameButNotEmail() {
+        User searcher = createUser("searcher8@example.com", "searcher8");
+        createUser("hidden-mail8@example.com", "carolSearch8");
+
+        assertThat(friendService.searchUsers(searcher.getUserId(), "hidden-mail8")).isEmpty();
+        assertThat(friendService.searchUsers(searcher.getUserId(), "carolsearch"))
+                .extracting(FriendSearchUserResponse::nickname)
+                .contains("carolSearch8");
+    }
+
+    private FriendSearchUserResponse searchOne(User searcher, String nickname) {
+        return friendService.searchUsers(searcher.getUserId(), nickname).stream()
+                .filter(user -> user.nickname().equals(nickname))
+                .findFirst()
+                .orElseThrow();
     }
 
     private void becomeFriends(User requester, User receiver) {
