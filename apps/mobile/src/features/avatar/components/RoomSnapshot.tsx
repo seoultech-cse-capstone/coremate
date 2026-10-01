@@ -3,6 +3,7 @@ import { Image, StyleSheet, View } from "react-native";
 
 import { AvatarSleepStage, AvatarStage } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
+import { IDLE_SEQUENCE, SIT_HAND_SEQUENCE, SLEEP_SEQUENCE } from "../avatarFrameSequences";
 import { toEquippedMap } from "../itemStem";
 import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
 import { getPetX, getRoomAvatarMetrics, getSleepAvatarRect, getStandStart } from "../roomAvatarLayout";
@@ -15,6 +16,7 @@ import {
 import { buildWalkGrid, nearestFreePoint } from "../roomPathfinding";
 import { ROOM_THEME_BY_KEY, ROOM_THEMES, themeKeyFromEquipped } from "../roomThemes";
 import type { RoomResponse } from "../roomTypes";
+import { useFrameSequence } from "../useFrameSequence";
 
 type RoomSnapshotProps = {
   room: RoomResponse;
@@ -23,8 +25,9 @@ type RoomSnapshotProps = {
 
 /**
  * 남의 방(친구 방)을 읽기 전용으로 그린다. 벽지·가구·옷은 서버 방 응답 그대로이고, 아바타는
- * 마지막에 취한 포즈(서 있기·책상·침대)로 멈춰 있다. 내 방(RoomScene)과 달리 걷기·탭이 없고
- * 포즈를 저장하지 않는다 — 여기서 저장하면 친구가 아니라 내 계정의 포즈가 바뀐다.
+ * 마지막에 취한 포즈(서 있기·책상·침대) 그 자리에서 내 방과 같은 프레임으로 숨쉬고·타자 치고·잔다.
+ * 내 방(RoomScene)과 달리 걷기·탭이 없고 포즈를 저장하지 않는다 — 여기서 저장하면 친구가 아니라
+ * 내 계정의 포즈가 바뀐다.
  */
 export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
   const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
@@ -35,6 +38,11 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
   const posedFurniture = getPosedFurniture(room);
   const posedPosition = posedFurniture ? placements[posedFurniture] : undefined;
   const petItem = equipped.PET ? LOCAL_CATALOG_BY_KEY.get(equipped.PET) : undefined;
+  const isSleeping = posedFurniture === "bed" && posedPosition !== undefined;
+  const isSitting = posedFurniture === "desk" && posedPosition !== undefined;
+  const frame = useFrameSequence(IDLE_SEQUENCE, !isSleeping && !isSitting);
+  const handFrame = useFrameSequence(SIT_HAND_SEQUENCE, isSitting);
+  const sleepFrame = useFrameSequence(SLEEP_SEQUENCE, isSleeping);
 
   let overlay: ReactNode = null;
   let standingFootY: number | null = null;
@@ -69,7 +77,11 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
             { left: sleepRect.left, top: sleepRect.top, width: sleepRect.width, height: sleepRect.height },
           ]}
         >
-          <AvatarSleepStage hairKey={equipped.HAIR ?? DEFAULT_LOCAL_KEY_BY_SLOT.HAIR} scale={sleepRect.scale} />
+          <AvatarSleepStage
+            frame={sleepFrame}
+            hairKey={equipped.HAIR ?? DEFAULT_LOCAL_KEY_BY_SLOT.HAIR}
+            scale={sleepRect.scale}
+          />
         </View>
       );
     } else {
@@ -91,6 +103,8 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
             <AvatarStage
               activity={posedFurniture === "desk" ? "sit" : "stand"}
               equipped={equipped}
+              frame={frame}
+              handFrame={handFrame}
               scale={metrics.scale}
             />
           </View>
