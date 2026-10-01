@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
+import { cancelBeforeOptimisticUpdate } from "./avatarWrites";
 import { useUpdateEquippedItemsMutation } from "./useAvatarQueries";
 import { useInventory } from "./useInventoryQueries";
 import { useMyRoom } from "./useRoomQueries";
@@ -57,13 +58,14 @@ export function RoomThemeProvider({ children }: { children: ReactNode }) {
   }, [inventoryQuery.data]);
 
   const setThemeKey = useCallback(
-    (next: RoomThemeKey) => {
+    async (next: RoomThemeKey) => {
       const userItemId = themeToUserItemId.get(next);
       // 보유하지 않은 테마는 장착할 수 없다(목록에 안 뜨지만 방어).
       if (userItemId === undefined) {
         return;
       }
 
+      await cancelBeforeOptimisticUpdate(queryClient, ROOM_QUERY_KEY);
       // 방 캐시의 WALLPAPER 장착을 낙관적으로 교체해 화면 즉시 반영(themeKey가 여기서 파생).
       queryClient.setQueryData<RoomResponse>(ROOM_QUERY_KEY, (old) => {
         if (!old) {
