@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
+import { cancelBeforeOptimisticUpdate } from "./avatarWrites";
 import { useInventory } from "./useInventoryQueries";
 import { useMyRoom, useSavePlacementsMutation } from "./useRoomQueries";
 import type { RoomResponse } from "./roomTypes";
@@ -132,26 +133,28 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
         payload.push({ userItemId, gridX: placedPos.col, gridY: placedPos.row });
       }
 
-      // 캐시를 낙관적으로 갱신해 화면 즉시 반영(placements가 여기서 파생된다).
-      queryClient.setQueryData<RoomResponse>(ROOM_QUERY_KEY, (old) =>
-        old
-          ? {
-              ...old,
-              placements: (Object.entries(next) as [FurnitureType, FurniturePosition][]).map(([t, pos]) => ({
-                placementId: 0,
-                userItemId: typeToUserItemId.get(t) ?? 0,
-                itemId: 0,
-                itemName: "",
-                imageUrl: `/assets/room/${FURNITURE_ITEM_STEM[t]}.png`,
-                gridX: pos.col,
-                gridY: pos.row,
-                metadata: null,
-              })),
-            }
-          : old,
-      );
-
-      savePlacements.mutate({ placements: payload });
+      // 캐시를 낙관적으로 갱신해 화면에 바로 반영한다(placements가 여기서 파생된다).
+      // 놓을 수 있는지는 위에서 이미 판정했으므로 결과는 기다리지 않고 바로 돌려준다.
+      void cancelBeforeOptimisticUpdate(queryClient, ROOM_QUERY_KEY).then(() => {
+        queryClient.setQueryData<RoomResponse>(ROOM_QUERY_KEY, (old) =>
+          old
+            ? {
+                ...old,
+                placements: (Object.entries(next) as [FurnitureType, FurniturePosition][]).map(([t, pos]) => ({
+                  placementId: 0,
+                  userItemId: typeToUserItemId.get(t) ?? 0,
+                  itemId: 0,
+                  itemName: "",
+                  imageUrl: `/assets/room/${FURNITURE_ITEM_STEM[t]}.png`,
+                  gridX: pos.col,
+                  gridY: pos.row,
+                  metadata: null,
+                })),
+              }
+            : old,
+        );
+        savePlacements.mutate({ placements: payload });
+      });
       return true;
     },
     [placements, typeToUserItemId, queryClient, savePlacements],

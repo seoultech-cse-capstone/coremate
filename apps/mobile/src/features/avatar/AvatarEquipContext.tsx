@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
+import { cancelBeforeOptimisticUpdate } from "./avatarWrites";
 import { toEquippedMap } from "./itemStem";
 import type { LocalAvatarSlot } from "./localCatalog";
 import type { UserAvatar } from "./types";
@@ -35,9 +36,11 @@ export function AvatarEquipProvider({ children }: { children: ReactNode }) {
   );
 
   // 화면을 바로 바꾸기 위한 낙관적 갱신이다. 서버 저장은 호출부(인벤토리)가 하고, 성공하면
-  // 서버 응답이 이 캐시를 덮어쓰고 실패하면 다시 불러와 되돌린다(useUpdateEquippedItemsMutation).
+  // 서버 응답이 이 캐시를 덮어쓰고(뒤에 줄 선 쓰기가 없을 때만) 실패하면 다시 불러와 되돌린다
+  // (useUpdateEquippedItemsMutation).
   const setEquippedItem = useCallback(
-    (slot: LocalAvatarSlot, key: string | null) => {
+    async (slot: LocalAvatarSlot, key: string | null) => {
+      await cancelBeforeOptimisticUpdate(queryClient, AVATAR_ME_QUERY_KEY);
       queryClient.setQueryData<UserAvatar>(AVATAR_ME_QUERY_KEY, (old) => {
         if (!old) {
           return old;
