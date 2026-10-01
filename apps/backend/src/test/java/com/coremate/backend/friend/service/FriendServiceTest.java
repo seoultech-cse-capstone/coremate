@@ -2,6 +2,7 @@ package com.coremate.backend.friend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.coremate.backend.friend.dto.request.PokeFriendRequest;
 import com.coremate.backend.friend.dto.request.RespondFriendRequest;
@@ -208,6 +209,20 @@ class FriendServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.FRIEND_REQUEST_DUPLICATED);
 
+        // 보낸 요청 목록(SENT·전체)에서도 거절이 드러나지 않는다.
+        assertThat(friendService.getRequests(requester.getUserId(), "SENT"))
+                .extracting(FriendRequestResponse::friendId, FriendRequestResponse::status)
+                .containsExactly(tuple(request.friendId(), FriendStatus.REQUESTED));
+        assertThat(friendService.getRequests(requester.getUserId(), null))
+                .extracting(FriendRequestResponse::friendId, FriendRequestResponse::status)
+                .containsExactly(tuple(request.friendId(), FriendStatus.REQUESTED));
+
+        // 거절 기록을 친구 삭제로 지운 뒤 다시 요청하는 우회도 막힌다.
+        assertThatThrownBy(() -> friendService.delete(requester.getUserId(), receiver.getUserId()))
+                .isInstanceOf(CoreMateException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.FRIEND_NOT_FOUND);
+
         // 거절한 쪽은 거절 상태를 그대로 보고, 마음을 바꾸면 먼저 요청할 수 있다.
         FriendSearchUserResponse seenByReceiver = searchOne(receiver, "alice7");
         assertThat(seenByReceiver.relationshipStatus()).isEqualTo(FriendStatus.REJECTED);
@@ -220,6 +235,18 @@ class FriendServiceTest {
         assertThat(reopened.status()).isEqualTo(FriendStatus.REQUESTED);
         assertThat(reopened.requesterId()).isEqualTo(receiver.getUserId());
         assertThat(searchOne(requester, "bob7").direction()).isEqualTo("RECEIVED");
+    }
+
+    @Test
+    void deleteRemovesAcceptedFriendship() {
+        User alice = createUser("alice9@example.com", "alice9");
+        User bob = createUser("bob9@example.com", "bob9");
+        becomeFriends(alice, bob);
+
+        friendService.delete(alice.getUserId(), bob.getUserId());
+
+        assertThat(friendService.getFriends(alice.getUserId())).isEmpty();
+        assertThat(friendService.getFriends(bob.getUserId())).isEmpty();
     }
 
     @Test

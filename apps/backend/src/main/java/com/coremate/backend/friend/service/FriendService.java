@@ -34,9 +34,11 @@ import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -104,11 +106,11 @@ public class FriendService {
         findActiveUser(userId);
         String normalizedDirection = normalizeDirection(direction);
         List<Friend> requests = switch (normalizedDirection) {
-            case REQUEST_DIRECTION_RECEIVED -> friendRepository
-                    .findByReceiver_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
-            case REQUEST_DIRECTION_SENT -> friendRepository
-                    .findByRequester_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
-            default -> friendRepository.findRequestedByUserId(userId, FriendStatus.REQUESTED);
+            case REQUEST_DIRECTION_RECEIVED -> receivedRequests(userId);
+            case REQUEST_DIRECTION_SENT -> sentRequests(userId);
+            default -> Stream.concat(receivedRequests(userId).stream(), sentRequests(userId).stream())
+                    .sorted(Comparator.comparing(Friend::getCreatedAt).reversed())
+                    .toList();
         };
         Map<Long, List<AvatarEquippedItemResponse>> equipped = avatarService.getEquippedItemsByUser(
                 requests.stream().map(friend -> friend.getRequester().getUserId()).toList());
@@ -161,14 +163,25 @@ public class FriendService {
         return toFriendResponse(friend, userId);
     }
 
+    // 친구 삭제는 수락된 관계만 지운다. 거절 기록까지 지울 수 있으면 거절당한 쪽이 지우고 다시 요청할 수 있다.
     @Transactional
     public void delete(Long userId, Long friendUserId) {
         validateNotSelf(userId, friendUserId);
         Friend friend = findAnyRelation(userId, friendUserId);
-        if (!friend.involves(userId)) {
+        if (!friend.involves(userId) || friend.getStatus() != FriendStatus.ACCEPTED) {
             throw new CoreMateException(ErrorCode.FRIEND_NOT_FOUND);
         }
         friendRepository.delete(friend);
+    }
+
+    private List<Friend> receivedRequests(Long userId) {
+        return friendRepository.findByReceiver_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
+    }
+
+    // 보낸 요청에는 거절된 것도 넣는다. 보낸 사람에게는 거절을 알리지 않고 대기 중으로 보여 준다(visibleStatus).
+    private List<Friend> sentRequests(Long userId) {
+        return friendRepository.findByRequester_UserIdAndStatusInOrderByCreatedAtDesc(
+                userId, List.of(FriendStatus.REQUESTED, FriendStatus.REJECTED));
     }
 
     @Transactional
@@ -288,7 +301,7 @@ public class FriendService {
                 friend.getRequester().getNickname(),
                 friend.getReceiver().getUserId(),
                 friend.getReceiver().getNickname(),
-                friend.getStatus(),
+                visibleStatus(friend, currentUserId),
                 resolveDirection(friend, currentUserId),
                 friend.getCreatedAt(),
                 requesterEquippedItems
