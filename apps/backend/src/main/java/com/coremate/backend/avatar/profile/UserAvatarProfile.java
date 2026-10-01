@@ -91,6 +91,13 @@ public class UserAvatarProfile {
         }
     }
 
+    // 배치를 통째로 다시 쓸 때 포즈가 가리키는 배치만 갈아 끼운다. 포즈와 시각은 그대로라
+    // 침대를 옮기거나 다른 가구를 바꿔도 친구 방의 "3일 전부터 자는 중"이 이어진다.
+    // 다시 쓰는 동안에는 FK 때문에 잠시 null 로 끊어 둔다.
+    public void relinkRoomPosePlacement(UserRoomPlacement placement) {
+        this.roomPosePlacement = placement;
+    }
+
     // 포즈가 가리키던 가구가 방에서 빠졌을 때 호출한다. 배치가 사라지면 기본 자리에 서서 시작한다.
     // 시각까지 비우는 이유는 STAND 로 돌아간 뒤 남은 시각이 "N일 전부터"로 잘못 읽힐 수 있기 때문이다.
     public void clearRoomPose() {
