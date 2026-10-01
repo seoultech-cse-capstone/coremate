@@ -31,9 +31,15 @@ type RoomBackdropProps = {
    * 그리는데, 이 가구만 그 정렬된 자리에서 back/front로 나눠 아바타를 사이에
    * 끼운다 — 그래야 상호작용 중에도 다른 가구와의 앞뒤 관계가 바뀌지 않는다.
    * null이면(상호작용 중이 아니면) 아바타는 정렬된 가구를 전부 그린 다음
-   * 맨 위에 그린다.
+   * 맨 위에 그린다 — avatarDepthY를 주면 그 규칙을 따른다.
    */
   occupiedFurniture?: FurnitureType | null;
+  /**
+   * 서 있는 아바타 발의 바닥 y. 주면 바닥 기준선((row+1)*rowHeight)이 이보다 아래인 가구,
+   * 즉 아바타보다 앞에 놓인 가구를 아바타 위에 그린다 — 가구 뒤로 지나가거나 서 있을 때
+   * 가구 위로 튀어나와 보이지 않게. 앉거나 누운 가구(occupiedFurniture)가 있으면 그 규칙이 먼저다.
+   */
+  avatarDepthY?: number | null;
   onFloorPress?: (event: GestureResponderEvent) => void;
   /** 폭이 측정될 때마다(및 height 변경 시) 격자 치수를 올려보낸다. */
   onLayoutChange?: (layout: RoomLayoutInfo) => void;
@@ -99,6 +105,7 @@ export function RoomBackdrop({
   showGridLines = true,
   showFurniture = true,
   occupiedFurniture = null,
+  avatarDepthY = null,
   onFloorPress,
   onLayoutChange,
   overlay,
@@ -169,6 +176,15 @@ export function RoomBackdrop({
           />,
         );
       } else {
+        // 정렬이 줄 순서라, 아바타보다 앞에 놓인 첫 가구 바로 앞에 아바타를 끼우면 된다.
+        const isInFrontOfAvatar =
+          occupiedFurniture === null &&
+          avatarDepthY !== null &&
+          (placements[type]!.row + 1) * rowHeight > avatarDepthY;
+        if (!avatarInserted && isInFrontOfAvatar) {
+          furnitureAndAvatarNodes.push(<Fragment key="avatar">{overlay}</Fragment>);
+          avatarInserted = true;
+        }
         furnitureAndAvatarNodes.push(
           <FurniturePieces
             key={type}
