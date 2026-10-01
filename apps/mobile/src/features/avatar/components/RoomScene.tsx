@@ -58,16 +58,20 @@ const WALK_SPEED_PX_PER_SEC = 220;
 const MIN_WALK_DURATION_MS = 300;
 // 수면 캔버스(384x216, 48x27도트)는 원본이 1도트=8px라, 세트 배율(도트당 실제 px)을
 // 그 8로 나눠야 AvatarSleepStage의 scale prop과 단위가 맞는다.
-const SLEEP_RAW_PX_PER_DOT = 8;
+export const SLEEP_RAW_PX_PER_DOT = 8;
+// AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
+export const SLEEP_AVATAR_OFFSET_DOTS = { x: 4, y: -12 };
+// 처음 서 있는 자리: 바닥 가로 가운데, 세로 65% 지점(발 접지 기준).
+export const STAND_START_RATIO = { x: 0.5, y: 0.65 };
 
 // 펫: 프레임 애니메이션 없는 정지 이미지라, 강아지 원본(18x13도트)을 기준 상자로 두고
 // contain으로 맞춘다(거북이는 더 납작해서 상자 안에서 살짝 작게 보인다 — 의도된 동작).
-const PET_BOX_WIDTH_DOTS = 18;
-const PET_BOX_HEIGHT_DOTS = 13;
+export const PET_BOX_WIDTH_DOTS = 18;
+export const PET_BOX_HEIGHT_DOTS = 13;
 // 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
 const PET_FOLLOW_DELAY_MS = 220;
 // 아바타 발밑 기준 오른쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
-const PET_FOLLOW_OFFSET_CELLS = 0.55;
+export const PET_FOLLOW_OFFSET_CELLS = 0.55;
 
 function isWithinRect(
   rect: { left: number; top: number; right: number; bottom: number },
@@ -169,16 +173,15 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     bedPlacement && layout
       ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight, avatarDotPx)
       : null;
-  // AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
   const sleepScale = bedLayout ? bedLayout.scale / SLEEP_RAW_PX_PER_DOT : 0;
-  const sleepLeft = bedLayout ? bedLayout.containerLeft + 4 * bedLayout.scale : 0;
-  const sleepTop = bedLayout ? bedLayout.containerTop - 12 * bedLayout.scale : 0;
+  const sleepLeft = bedLayout ? bedLayout.containerLeft + SLEEP_AVATAR_OFFSET_DOTS.x * bedLayout.scale : 0;
+  const sleepTop = bedLayout ? bedLayout.containerTop + SLEEP_AVATAR_OFFSET_DOTS.y * bedLayout.scale : 0;
 
   // 바닥 크기를 알게 되면 아바타(와 펫) 시작 위치를 한 번만 잡는다.
   useEffect(() => {
     if (width > 0 && !hasPositioned) {
-      const startX = width / 2;
-      const startY = floorHeight * 0.65;
+      const startX = width * STAND_START_RATIO.x;
+      const startY = floorHeight * STAND_START_RATIO.y;
       posX.setValue(startX);
       posY.setValue(startY);
       currentPosRef.current = { x: startX, y: startY };

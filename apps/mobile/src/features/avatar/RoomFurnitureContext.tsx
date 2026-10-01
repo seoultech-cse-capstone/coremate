@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
-import { stemFromImageUrl } from "./itemStem";
 import { useInventory } from "./useInventoryQueries";
 import { useMyRoom, useSavePlacementsMutation } from "./useRoomQueries";
 import type { RoomResponse } from "./roomTypes";
@@ -12,6 +11,8 @@ import {
   FURNITURE_ITEM_STEM,
   FURNITURE_SETS,
   FURNITURE_TYPES,
+  furnitureTypeFromImageUrl,
+  placementsFromRoom,
   type FurniturePosition,
   type FurnitureType,
 } from "./roomFurniture";
@@ -35,16 +36,6 @@ const RoomFurnitureContext = createContext<RoomFurnitureContextValue | null>(nul
 
 const ROOM_QUERY_KEY = ["avatar", "room"] as const;
 
-// 서버 image_url 파일명 stem ↔ 로컬 FurnitureType. 서버 배치/보유목록과 로컬 가구를 잇는 키.
-const STEM_TO_TYPE = new Map<string, FurnitureType>(
-  FURNITURE_TYPES.map((type) => [FURNITURE_ITEM_STEM[type], type]),
-);
-
-function typeFromImageUrl(imageUrl: string | null): FurnitureType | undefined {
-  const stem = stemFromImageUrl(imageUrl);
-  return stem ? STEM_TO_TYPE.get(stem) : undefined;
-}
-
 function clampPosition(type: FurnitureType, position: FurniturePosition): FurniturePosition {
   const footprintCols = FURNITURE_SETS[type].footprintCols;
   const col = Math.min(Math.max(position.col, 0), ROOM_GRID_COLS - footprintCols);
@@ -63,23 +54,17 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
   const savePlacements = useSavePlacementsMutation(accessToken);
 
   // 서버 방 응답의 배치 → 로컬 { type: {row, col} }. gridX=col, gridY=row.
-  const placements = useMemo<Placements>(() => {
-    const map: Placements = {};
-    for (const placement of roomQuery.data?.placements ?? []) {
-      const type = typeFromImageUrl(placement.imageUrl);
-      if (type) {
-        map[type] = { row: placement.gridY, col: placement.gridX };
-      }
-    }
-    return map;
-  }, [roomQuery.data]);
+  const placements = useMemo<Placements>(
+    () => placementsFromRoom(roomQuery.data?.placements ?? []),
+    [roomQuery.data],
+  );
 
   // 배치된 가구 → 서버 placementId. 포즈 저장에 쓴다. 낙관적 갱신 중에는 placementId가
   // 0(placeholder)일 수 있으나, 포즈는 서버 저장이 끝난 실제 배치에서만 유발된다.
   const placementIdByType = useMemo<Partial<Record<FurnitureType, number>>>(() => {
     const map: Partial<Record<FurnitureType, number>> = {};
     for (const placement of roomQuery.data?.placements ?? []) {
-      const type = typeFromImageUrl(placement.imageUrl);
+      const type = furnitureTypeFromImageUrl(placement.imageUrl);
       if (type) {
         map[type] = placement.placementId;
       }
@@ -92,7 +77,7 @@ export function RoomFurnitureProvider({ children }: { children: ReactNode }) {
     const map = new Map<FurnitureType, number>();
     for (const group of inventoryQuery.data?.groups ?? []) {
       for (const item of group.items) {
-        const type = typeFromImageUrl(item.imageUrl);
+        const type = furnitureTypeFromImageUrl(item.imageUrl);
         if (type) {
           map.set(type, item.userItemId);
         }

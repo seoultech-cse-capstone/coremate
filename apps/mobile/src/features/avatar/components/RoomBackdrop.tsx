@@ -10,7 +10,7 @@ import {
 
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, type RoomGridLayout } from "../roomGrid";
 import { useRoomTheme } from "../RoomThemeContext";
-import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThemes";
+import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR, type RoomTheme } from "../roomThemes";
 import { useRoomFurniture, type FurniturePosition } from "../RoomFurnitureContext";
 import { FURNITURE_TYPES, getFurnitureLayout, type FurnitureType } from "../roomFurniture";
 import { getAvatarDotPx } from "./AvatarStage";
@@ -39,6 +39,10 @@ type RoomBackdropProps = {
   onLayoutChange?: (layout: RoomLayoutInfo) => void;
   /** 벽·바닥 위, 크롭 없이 그려지는 오버레이(아바타 등). 바닥과 같은 좌표계. */
   overlay?: ReactNode;
+  /** 남의 방(친구 방)을 그릴 때 넘긴다. 생략하면 내 방 테마(RoomThemeContext)를 그린다. */
+  theme?: RoomTheme;
+  /** 남의 방(친구 방)을 그릴 때 넘긴다. 생략하면 내 방 배치(RoomFurnitureContext)를 그린다. */
+  placements?: Partial<Record<FurnitureType, FurniturePosition>>;
 };
 
 /**
@@ -98,9 +102,13 @@ export function RoomBackdrop({
   onFloorPress,
   onLayoutChange,
   overlay,
+  theme: themeProp,
+  placements: placementsProp,
 }: RoomBackdropProps) {
-  const { theme } = useRoomTheme();
-  const { placements } = useRoomFurniture();
+  const myRoomTheme = useRoomTheme();
+  const myRoomFurniture = useRoomFurniture();
+  const theme = themeProp ?? myRoomTheme.theme;
+  const placements = placementsProp ?? myRoomFurniture.placements;
   const [width, setWidth] = useState(0);
 
   const onLayout = (event: LayoutChangeEvent) => {

@@ -274,6 +274,7 @@ export default function FriendProfileScreen() {
       <FriendRoomModal
         nickname={profile.nickname}
         onClose={() => setIsRoomModalVisible(false)}
+        room={profile.room}
         visible={isRoomModalVisible}
       />
     </View>
