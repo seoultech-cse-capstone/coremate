@@ -3,6 +3,7 @@ export { useMyAvatar, useUpdateEquippedItemsMutation } from "./useAvatarQueries"
 export { AvatarProfileSync } from "./AvatarProfileSync";
 export { AvatarStage, AvatarFaceThumbnail } from "./components/AvatarStage";
 export { RoomScene } from "./components/RoomScene";
+export { RoomSnapshot } from "./components/RoomSnapshot";
 export { RoomBackdrop } from "./components/RoomBackdrop";
 export type { RoomLayoutInfo } from "./components/RoomBackdrop";
 export { RoomThemeProvider, useRoomTheme } from "./RoomThemeContext";
@@ -14,7 +15,7 @@ export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect 
 export type { RoomGridLayout } from "./roomGrid";
 export { RoomFurnitureProvider, useRoomFurniture } from "./RoomFurnitureContext";
 export type { FurniturePosition } from "./RoomFurnitureContext";
-export { FURNITURE_SETS, FURNITURE_TYPES, FURNITURE_ITEM_STEM } from "./roomFurniture";
+export { FURNITURE_SETS, FURNITURE_TYPES, FURNITURE_ITEM_STEM, getPosedFurniture } from "./roomFurniture";
 export type { FurnitureSet, FurnitureType } from "./roomFurniture";
 export {
   DEFAULT_LOCAL_KEY_BY_SLOT,

@@ -1,5 +1,8 @@
 import { Image, type ImageSourcePropType } from "react-native";
 
+import { stemFromImageUrl } from "./itemStem";
+import type { RoomPlacement, RoomResponse } from "./roomTypes";
+
 // assets_template.md 6절 기준. 좌표는 전부 "아바타 원점" 같은 공통 기준점 하나를
 // 공유한다고 보고 그대로 옮겨왔다 — 세트 내 상대 배치(바운딩박스)만 쓰므로
 // 기준점 자체가 어디든 결과는 같다.
@@ -188,6 +191,45 @@ export const FURNITURE_ITEM_STEM: Record<FurnitureType, string> = {
   petCushion: "furn_pet_cushion",
   washer: "furn_washer",
 };
+
+// 서버 image_url 파일명 stem ↔ 로컬 FurnitureType. 서버 배치/보유목록과 로컬 가구를 잇는 키.
+const STEM_TO_FURNITURE_TYPE = new Map<string, FurnitureType>(
+  FURNITURE_TYPES.map((type) => [FURNITURE_ITEM_STEM[type], type]),
+);
+
+/** 서버 가구 아이템 image_url → 로컬 가구 종류. 앱에 없는 가구면 undefined. */
+export function furnitureTypeFromImageUrl(imageUrl: string | null): FurnitureType | undefined {
+  const stem = stemFromImageUrl(imageUrl);
+  return stem ? STEM_TO_FURNITURE_TYPE.get(stem) : undefined;
+}
+
+/** 서버 방 배치 목록 → 가구 종류별 격자 위치(gridX=col, gridY=row). 앱에 없는 가구는 빠진다. */
+export function placementsFromRoom(
+  placements: RoomPlacement[],
+): Partial<Record<FurnitureType, FurniturePosition>> {
+  const map: Partial<Record<FurnitureType, FurniturePosition>> = {};
+  for (const placement of placements) {
+    const type = furnitureTypeFromImageUrl(placement.imageUrl);
+    if (type) {
+      map[type] = { row: placement.gridY, col: placement.gridX };
+    }
+  }
+  return map;
+}
+
+/**
+ * 마지막에 앉거나 누운 가구(책상·침대). 서 있었거나, 그 가구가 방에서 치워졌거나
+ * (배치가 지워지면 서버가 room_pose_placement_id 를 비운다), 포즈와 가구가 맞지 않으면
+ * null 이다 — 이때는 서 있는 모습으로 그린다.
+ */
+export function getPosedFurniture(room: RoomResponse): "desk" | "bed" | null {
+  const expected = room.roomPose === "SIT_DESK" ? "desk" : room.roomPose === "SLEEP_BED" ? "bed" : null;
+  if (!expected) {
+    return null;
+  }
+  const placement = room.placements.find((item) => item.placementId === room.roomPosePlacementId);
+  return placement && furnitureTypeFromImageUrl(placement.imageUrl) === expected ? expected : null;
+}
 
 /** 아바타가 걸어가서 앉거나 누울 수 있는(탭하면 상호작용하는) 가구. 나머지는 장식용이다. */
 export const INTERACTIVE_FURNITURE_TYPES: FurnitureType[] = ["bed", "desk"];

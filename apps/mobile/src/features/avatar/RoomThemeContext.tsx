@@ -2,16 +2,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
-import { stemFromImageUrl } from "./itemStem";
 import { useUpdateEquippedItemsMutation } from "./useAvatarQueries";
 import { useInventory } from "./useInventoryQueries";
 import { useMyRoom } from "./useRoomQueries";
 import type { RoomResponse } from "./roomTypes";
 import {
-  DEFAULT_ROOM_THEME_KEY,
   ROOM_THEME_BY_KEY,
   ROOM_THEME_ITEM_STEM,
   ROOM_THEMES,
+  themeKeyFromEquipped,
+  themeKeyFromImageUrl,
   type RoomTheme,
   type RoomThemeKey,
 } from "./roomThemes";
@@ -27,11 +27,6 @@ const RoomThemeContext = createContext<RoomThemeContextValue | null>(null);
 const ROOM_QUERY_KEY = ["avatar", "room"] as const;
 const WALLPAPER_SLOT = "WALLPAPER";
 
-// 서버 WALLPAPER image_url stem ↔ 로컬 테마 key.
-const STEM_TO_THEME = new Map<string, RoomThemeKey>(
-  (Object.entries(ROOM_THEME_ITEM_STEM) as [RoomThemeKey, string][]).map(([key, stem]) => [stem, key]),
-);
-
 // 마이페이지에서 고른 방 테마(벽지+바닥 세트)를 앱 전체(홈 화면 방 등)에서 같이 쓴다.
 // 테마는 서버의 WALLPAPER 장착 슬롯이며(equipped-items), react-query 방 캐시에서 파생한다.
 export function RoomThemeProvider({ children }: { children: ReactNode }) {
@@ -42,19 +37,17 @@ export function RoomThemeProvider({ children }: { children: ReactNode }) {
   const equipMutation = useUpdateEquippedItemsMutation(accessToken);
 
   // 서버 장착의 WALLPAPER → 테마 key. 없으면 기본 테마.
-  const themeKey = useMemo<RoomThemeKey>(() => {
-    const wallpaper = roomQuery.data?.equippedItems?.find((item) => item.slot === WALLPAPER_SLOT);
-    const stem = stemFromImageUrl(wallpaper?.imageUrl ?? null);
-    return (stem && STEM_TO_THEME.get(stem)) || DEFAULT_ROOM_THEME_KEY;
-  }, [roomQuery.data]);
+  const themeKey = useMemo<RoomThemeKey>(
+    () => themeKeyFromEquipped(roomQuery.data?.equippedItems ?? []),
+    [roomQuery.data],
+  );
 
   // 테마 key → 보유 WALLPAPER userItemId.
   const themeToUserItemId = useMemo(() => {
     const map = new Map<RoomThemeKey, number>();
     for (const group of inventoryQuery.data?.groups ?? []) {
       for (const item of group.items) {
-        const stem = stemFromImageUrl(item.imageUrl);
-        const key = stem ? STEM_TO_THEME.get(stem) : undefined;
+        const key = themeKeyFromImageUrl(item.imageUrl);
         if (key) {
           map.set(key, item.userItemId);
         }
