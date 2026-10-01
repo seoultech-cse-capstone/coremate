@@ -47,17 +47,16 @@ type AddFriendModalProps = ModalShellProps & {
   users: FriendSearchUser[];
   /** 이번 화면에서 방금 요청을 보낸 사용자. 서버 응답이 갱신되기 전에도 버튼을 눌린 상태로 둔다. */
   sentUserIds: number[];
-  isRequestLimitReached: boolean;
   onSendRequest: (userId: number) => void;
 };
 
-export function AddFriendModal({ visible, query, users, onClose, onQueryChange, sentUserIds, isRequestLimitReached, onSendRequest }: AddFriendModalProps) {
+export function AddFriendModal({ visible, query, users, onClose, onQueryChange, sentUserIds, onSendRequest }: AddFriendModalProps) {
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <ModalSurface onClose={onClose} onQueryChange={onQueryChange} query={query} title="Add Friend">
         {users.map((user) => {
           const button = requestButton(user, sentUserIds.includes(user.userId));
-          const disabled = !button.canRequest || isRequestLimitReached;
+          const disabled = !button.canRequest;
           return (
             <View key={user.userId} style={styles.row}>
               <PersonAvatar equippedItems={user.equippedItems ?? []} nickname={user.nickname} />
@@ -73,7 +72,6 @@ export function AddFriendModal({ visible, query, users, onClose, onQueryChange, 
             {query.trim() ? "검색 결과가 없어요." : "닉네임을 입력해 친구를 찾아보세요."}
           </Text>
         )}
-        {isRequestLimitReached && <Text style={styles.limitText}>친구 요청은 최대 30명까지 보낼 수 있어요.</Text>}
       </ModalSurface>
     </Modal>
   );
@@ -198,5 +196,4 @@ const styles = StyleSheet.create({
   requestText: { color: "#FFFFFF", fontFamily: FONT.pretendard, fontSize: 12, fontWeight: "600" },
   requestTextSent: { color: "#6D5DFB" },
   empty: { color: "#94A3B8", fontFamily: FONT.pretendard, fontSize: 14, textAlign: "center", paddingVertical: 28 },
-  limitText: { color: "#DC2626", fontFamily: FONT.pretendard, fontSize: 12, textAlign: "center", paddingTop: 8 },
 });

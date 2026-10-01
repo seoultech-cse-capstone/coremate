@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
 import { ChevronLeft, Flame, Hand, MapPin } from "lucide-react-native";
@@ -30,11 +31,25 @@ import {
   type ProgressAxis,
 } from "../src/features/friend/components/FriendProgressStats";
 import { FriendRoomModal } from "../src/features/friend/components/FriendRoomModal";
-import { getApiErrorMessage } from "../src/shared/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
 
 const BRAND_PURPLE = "#6D5DFB";
 const PANEL_GRAY = "#F3F3F3";
 const OVERSCROLL_BUFFER = 96;
+
+// SCR-FRIEND-02 화면 상태 중 "친구 관계 아님"·"대상 사용자 탈퇴"는 일반 오류와 따로 알린다.
+// 상대가 친구를 끊었는데 내 목록이 아직 갱신되지 않았을 때 주로 만난다.
+function getProfileErrorText(error: unknown): string {
+  switch (getApiErrorCode(error)) {
+    case "FRIEND_RELATION_REQUIRED":
+      return "친구 관계가 아니에요";
+    case "USER_NOT_FOUND":
+    case "ACCOUNT_NOT_ACTIVE":
+      return "탈퇴했거나 이용이 중지된 사용자예요";
+    default:
+      return "친구 정보를 불러오지 못했어요";
+  }
+}
 
 export default function FriendProfileScreen() {
   useRequireMember();
@@ -43,7 +58,8 @@ export default function FriendProfileScreen() {
   const friendUserId = Number(friendId);
   const targetUserId = Number.isFinite(friendUserId) ? friendUserId : null;
 
-  const { data: profile, isLoading, isError } = useFriendProfileQuery(targetUserId);
+  const queryClient = useQueryClient();
+  const { data: profile, isLoading, isError, error } = useFriendProfileQuery(targetUserId);
   const { data: learningHistory } = useFriendLearningHistoryQuery(targetUserId);
   const { data: subjects = [] } = useSubjects();
   const pokeMutation = usePokeMutation();
@@ -69,8 +85,15 @@ export default function FriendProfileScreen() {
       <View style={[styles.container, styles.centered]}>
         {isError ? (
           <>
-            <Text style={styles.errorText}>친구 정보를 불러오지 못했어요</Text>
-            <Pressable accessibilityRole="button" onPress={() => router.back()}>
+            <Text style={styles.errorText}>{getProfileErrorText(error)}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                // 관계가 끊겼거나 탈퇴했으면 친구 목록에 남은 카드도 사라지게 다시 불러온다.
+                queryClient.invalidateQueries({ queryKey: ["friends"] });
+                router.back();
+              }}
+            >
               <Text style={styles.errorAction}>돌아가기</Text>
             </Pressable>
           </>

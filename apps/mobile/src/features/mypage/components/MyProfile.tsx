@@ -6,6 +6,17 @@ import { useAuth } from "../../auth";
 import { useMyCurrency } from "../../currency";
 import { getLevelProgress, useMyProfile } from "../../user";
 
+// 오늘 출석 여부와 최근 출석일(SCR-MYPAGE-01). 오늘 출석했으면 최근 출석일이 오늘이라 따로 쓰지 않는다.
+function getAttendanceText(attendedToday: boolean, lastAttendanceDate: string | null): string {
+  if (attendedToday) {
+    return "오늘 출석 완료";
+  }
+  if (!lastAttendanceDate) {
+    return "오늘 아직 출석 전";
+  }
+  return `오늘 아직 출석 전 · 최근 출석 ${lastAttendanceDate.slice(0, 10).replace(/-/g, ".")}`;
+}
+
 export function MyProfile() {
   const { accessToken } = useAuth();
   const { data: profile } = useMyProfile(accessToken);
@@ -19,7 +30,8 @@ export function MyProfile() {
 
   const stats = [
     { label: "Level", value: `Lv.${level}` },
-    { label: "Day Streak", value: `${profile?.attendanceCount ?? 0}` },
+    // 누적 출석 일수다(연속 일수가 아니다). 친구 프로필과 같은 이름을 쓴다.
+    { label: "Total Days", value: `${profile?.attendanceCount ?? 0}` },
     { label: "Coins", value: `${currency?.coin ?? 0}` },
   ];
 
@@ -31,9 +43,9 @@ export function MyProfile() {
         <View style={styles.userText}>
           <Text style={styles.nickname}>{profile?.nickname ?? "코어메이트"}</Text>
           <Text style={styles.school}>{profile?.schoolName ?? "학교 미등록"}</Text>
-          {profile?.lastAttendanceDate ? (
+          {profile ? (
             <Text style={styles.school}>
-              최근 출석 {profile.lastAttendanceDate.slice(0, 10).replace(/-/g, ".")}
+              {getAttendanceText(profile.attendedToday, profile.lastAttendanceDate)}
             </Text>
           ) : null}
 
