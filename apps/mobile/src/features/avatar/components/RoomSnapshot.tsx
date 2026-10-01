@@ -12,6 +12,7 @@ import {
   getPosedFurniture,
   placementsFromRoom,
 } from "../roomFurniture";
+import { buildWalkGrid, nearestFreePoint } from "../roomPathfinding";
 import { ROOM_THEME_BY_KEY, ROOM_THEMES, themeKeyFromEquipped } from "../roomThemes";
 import type { RoomResponse } from "../roomTypes";
 
@@ -36,17 +37,25 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
   const petItem = equipped.PET ? LOCAL_CATALOG_BY_KEY.get(equipped.PET) : undefined;
 
   let overlay: ReactNode = null;
+  let standingFootY: number | null = null;
   if (layout) {
     const { cellWidth, rowHeight, width, floorHeight } = layout;
     const metrics = getRoomAvatarMetrics(cellWidth);
 
-    // 발 접지점. 앉거나 누웠으면 그 가구의 상호작용 지점, 서 있으면 내 방의 처음 자리와 같은 곳이다.
+    // 발 접지점. 앉거나 누웠으면 그 가구의 상호작용 지점, 서 있으면 내 방의 처음 자리와 같은 곳이다
+    // (그 자리에 가구가 있으면 가장 가까운 빈 칸 — 내 방과 같은 규칙).
     const anchor =
       posedFurniture && posedPosition
         ? getFurnitureInteractionAnchor(posedFurniture, posedPosition, cellWidth, rowHeight, metrics.dotPx)
-        : getStandStart(width, floorHeight);
+        : nearestFreePoint(
+            buildWalkGrid(placements, cellWidth, rowHeight, floorHeight),
+            getStandStart(width, floorHeight),
+          );
     const footX = Math.round(anchor.x);
     const footY = Math.round(anchor.y);
+    if (!posedFurniture) {
+      standingFootY = footY;
+    }
 
     let avatar: ReactNode;
     if (posedFurniture === "bed" && posedPosition) {
@@ -115,6 +124,7 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
 
   return (
     <RoomBackdrop
+      avatarDepthY={standingFootY}
       height={height}
       occupiedFurniture={posedFurniture}
       onLayoutChange={setLayout}
