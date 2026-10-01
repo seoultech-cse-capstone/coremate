@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -123,10 +124,15 @@ public class RoomService {
 
         List<PlannedPlacement> planned = validate(userId, request.placements());
 
+        Optional<UserAvatarProfile> profile = userAvatarProfileRepository.findByUser_UserId(userId);
+        // 포즈가 가리키던 가구를 기억해 둔다. 배치를 통째로 다시 쓰면 placement_id 가 바뀌기 때문이다.
+        Optional<PosedFurniture> posed = profile
+                .map(UserAvatarProfile::getRoomPosePlacement)
+                .map(PosedFurniture::of);
+
         // ⚠️ 포즈를 먼저 끊는다. FK 가 ON DELETE SET NULL 이 아니라서, 포즈가 가리키는 배치를
         //    그냥 지우려 하면 MySQL 이 ERROR 1451 로 거부해 저장 전체가 실패한다.
-        userAvatarProfileRepository.findByUser_UserId(userId)
-                .ifPresent(UserAvatarProfile::clearRoomPose);
+        profile.ifPresent(found -> found.relinkRoomPosePlacement(null));
         // 포즈 UPDATE 와 배치 DELETE 는 서로 다른 테이블이라 자동 flush 대상이 아니다.
         // 명시적으로 밀어내지 않으면 DELETE 가 먼저 나가 위 FK 위반이 그대로 난다.
         entityManager.flush();
@@ -134,11 +140,38 @@ public class RoomService {
         userRoomPlacementRepository.deleteByUser_UserId(userId);
         entityManager.flush();
 
+        List<UserRoomPlacement> saved = new ArrayList<>();
         for (PlannedPlacement placement : planned) {
-            userRoomPlacementRepository.save(new UserRoomPlacement(
-                    user, placement.userItem(), placement.gridX(), placement.gridY()));
+            saved.add(userRoomPlacementRepository.save(new UserRoomPlacement(
+                    user, placement.userItem(), placement.gridX(), placement.gridY())));
         }
+
+        // 포즈가 가리키던 가구가 새 배치에도 있으면(자리를 옮겼어도) 포즈와 시각을 그대로 잇는다.
+        // 다른 가구만 옮겼는데 자던 아바타가 일어나면 안 된다. 그 가구를 뺐으면 기본 자리에 서서 시작한다.
+        Optional<UserRoomPlacement> survivor = posed.flatMap(furniture -> furniture.findIn(saved));
+        profile.ifPresent(found -> survivor.ifPresentOrElse(
+                found::relinkRoomPosePlacement, found::clearRoomPose));
         return getRoom(userId);
+    }
+
+    // 포즈가 가리키던 가구. 보유 아이템과 자리로 기억한다.
+    private record PosedFurniture(Long userItemId, int gridX, int gridY) {
+
+        static PosedFurniture of(UserRoomPlacement placement) {
+            return new PosedFurniture(
+                    placement.getUserItem().getUserItemId(), placement.getGridX(), placement.getGridY());
+        }
+
+        // 새 배치에서 같은 가구를 찾는다. 같은 아이템을 여러 개 놓았으면 제자리에 남은 것을 고른다.
+        Optional<UserRoomPlacement> findIn(List<UserRoomPlacement> placements) {
+            List<UserRoomPlacement> sameItem = placements.stream()
+                    .filter(placement -> placement.getUserItem().getUserItemId().equals(userItemId))
+                    .toList();
+            return sameItem.stream()
+                    .filter(placement -> placement.getGridX() == gridX && placement.getGridY() == gridY)
+                    .findFirst()
+                    .or(() -> sameItem.stream().findFirst());
+        }
     }
 
     private List<PlannedPlacement> validate(Long userId, List<SaveRoomPlacementsRequest.Placement> requested) {
