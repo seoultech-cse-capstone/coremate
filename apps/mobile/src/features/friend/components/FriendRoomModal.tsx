@@ -1,8 +1,8 @@
 import { X } from "lucide-react-native";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
-import { getPosedFurniture, RoomSnapshot, type RoomResponse } from "../../avatar";
+import { getPosedFurniture, getRoomHeightShowingWall, RoomSnapshot, type RoomResponse } from "../../avatar";
 
 type FriendRoomModalProps = {
   nickname: string;
@@ -11,7 +11,11 @@ type FriendRoomModalProps = {
   onClose: () => void;
 };
 
-const ROOM_HEIGHT = 290;
+const OVERLAY_PADDING_X = 24;
+const MODAL_PADDING = 20;
+// 벽 그림(96도트)의 아래쪽 이만큼을 보여준다. 창문이 위에서 35~71도트 자리에 있어서, 위로 조금
+// 여유를 두고 창문이 잘리지 않게 한다. 높이를 고정(290)하면 폭이 좁은 이 상자에서는 벽이 창틀까지만 보였다.
+const VISIBLE_WALL_DOTS = 70;
 
 /**
  * 포즈 경과 시간 라벨(SCR-FRIEND-02, 예: "3일 전부터 자는 중"). "3일 전부터"는 서버가 만들고
@@ -28,6 +32,9 @@ function getPoseLabel(room: RoomResponse): string | null {
 
 export function FriendRoomModal({ nickname, room, visible, onClose }: FriendRoomModalProps) {
   const poseLabel = getPoseLabel(room);
+  const { width: windowWidth } = useWindowDimensions();
+  const roomWidth = windowWidth - OVERLAY_PADDING_X * 2 - MODAL_PADDING * 2;
+  const roomHeight = Math.round(getRoomHeightShowingWall(roomWidth, VISIBLE_WALL_DOTS));
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -48,7 +55,7 @@ export function FriendRoomModal({ nickname, room, visible, onClose }: FriendRoom
           </View>
 
           <View style={styles.room}>
-            <RoomSnapshot height={ROOM_HEIGHT} room={room} />
+            <RoomSnapshot height={roomHeight} room={room} />
           </View>
 
           <View style={styles.note}>
@@ -65,12 +72,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     backgroundColor: "rgba(15, 23, 42, 0.48)",
-    paddingHorizontal: 24,
+    paddingHorizontal: OVERLAY_PADDING_X,
   },
   modal: {
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
-    padding: 20,
+    padding: MODAL_PADDING,
   },
   header: {
     flexDirection: "row",

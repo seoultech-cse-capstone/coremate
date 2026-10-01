@@ -11,7 +11,13 @@ export { AvatarEquipProvider, useAvatarEquip } from "./AvatarEquipContext";
 export type { EquippedMap } from "./AvatarEquipContext";
 export { ROOM_THEMES, ROOM_THEME_ITEM_STEM } from "./roomThemes";
 export type { RoomTheme, RoomThemeKey } from "./roomThemes";
-export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect } from "./roomGrid";
+export {
+  ROOM_GRID_COLS,
+  ROOM_GRID_ROWS,
+  getRoomGridLayout,
+  getRoomGridCellRect,
+  getRoomHeightShowingWall,
+} from "./roomGrid";
 export type { RoomGridLayout } from "./roomGrid";
 export { RoomFurnitureProvider, useRoomFurniture } from "./RoomFurnitureContext";
 export type { FurniturePosition } from "./RoomFurnitureContext";

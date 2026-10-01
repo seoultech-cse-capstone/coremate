@@ -6,6 +6,7 @@ import { AvatarSleepStage, AvatarStage } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 import { useAuth } from "../../auth";
 import { useAvatarEquip } from "../AvatarEquipContext";
+import { IDLE_SEQUENCE, SIT_HAND_SEQUENCE, SLEEP_SEQUENCE } from "../avatarFrameSequences";
 import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
 import { useSavePoseMutation } from "../useRoomQueries";
@@ -26,28 +27,6 @@ import {
   type FloorPoint,
 } from "../roomPathfinding";
 import { useFrameSequence } from "../useFrameSequence";
-
-// AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
-const IDLE_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
-  { value: 1, duration: 400 },
-  { value: 2, duration: 150 },
-  { value: 3, duration: 400 },
-  { value: 2, duration: 150 },
-];
-// 책상 앉기: 타이핑 손 오버레이 1→2→1→3 루프, 120ms 균일.
-const SIT_HAND_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
-  { value: 1, duration: 120 },
-  { value: 2, duration: 120 },
-  { value: 1, duration: 120 },
-  { value: 3, duration: 120 },
-];
-// 수면: 1→2→3→2 루프(원래 스펙은 4프레임이지만 에셋이 3장이라 idle과 같은 방식으로 재사용).
-const SLEEP_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
-  { value: 1, duration: 400 },
-  { value: 2, duration: 250 },
-  { value: 3, duration: 550 },
-  { value: 2, duration: 250 },
-];
 
 // AVATAR_FE.md 6절: 이동 중 offsetY = -|sin(t)| x 진폭(2~3도트), 주기 ~250ms.
 const HOP_PERIOD_MS = 250;
