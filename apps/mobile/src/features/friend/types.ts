@@ -46,6 +46,15 @@ export type FriendSearchUser = {
   equippedItems?: AvatarEquippedItem[];
 };
 
+/** GET /api/friends/blocks. 내가 차단한 사용자(최근에 차단한 순서) */
+export type BlockedUser = {
+  userId: number;
+  nickname: string;
+  blockedAt: string;
+  /** 지금 장착한 아이템(목록 아이콘용) */
+  equippedItems: AvatarEquippedItem[];
+};
+
 export type FriendPoke = {
   pokeId: number;
   fromUserId: number;

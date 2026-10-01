@@ -11,6 +11,7 @@ import {
   Shield,
   Smartphone,
   UserCog,
+  Users,
   UserX,
   type LucideIcon,
 } from "lucide-react-native";
@@ -34,6 +35,7 @@ type SettingRoute =
   | "/change-password"
   | "/device-management"
   | "/notification-settings"
+  | "/friend-settings"
   | "/language-settings"
   | "/terms-policies"
   | "/privacy-policy"
@@ -73,6 +75,7 @@ const settingSections: SettingSection[] = [
     title: "서비스",
     items: [
       { label: "알림 설정", Icon: Bell, route: "/notification-settings" },
+      { label: "친구 설정", Icon: Users, route: "/friend-settings" },
       { label: "언어 설정", Icon: Globe, route: "/language-settings" },
       { label: "약관 및 정책", Icon: FileText, route: "/terms-policies" },
       { label: "개인정보 처리방침", Icon: Shield, route: "/privacy-policy" },

@@ -38,6 +38,10 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     List<Friend> findByRequester_UserIdAndStatusInOrderByCreatedAtDesc(
             Long requesterId, Collection<FriendStatus> statuses);
 
+    // 차단 목록. 차단하면 requester 가 차단한 사람으로 바뀌고 updated_at 이 차단 시각이 된다.
+    @EntityGraph(attributePaths = {"requester", "receiver"})
+    List<Friend> findByRequester_UserIdAndStatusOrderByUpdatedAtDesc(Long requesterId, FriendStatus status);
+
     @Query("""
             select count(f) > 0
             from Friend f

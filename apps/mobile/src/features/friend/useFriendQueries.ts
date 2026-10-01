@@ -5,6 +5,7 @@ import { getApiErrorCode } from "../../shared/utils/apiError";
 import { useAuth } from "../auth/AuthContext";
 import { friendApi } from "./friendApi";
 import type {
+  BlockedUser,
   Friend,
   FriendLearningHistory,
   FriendProfile,
@@ -14,6 +15,7 @@ import type {
 
 const FRIENDS_QUERY_KEY = ["friends"];
 const FRIEND_REQUESTS_QUERY_KEY = ["friends", "requests"];
+const BLOCKED_USERS_QUERY_KEY = ["friends", "blocks"];
 
 /** 콕 찌르기 한도 초과 시 서버가 돌려주는 에러 코드(EX-FRIEND-003). */
 const POKE_LIMIT_CODES = [
@@ -99,6 +101,38 @@ export function useDeleteFriendMutation() {
   return useMutation({
     mutationFn: (friendUserId: number) =>
       friendApi.deleteFriend(friendUserId, accessToken as string),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY }),
+  });
+}
+
+/** 내가 차단한 사용자. 설정 > 친구 설정에서 풀 수 있다. */
+export function useBlockedUsersQuery() {
+  const { accessToken } = useAuth();
+
+  return useQuery<BlockedUser[]>({
+    queryKey: BLOCKED_USERS_QUERY_KEY,
+    queryFn: () => friendApi.getBlockedUsers(accessToken as string),
+    enabled: Boolean(accessToken),
+  });
+}
+
+// 차단·해제는 친구 목록·요청·검색·차단 목록을 모두 바꾸므로 친구 쿼리 전체(["friends"])를 다시 불러온다.
+export function useBlockUserMutation() {
+  const { accessToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (targetUserId: number) => friendApi.block(targetUserId, accessToken as string),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY }),
+  });
+}
+
+export function useUnblockUserMutation() {
+  const { accessToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (targetUserId: number) => friendApi.unblock(targetUserId, accessToken as string),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY }),
   });
 }
