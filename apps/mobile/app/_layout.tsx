@@ -132,6 +132,7 @@ export default function RootLayout() {
         <Stack.Screen name="attendance" options={{ headerShown: false }} />
         <Stack.Screen name="reward-history" options={{ headerShown: false }} />
         <Stack.Screen name="device-management" options={{ headerShown: false }} />
+        <Stack.Screen name="friend-settings" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>

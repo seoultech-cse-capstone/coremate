@@ -92,7 +92,10 @@ public class Friend {
         this.acceptedAt = null;
     }
 
-    public void block() {
+    // 차단한 사람을 requester 로 둔다. 차단 해제와 차단 목록이 "누가 막았는지"로 갈리기 때문이다.
+    public void block(User blocker, User target) {
+        this.requester = blocker;
+        this.receiver = target;
         this.status = FriendStatus.BLOCKED;
         this.acceptedAt = null;
     }

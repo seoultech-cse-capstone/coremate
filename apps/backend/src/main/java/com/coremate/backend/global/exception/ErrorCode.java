@@ -66,6 +66,8 @@ public enum ErrorCode {
     FRIEND_REQUEST_NOT_RECEIVED(HttpStatus.FORBIDDEN, "본인에게 온 친구 요청만 처리할 수 있습니다"),
     FRIEND_RELATION_REQUIRED(HttpStatus.FORBIDDEN, "친구 관계인 사용자만 확인할 수 있습니다"),
     INVALID_FRIEND_STATUS(HttpStatus.BAD_REQUEST, "친구 요청 응답 상태가 올바르지 않습니다"),
+    FRIEND_BLOCKED_BY_ME(HttpStatus.CONFLICT, "차단한 사용자입니다. 차단을 해제한 뒤 요청해 주세요"),
+    FRIEND_BLOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "차단한 사용자가 아닙니다"),
 
     // Notification
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "알림을 찾을 수 없습니다"),

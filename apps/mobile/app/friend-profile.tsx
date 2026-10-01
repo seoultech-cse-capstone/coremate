@@ -20,6 +20,7 @@ import { AvatarFaceThumbnail, toEquippedMap } from "../src/features/avatar";
 import { useSubjects } from "../src/features/content";
 import {
   isPokeLimitError,
+  useBlockUserMutation,
   useDeleteFriendMutation,
   useFriendLearningHistoryQuery,
   useFriendProfileQuery,
@@ -64,6 +65,7 @@ export default function FriendProfileScreen() {
   const { data: subjects = [] } = useSubjects();
   const pokeMutation = usePokeMutation();
   const deleteFriendMutation = useDeleteFriendMutation();
+  const blockUserMutation = useBlockUserMutation();
 
   const [isPoked, setIsPoked] = useState(false);
   const [pokeMessage, setPokeMessage] = useState<string | null>(null);
@@ -142,6 +144,30 @@ export default function FriendProfileScreen() {
         },
       },
     ]);
+  };
+
+  // 차단하면 친구 관계가 끊기고, 상대는 나를 검색하거나 친구 요청을 보낼 수 없다(알리지 않는다).
+  const confirmBlock = () => {
+    Alert.alert(
+      "친구 차단",
+      `${profile.nickname} 님을 차단할까요?\n친구 관계가 끊기고, 상대는 나를 검색하거나 친구 요청을 보낼 수 없어요. 차단은 설정 > 친구 설정에서 풀 수 있어요.`,
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "차단",
+          style: "destructive",
+          onPress: () => {
+            if (targetUserId === null) {
+              return;
+            }
+            blockUserMutation.mutate(targetUserId, {
+              onSuccess: () => router.back(),
+              onError: (error) => Alert.alert("친구 차단", getApiErrorMessage(error)),
+            });
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -290,6 +316,15 @@ export default function FriendProfileScreen() {
               style={styles.deleteButton}
             >
               <Text style={styles.deleteButtonText}>친구 삭제</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={blockUserMutation.isPending}
+              hitSlop={8}
+              onPress={confirmBlock}
+              style={styles.blockButton}
+            >
+              <Text style={styles.blockButtonText}>차단하기</Text>
             </Pressable>
           </View>
         </View>
@@ -545,6 +580,17 @@ const styles = StyleSheet.create({
     borderColor: "#FCA5A5",
     borderRadius: 8,
     backgroundColor: "#FFF7F7",
+  },
+  blockButton: {
+    alignSelf: "center",
+    paddingVertical: 10,
+  },
+  blockButtonText: {
+    color: "#94A3B8",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   deleteButtonText: {
     color: "#DC2626",
