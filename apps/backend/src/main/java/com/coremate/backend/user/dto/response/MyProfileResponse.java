@@ -58,4 +58,7 @@ public class MyProfileResponse {
 
     @Schema(example = "2026-05-12", description = "가장 최근 출석일 (없으면 null)")
     private LocalDate lastAttendanceDate;
+
+    @Schema(example = "true", description = "친구에게 학습 기록(과목별 스탯·Learning History) 공개 여부")
+    private Boolean learningPublic;
 }

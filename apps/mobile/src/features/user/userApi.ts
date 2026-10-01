@@ -2,6 +2,7 @@ import { httpClient } from "../../shared/api/httpClient";
 import type {
   MyProfile,
   UpdateMyProfileRequest,
+  UpdatePrivacyRequest,
   UserSubjectStat,
 } from "./types";
 
@@ -12,6 +13,10 @@ export const userApi = {
 
   updateMyProfile(body: UpdateMyProfileRequest, accessToken: string): Promise<MyProfile> {
     return httpClient.put<MyProfile>("/api/users/me", body, { accessToken });
+  },
+
+  updatePrivacy(body: UpdatePrivacyRequest, accessToken: string): Promise<MyProfile> {
+    return httpClient.patch<MyProfile>("/api/users/me/privacy", body, { accessToken });
   },
 
   getMySubjectStats(accessToken: string): Promise<UserSubjectStat[]> {

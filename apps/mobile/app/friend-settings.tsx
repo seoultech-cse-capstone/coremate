@@ -1,7 +1,7 @@
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 
 import { FONT } from "../constants/fonts";
-import { useRequireMember } from "../src/features/auth";
+import { useAuth, useRequireMember } from "../src/features/auth";
 import { AvatarFaceThumbnail, toEquippedMap } from "../src/features/avatar";
 import {
   useBlockedUsersQuery,
@@ -13,11 +13,15 @@ import {
   detailStyles,
   SettingsDetailLayout,
 } from "../src/features/settings/components/SettingsDetailLayout";
+import { useMyProfile, useUpdateLearningPublicMutation } from "../src/features/user";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
-/** 친구 설정. 차단한 사용자를 보고 차단을 푼다. */
+/** 친구 설정. 학습 기록 공개 여부를 바꾸고, 차단한 사용자를 보고 차단을 푼다. */
 export default function FriendSettingsScreen() {
   useRequireMember();
+  const { accessToken } = useAuth();
+  const { data: profile } = useMyProfile(accessToken);
+  const updateLearningPublic = useUpdateLearningPublicMutation(accessToken);
   const { data: blockedUsers, isPending, isError } = useBlockedUsersQuery();
   const unblock = useUnblockUserMutation();
 
@@ -40,6 +44,33 @@ export default function FriendSettingsScreen() {
 
   return (
     <SettingsDetailLayout title="친구 설정">
+      <Text style={detailStyles.sectionTitle}>공개 범위</Text>
+      <View style={detailStyles.card}>
+        {profile ? (
+          <>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchText}>친구에게 학습 기록 공개</Text>
+              <Switch
+                onValueChange={(learningPublic) =>
+                  updateLearningPublic.mutate(learningPublic, {
+                    onError: (error) => Alert.alert("공개 범위", getApiErrorMessage(error)),
+                  })
+                }
+                thumbColor="#ffffff"
+                trackColor={{ false: "#CBD5E1", true: "#6D5DFB" }}
+                value={profile.learningPublic !== false}
+              />
+            </View>
+            <Text style={styles.switchHelp}>
+              끄면 친구가 내 프로필에서 과목별 통계와 학습 기록(풀이 시간·맞힌 문제·완료한 개념)을
+              볼 수 없어요. 레벨·출석·아바타·방은 계속 보여요.
+            </Text>
+          </>
+        ) : (
+          <ActivityIndicator color="#6D5DFB" style={styles.loading} />
+        )}
+      </View>
+
       <Text style={detailStyles.sectionTitle}>차단한 사용자</Text>
 
       <View style={detailStyles.card}>
@@ -88,6 +119,24 @@ export default function FriendSettingsScreen() {
 const styles = StyleSheet.create({
   loading: {
     paddingVertical: 24,
+  },
+  switchRow: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  switchText: {
+    color: "#1F2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+  },
+  switchHelp: {
+    marginTop: 4,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    lineHeight: 18,
   },
   row: {
     flexDirection: "row",

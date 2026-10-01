@@ -256,9 +256,13 @@ public class FriendService {
     }
 
     // 친구 상세 프로필 Learning History 섹션. 친구 관계(ACCEPTED)인 경우에만 조회 가능하다. (FR-FRIEND-05)
+    // 친구가 학습 기록을 공개하지 않았으면 0으로 채우지 않고 막는다. 0은 "아직 안 했다"로 읽힌다.
     public LearningHistoryResponse getLearningHistory(Long userId, Long friendUserId) {
         validateAcceptedFriend(userId, friendUserId);
-        findActiveUser(friendUserId);
+        User friendUser = findActiveUser(friendUserId);
+        if (!friendUser.isLearningPublic()) {
+            throw new CoreMateException(ErrorCode.FRIEND_LEARNING_PRIVATE);
+        }
         return learningHistoryService.getStats(friendUserId);
     }
 
@@ -394,7 +398,8 @@ public class FriendService {
                 lastAttendanceDate(friendUser.getUserId()),
                 avatarProfile,
                 room,
-                toSubjectStats(friendUser.getUserId())
+                friendUser.isLearningPublic() ? toSubjectStats(friendUser.getUserId()) : List.of(),
+                friendUser.isLearningPublic()
         );
     }
 

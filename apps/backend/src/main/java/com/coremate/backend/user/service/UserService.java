@@ -6,6 +6,7 @@ import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
+import com.coremate.backend.user.dto.request.UpdatePrivacyRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
 import com.coremate.backend.progress.service.ProgressService;
@@ -49,6 +50,13 @@ public class UserService {
         // }
 
         user.updateProfile(null, request.getSchoolName(), request.getSchoolEmail());
+        return toMyProfileResponse(user);
+    }
+
+    @Transactional
+    public MyProfileResponse updatePrivacy(Long userId, UpdatePrivacyRequest request) {
+        User user = findUser(userId);
+        user.updateLearningPublic(request.getLearningPublic());
         return toMyProfileResponse(user);
     }
 
@@ -129,6 +137,7 @@ public class UserService {
                 .attendedToday(LocalDate.now().equals(lastAttendanceDate))
                 .attendanceCount(attendanceRepository.countByUser_UserId(userId))
                 .lastAttendanceDate(lastAttendanceDate)
+                .learningPublic(user.isLearningPublic())
                 .build();
     }
 }
