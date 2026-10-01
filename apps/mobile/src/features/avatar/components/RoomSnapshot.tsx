@@ -1,29 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { Image, StyleSheet, View } from "react-native";
 
-import {
-  AVATAR_FOOT_X_RATIO,
-  AVATAR_FOOT_Y_RATIO,
-  AVATAR_SLEEP_STAGE_HEIGHT,
-  AVATAR_SLEEP_STAGE_WIDTH,
-  AVATAR_STAGE_HEIGHT,
-  AVATAR_STAGE_WIDTH,
-  AVATAR_WIDTH_IN_CELLS,
-  AvatarSleepStage,
-  AvatarStage,
-  getAvatarDotPx,
-} from "./AvatarStage";
+import { AvatarSleepStage, AvatarStage } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
-import {
-  PET_BOX_HEIGHT_DOTS,
-  PET_BOX_WIDTH_DOTS,
-  PET_FOLLOW_OFFSET_CELLS,
-  SLEEP_AVATAR_OFFSET_DOTS,
-  SLEEP_RAW_PX_PER_DOT,
-  STAND_START_RATIO,
-} from "./RoomScene";
 import { toEquippedMap } from "../itemStem";
 import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
+import { getPetX, getRoomAvatarMetrics, getSleepAvatarRect, getStandStart } from "../roomAvatarLayout";
 import {
   getFurnitureInteractionAnchor,
   getFurnitureLayout,
@@ -56,38 +38,29 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
   let overlay: ReactNode = null;
   if (layout) {
     const { cellWidth, rowHeight, width, floorHeight } = layout;
-    const avatarDotPx = getAvatarDotPx(cellWidth);
-    const avatarScale = (AVATAR_WIDTH_IN_CELLS * cellWidth) / AVATAR_STAGE_WIDTH;
-    const avatarWidth = AVATAR_STAGE_WIDTH * avatarScale;
-    const avatarHeight = AVATAR_STAGE_HEIGHT * avatarScale;
-    const shadowWidth = avatarWidth * 0.6;
-    const shadowHeight = shadowWidth * 0.35;
+    const metrics = getRoomAvatarMetrics(cellWidth);
 
     // 발 접지점. 앉거나 누웠으면 그 가구의 상호작용 지점, 서 있으면 내 방의 처음 자리와 같은 곳이다.
     const anchor =
       posedFurniture && posedPosition
-        ? getFurnitureInteractionAnchor(posedFurniture, posedPosition, cellWidth, rowHeight, avatarDotPx)
-        : { x: width * STAND_START_RATIO.x, y: floorHeight * STAND_START_RATIO.y };
+        ? getFurnitureInteractionAnchor(posedFurniture, posedPosition, cellWidth, rowHeight, metrics.dotPx)
+        : getStandStart(width, floorHeight);
     const footX = Math.round(anchor.x);
     const footY = Math.round(anchor.y);
 
     let avatar: ReactNode;
     if (posedFurniture === "bed" && posedPosition) {
-      const bedLayout = getFurnitureLayout("bed", posedPosition, cellWidth, rowHeight, avatarDotPx);
-      const sleepScale = bedLayout.scale / SLEEP_RAW_PX_PER_DOT;
+      const sleepRect = getSleepAvatarRect(
+        getFurnitureLayout("bed", posedPosition, cellWidth, rowHeight, metrics.dotPx),
+      );
       avatar = (
         <View
           style={[
             styles.layer,
-            {
-              left: bedLayout.containerLeft + SLEEP_AVATAR_OFFSET_DOTS.x * bedLayout.scale,
-              top: bedLayout.containerTop + SLEEP_AVATAR_OFFSET_DOTS.y * bedLayout.scale,
-              width: AVATAR_SLEEP_STAGE_WIDTH * sleepScale,
-              height: AVATAR_SLEEP_STAGE_HEIGHT * sleepScale,
-            },
+            { left: sleepRect.left, top: sleepRect.top, width: sleepRect.width, height: sleepRect.height },
           ]}
         >
-          <AvatarSleepStage hairKey={equipped.HAIR ?? DEFAULT_LOCAL_KEY_BY_SLOT.HAIR} scale={sleepScale} />
+          <AvatarSleepStage hairKey={equipped.HAIR ?? DEFAULT_LOCAL_KEY_BY_SLOT.HAIR} scale={sleepRect.scale} />
         </View>
       );
     } else {
@@ -98,32 +71,25 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
               styles.layer,
               styles.shadow,
               {
-                left: footX - shadowWidth / 2,
-                top: footY - shadowHeight / 2,
-                width: shadowWidth,
-                height: shadowHeight,
+                left: footX - metrics.shadowWidth / 2,
+                top: footY - metrics.shadowHeight / 2,
+                width: metrics.shadowWidth,
+                height: metrics.shadowHeight,
               },
             ]}
           />
-          <View
-            style={[
-              styles.layer,
-              { left: footX - avatarWidth * AVATAR_FOOT_X_RATIO, top: footY - avatarHeight * AVATAR_FOOT_Y_RATIO },
-            ]}
-          >
+          <View style={[styles.layer, { left: footX - metrics.footOffsetX, top: footY - metrics.footOffsetY }]}>
             <AvatarStage
               activity={posedFurniture === "desk" ? "sit" : "stand"}
               equipped={equipped}
-              scale={avatarScale}
+              scale={metrics.scale}
             />
           </View>
         </>
       );
     }
 
-    const petWidth = PET_BOX_WIDTH_DOTS * avatarDotPx;
-    const petHeight = PET_BOX_HEIGHT_DOTS * avatarDotPx;
-    const petX = Math.min(Math.max(footX + PET_FOLLOW_OFFSET_CELLS * cellWidth, 0), width);
+    const petX = getPetX(footX, cellWidth, width);
 
     overlay = (
       <>
@@ -132,7 +98,15 @@ export function RoomSnapshot({ room, height }: RoomSnapshotProps) {
           <Image
             resizeMode="contain"
             source={petItem.source}
-            style={[styles.layer, { left: petX - petWidth / 2, top: footY - petHeight, width: petWidth, height: petHeight }]}
+            style={[
+              styles.layer,
+              {
+                left: petX - metrics.petWidth / 2,
+                top: footY - metrics.petHeight,
+                width: metrics.petWidth,
+                height: metrics.petHeight,
+              },
+            ]}
           />
         ) : null}
       </>
