@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { useRequireMember } from "../src/features/auth";
+import { AvatarFaceThumbnail, toEquippedMap } from "../src/features/avatar";
 import { useSubjects } from "../src/features/content";
 import {
   isPokeLimitError,
@@ -24,7 +25,6 @@ import {
   usePokeMutation,
 } from "../src/features/friend";
 import { getAvatarColor } from "../src/features/friend/avatarColor";
-import { FriendAvatar } from "../src/features/friend/components/FriendAvatar";
 import {
   FriendProgressStats,
   type ProgressAxis,
@@ -158,9 +158,9 @@ export default function FriendProfileScreen() {
             onPress={() => setIsRoomModalVisible(true)}
             style={styles.avatarButton}
           >
-            <FriendAvatar
+            <AvatarFaceThumbnail
               backgroundColor={avatarColor.background}
-              color={avatarColor.accent}
+              equipped={toEquippedMap(profile.avatarProfile?.equippedItems ?? [])}
               size={90}
             />
             {/* 접속 여부는 서버가 내려주지 않는다. 친구 목록과 같게 오늘 출석 여부로 표시한다. */}

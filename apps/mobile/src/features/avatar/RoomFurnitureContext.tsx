@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
+import { stemFromImageUrl } from "./itemStem";
 import { useInventory } from "./useInventoryQueries";
 import { useMyRoom, useSavePlacementsMutation } from "./useRoomQueries";
 import type { RoomResponse } from "./roomTypes";
@@ -38,14 +39,6 @@ const ROOM_QUERY_KEY = ["avatar", "room"] as const;
 const STEM_TO_TYPE = new Map<string, FurnitureType>(
   FURNITURE_TYPES.map((type) => [FURNITURE_ITEM_STEM[type], type]),
 );
-
-function stemFromImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-  const fileName = imageUrl.split("/").pop();
-  return fileName ? fileName.replace(/\.[^.]+$/, "") : null;
-}
 
 function typeFromImageUrl(imageUrl: string | null): FurnitureType | undefined {
   const stem = stemFromImageUrl(imageUrl);

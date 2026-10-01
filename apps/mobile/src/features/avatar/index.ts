@@ -25,6 +25,7 @@ export {
   REQUIRED_LOCAL_SLOTS,
 } from "./localCatalog";
 export type { LocalAvatarSlot, LocalCatalogItem } from "./localCatalog";
+export { stemFromImageUrl, toEquippedMap } from "./itemStem";
 export { RewardItemVisual, canRenderRewardVisual } from "./components/RewardItemVisual";
 export { inventoryApi } from "./inventoryApi";
 export { useInventory } from "./useInventoryQueries";

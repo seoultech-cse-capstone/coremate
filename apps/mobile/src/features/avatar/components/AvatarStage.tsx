@@ -344,16 +344,26 @@ const FACE_CROP = { x: 6, y: 26, width: 220, height: 220 };
 
 type AvatarFaceThumbnailProps = {
   size: number;
+  /** AvatarStage에 그대로 넘기는 부위별 착용 key. 생략하면 기본 착용으로 그린다. */
+  equipped?: AvatarStageProps["equipped"];
+  /** 원 배경색. 흰 카드 위에서는 기본값(반투명 흰색)이 보이지 않아 따로 준다. */
+  backgroundColor?: string;
 };
 
 /** 원형 썸네일 자리에 전신 아바타의 얼굴 부분만 잘라서 보여준다. */
-export function AvatarFaceThumbnail({ size }: AvatarFaceThumbnailProps) {
+export function AvatarFaceThumbnail({ size, equipped, backgroundColor }: AvatarFaceThumbnailProps) {
   const scale = size / FACE_CROP.width;
 
   return (
-    <View style={[styles.thumbnail, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View
+      style={[
+        styles.thumbnail,
+        { width: size, height: size, borderRadius: size / 2 },
+        backgroundColor ? { backgroundColor } : null,
+      ]}
+    >
       <View style={{ position: "absolute", left: -FACE_CROP.x * scale, top: -FACE_CROP.y * scale }}>
-        <AvatarStage scale={scale} />
+        <AvatarStage equipped={equipped} scale={scale} />
       </View>
     </View>
   );

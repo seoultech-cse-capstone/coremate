@@ -21,6 +21,7 @@ import {
   ROOM_THEME_ITEM_STEM,
   ROOM_THEMES,
   RoomBackdrop,
+  stemFromImageUrl,
   useAvatarEquip,
   useInventory,
   useRoomFurniture,
@@ -37,16 +38,6 @@ const ROOM_PREVIEW_HEIGHT = 320;
 
 type MainTab = "avatar" | "myroom";
 type RoomTab = "theme" | "furniture";
-
-// 서버 아이템 image_url("/assets/avatar/hair_basic.png")에서 파일명 stem("hair_basic")만
-// 뽑아낸다. 이 stem이 로컬 카탈로그의 key/가구·테마 매핑과 이어지는 유일한 값이다.
-function stemFromImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-  const fileName = imageUrl.split("/").pop();
-  return fileName ? fileName.replace(/\.[^.]+$/, "") : null;
-}
 
 // 아이템 보관함(코디)과 마이룸 인벤토리(테마+가구)를 한 화면으로 합쳤다. 상단
 // 아바타/마이룸 탭으로 큰 영역을 나누고, 마이룸 탭 안에서 다시 테마/가구를
