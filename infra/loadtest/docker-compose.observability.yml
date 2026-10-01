@@ -45,12 +45,26 @@ services:
       # 부하 측정용 로컬 대시보드라 익명 조회 허용(편의). 외부 노출 안 함.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # 패널/대시보드 PNG 렌더링(/render)용 사이드카 렌더러 연결.
+      GF_RENDERING_SERVER_URL: http://renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - coremate
+
+  # Grafana 서버사이드 이미지 렌더러. /render 요청 시 Grafana 가 이 컨테이너로 위임.
+  # 평소엔 안 뜨고 캡쳐할 때만 선택 기동(부하 측정 오염·상주 메모리 회피):
+  #   docker compose -f loadtest/docker-compose.observability.yml --profile capture up -d
+  renderer:
+    image: grafana/grafana-image-renderer:latest
+    container_name: coremate-grafana-renderer
+    restart: unless-stopped
+    profiles: ["capture"]
     networks:
       - coremate
 
