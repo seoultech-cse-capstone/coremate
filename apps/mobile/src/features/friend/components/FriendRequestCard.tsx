@@ -2,11 +2,13 @@ import { Check, X } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
+import { AvatarFaceThumbnail, toEquippedMap, type AvatarEquippedItem } from "../../avatar";
 import { getAvatarColor } from "../avatarColor";
-import { FriendAvatar } from "./FriendAvatar";
 
 type FriendRequestCardProps = {
   nickname: string;
+  /** 요청을 보낸 사람이 지금 장착한 아이템. 비어 있으면 기본 모습으로 그린다. */
+  equippedItems: AvatarEquippedItem[];
   /** 학교가 비어 있을 수 있어 없으면 줄 자체를 숨긴다. */
   schoolName: string | null;
   onAccept: () => void;
@@ -15,6 +17,7 @@ type FriendRequestCardProps = {
 
 export function FriendRequestCard({
   nickname,
+  equippedItems,
   schoolName,
   onAccept,
   onDecline,
@@ -23,9 +26,10 @@ export function FriendRequestCard({
 
   return (
     <View style={styles.card}>
-      <FriendAvatar
+      <AvatarFaceThumbnail
         backgroundColor={avatarColor.background}
-        color={avatarColor.accent}
+        equipped={toEquippedMap(equippedItems)}
+        size={44}
       />
       <View style={styles.info}>
         <Text numberOfLines={1} style={styles.name}>
