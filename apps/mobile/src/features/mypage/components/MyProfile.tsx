@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
-import { AvatarFaceThumbnail } from "../../avatar";
+import { AvatarFaceThumbnail, useAvatarEquip } from "../../avatar";
 import { useAuth } from "../../auth";
 import { useMyCurrency } from "../../currency";
 import { getLevelProgress, useMyProfile } from "../../user";
@@ -10,6 +10,8 @@ export function MyProfile() {
   const { accessToken } = useAuth();
   const { data: profile } = useMyProfile(accessToken);
   const { data: currency } = useMyCurrency(accessToken);
+  // 홈 화면 방의 아바타와 같은 착용 상태를 쓴다. 둘이 다르면 같은 사람이 두 모습으로 보인다.
+  const { equipped } = useAvatarEquip();
 
   const level = profile?.level ?? 1;
   const totalXp = profile?.totalXp ?? 0;
@@ -24,7 +26,7 @@ export function MyProfile() {
   return (
     <View style={styles.container}>
       <View style={styles.userRow}>
-        <AvatarFaceThumbnail size={76} />
+        <AvatarFaceThumbnail equipped={equipped} size={76} />
 
         <View style={styles.userText}>
           <Text style={styles.nickname}>{profile?.nickname ?? "코어메이트"}</Text>

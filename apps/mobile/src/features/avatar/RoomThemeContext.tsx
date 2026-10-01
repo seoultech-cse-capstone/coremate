@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
 import { useAuth } from "../auth";
+import { stemFromImageUrl } from "./itemStem";
 import { useUpdateEquippedItemsMutation } from "./useAvatarQueries";
 import { useInventory } from "./useInventoryQueries";
 import { useMyRoom } from "./useRoomQueries";
@@ -30,14 +31,6 @@ const WALLPAPER_SLOT = "WALLPAPER";
 const STEM_TO_THEME = new Map<string, RoomThemeKey>(
   (Object.entries(ROOM_THEME_ITEM_STEM) as [RoomThemeKey, string][]).map(([key, stem]) => [stem, key]),
 );
-
-function stemFromImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-  const fileName = imageUrl.split("/").pop();
-  return fileName ? fileName.replace(/\.[^.]+$/, "") : null;
-}
 
 // 마이페이지에서 고른 방 테마(벽지+바닥 세트)를 앱 전체(홈 화면 방 등)에서 같이 쓴다.
 // 테마는 서버의 WALLPAPER 장착 슬롯이며(equipped-items), react-query 방 캐시에서 파생한다.

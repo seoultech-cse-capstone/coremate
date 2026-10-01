@@ -1,12 +1,9 @@
 /** 백엔드 friend API 응답 타입. 필드는 서버 응답과 1:1로 맞춘다. */
 
-export type FriendStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "BLOCKED";
+// 아바타·방은 avatar 도메인 응답(AvatarProfileResponse·RoomResponse)을 그대로 실어 온다.
+import type { AvatarProfile, RoomResponse } from "../avatar";
 
-export type AvatarProfile = {
-  userId: number;
-  /** 베이스 마네킹. 아바타에 성별 구분이 없어 BASIC_01 고정이다 */
-  baseAvatarType: string | null;
-};
+export type FriendStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "BLOCKED";
 
 export type Friend = {
   friendId: number;
@@ -74,6 +71,8 @@ export type FriendProfile = {
   /** 가장 최근 출석일. 출석 기록이 없으면 null */
   lastAttendanceDate: string | null;
   avatarProfile: AvatarProfile | null;
+  /** 친구의 방(벽지·가구 배치·마지막 포즈). 읽기 전용이다 */
+  room: RoomResponse;
   subjectStats: FriendSubjectStat[];
 };
 
