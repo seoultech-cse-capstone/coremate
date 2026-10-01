@@ -12,6 +12,7 @@ import {
 import { AppState } from "react-native";
 
 import { setAuthHandlers, type SessionRevokedCode } from "../../shared/api/httpClient";
+import { queryClient } from "../../shared/api/queryClient";
 // 배럴(index.ts)이 아니라 파일을 직접 가리킨다. features/device 의 훅이 useAuth 를
 // 참조하므로, 배럴로 묶으면 모듈 순환이 생긴다.
 import { deviceApi } from "../device/deviceApi";
@@ -69,8 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // 계정이 바뀌는 세 지점(로그인·게스트·로그아웃)에서 서버 데이터 캐시를 비운다. 쿼리 키에
+  // 계정 구분이 없어서(["user","me"]·["avatar","me"] 등) 안 비우면 다음 계정이 이전 계정의
+  // 레벨·보유 아이템·아바타를 그대로 받는다(#240). 앱 시작 시 세션 복원과 토큰 재발급은
+  // 같은 계정이라 비우지 않는다.
   const signIn = useCallback(async (session: AuthSession) => {
     await tokenStorage.save(session);
+    queryClient.clear();
     setUser(session.user);
     setAccessToken(session.accessToken);
     setRevokedReason(null);
@@ -79,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const continueAsGuest = useCallback(async () => {
     await tokenStorage.clear();
+    queryClient.clear();
     setUser(null);
     setAccessToken(null);
     setStatus("guest");
@@ -86,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await tokenStorage.clear();
+    queryClient.clear();
     setUser(null);
     setAccessToken(null);
     setStatus("unauthenticated");
