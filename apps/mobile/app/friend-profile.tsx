@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, Flame, Hand, MapPin } from "lucide-react-native";
+import { ChevronLeft, Flame, Hand, House, MapPin } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -212,18 +212,25 @@ export default function FriendProfileScreen() {
             onPress={() => setIsRoomModalVisible(true)}
             style={styles.avatarButton}
           >
-            <AvatarFaceThumbnail
-              backgroundColor={avatarColor.background}
-              equipped={toEquippedMap(profile.avatarProfile?.equippedItems ?? [])}
-              size={90}
-            />
-            {/* 접속 여부는 서버가 내려주지 않는다. 친구 목록과 같게 오늘 출석 여부로 표시한다. */}
-            <View
-              style={[
-                styles.attendanceIndicator,
-                profile.attendedToday ? styles.attended : styles.notAttended,
-              ]}
-            />
+            <View>
+              <AvatarFaceThumbnail
+                backgroundColor={avatarColor.background}
+                equipped={toEquippedMap(profile.avatarProfile?.equippedItems ?? [])}
+                size={90}
+              />
+              {/* 접속 여부는 서버가 내려주지 않는다. 친구 목록과 같게 오늘 출석 여부로 표시한다. */}
+              <View
+                style={[
+                  styles.attendanceIndicator,
+                  profile.attendedToday ? styles.attended : styles.notAttended,
+                ]}
+              />
+            </View>
+            {/* 친구 방은 얼굴을 눌러야 열린다. 표시가 없으면 친구 방이 있는 줄 모르고 지나친다. */}
+            <View style={styles.roomHint}>
+              <House color="#FFFFFF" size={13} strokeWidth={2.4} />
+              <Text style={styles.roomHintText}>방 보기</Text>
+            </View>
           </Pressable>
           <Text style={styles.nickname}>{profile.nickname}</Text>
           <View style={styles.schoolRow}>
@@ -424,7 +431,8 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   avatarButton: {
-    position: "relative",
+    alignItems: "center",
+    gap: 8,
   },
   attendanceIndicator: {
     position: "absolute",
@@ -438,6 +446,21 @@ const styles = StyleSheet.create({
   },
   attended: { backgroundColor: "#22C55E" },
   notAttended: { backgroundColor: "#94A3B8" },
+  roomHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  roomHintText: {
+    color: "#FFFFFF",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   nickname: {
     marginTop: 4,
     color: "#FFFFFF",
