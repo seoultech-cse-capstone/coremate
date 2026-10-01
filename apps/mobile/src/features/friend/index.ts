@@ -1,6 +1,8 @@
 export { friendApi } from "./friendApi";
 export {
   isPokeLimitError,
+  useBlockedUsersQuery,
+  useBlockUserMutation,
   useDeleteFriendMutation,
   useFriendLearningHistoryQuery,
   useFriendProfileQuery,
@@ -9,9 +11,11 @@ export {
   useReceivedRequestsQuery,
   useRespondRequestMutation,
   useSendFriendRequestMutation,
+  useUnblockUserMutation,
   useUserSearchQuery,
 } from "./useFriendQueries";
 export type {
+  BlockedUser,
   Friend,
   FriendLearningHistory,
   FriendPoke,

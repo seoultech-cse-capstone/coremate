@@ -2,9 +2,9 @@ import { Search, X } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
+import { AvatarFaceThumbnail, toEquippedMap, type AvatarEquippedItem } from "../../avatar";
 import { getAvatarColor } from "../avatarColor";
 import type { Friend, FriendRequest, FriendSearchUser } from "../types";
-import { FriendAvatar } from "./FriendAvatar";
 import { FriendRequestCard } from "./FriendRequestCard";
 
 type ModalShellProps = {
@@ -29,7 +29,7 @@ export function FriendSearchModal({ visible, query, friends, onClose, onQueryCha
             onPress={() => onOpenProfile(friend.friendUserId)}
             style={styles.row}
           >
-            <PersonAvatar nickname={friend.nickname} />
+            <PersonAvatar equippedItems={friend.avatarProfile?.equippedItems ?? []} nickname={friend.nickname} />
             <PersonInfo nickname={friend.nickname} schoolName={friend.schoolName} />
           </Pressable>
         ))}
@@ -47,25 +47,22 @@ type AddFriendModalProps = ModalShellProps & {
   users: FriendSearchUser[];
   /** 이번 화면에서 방금 요청을 보낸 사용자. 서버 응답이 갱신되기 전에도 버튼을 눌린 상태로 둔다. */
   sentUserIds: number[];
-  isRequestLimitReached: boolean;
   onSendRequest: (userId: number) => void;
 };
 
-export function AddFriendModal({ visible, query, users, onClose, onQueryChange, sentUserIds, isRequestLimitReached, onSendRequest }: AddFriendModalProps) {
+export function AddFriendModal({ visible, query, users, onClose, onQueryChange, sentUserIds, onSendRequest }: AddFriendModalProps) {
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <ModalSurface onClose={onClose} onQueryChange={onQueryChange} query={query} title="Add Friend">
         {users.map((user) => {
-          // 서버가 내려준 관계 상태로 이미 친구이거나 요청 중인 사람을 걸러 낸다.
-          const alreadyRelated = user.relationshipStatus !== null;
-          const isSent = sentUserIds.includes(user.userId) || alreadyRelated;
-          const disabled = isSent || isRequestLimitReached;
+          const button = requestButton(user, sentUserIds.includes(user.userId));
+          const disabled = !button.canRequest;
           return (
             <View key={user.userId} style={styles.row}>
-              <PersonAvatar nickname={user.nickname} />
+              <PersonAvatar equippedItems={user.equippedItems ?? []} nickname={user.nickname} />
               <PersonInfo nickname={user.nickname} schoolName={user.schoolName} />
               <Pressable disabled={disabled} onPress={() => onSendRequest(user.userId)} style={[styles.requestButton, disabled && styles.requestButtonSent]}>
-                <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{isSent ? "요청함" : "친구 요청"}</Text>
+                <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{button.label}</Text>
               </Pressable>
             </View>
           );
@@ -75,10 +72,33 @@ export function AddFriendModal({ visible, query, users, onClose, onQueryChange, 
             {query.trim() ? "검색 결과가 없어요." : "닉네임을 입력해 친구를 찾아보세요."}
           </Text>
         )}
-        {isRequestLimitReached && <Text style={styles.limitText}>친구 요청은 최대 30명까지 보낼 수 있어요.</Text>}
       </ModalSurface>
     </Modal>
   );
+}
+
+/**
+ * 검색 결과의 친구 요청 버튼. 관계 상태는 서버가 검색한 사람 기준으로 내려준다 — 내가 보낸 요청이
+ * 거절됐어도 REQUESTED 로 와서 계속 "요청함"으로 보인다(거절은 알리지 않는다).
+ */
+function requestButton(user: FriendSearchUser, justSent: boolean): { label: string; canRequest: boolean } {
+  if (justSent) {
+    return { label: "요청함", canRequest: false };
+  }
+  switch (user.relationshipStatus) {
+    case null:
+    // 내가 거절했던 사람. 마음을 바꾸면 이쪽에서 먼저 요청할 수 있다.
+    case "REJECTED":
+      return { label: "친구 요청", canRequest: true };
+    case "ACCEPTED":
+      return { label: "친구", canRequest: false };
+    case "REQUESTED":
+      // 상대가 보낸 요청은 "요청 온 친구"에서 수락한다.
+      return { label: user.direction === "RECEIVED" ? "요청 받음" : "요청함", canRequest: false };
+    // 내가 차단한 사람. 나를 차단한 사람은 서버가 검색 결과에서 뺀다. 차단은 설정 > 친구 설정에서 푼다.
+    case "BLOCKED":
+      return { label: "차단함", canRequest: false };
+  }
 }
 
 type ReceivedRequestsModalProps = {
@@ -102,6 +122,7 @@ export function ReceivedRequestsModal({ visible, requests, onClose, onAccept, on
             {requests.map((request) => (
               <FriendRequestCard
                 key={request.friendId}
+                equippedItems={request.requesterEquippedItems ?? []}
                 nickname={request.requesterNickname}
                 schoolName={null}
                 onAccept={() => onAccept(request.friendId)}
@@ -143,9 +164,9 @@ function ModalSurface({
   );
 }
 
-function PersonAvatar({ nickname }: { nickname: string }) {
+function PersonAvatar({ nickname, equippedItems }: { nickname: string; equippedItems: AvatarEquippedItem[] }) {
   const color = getAvatarColor(nickname);
-  return <FriendAvatar backgroundColor={color.background} color={color.accent} />;
+  return <AvatarFaceThumbnail backgroundColor={color.background} equipped={toEquippedMap(equippedItems)} size={44} />;
 }
 
 function PersonInfo({ nickname, schoolName }: { nickname: string; schoolName: string | null }) {
@@ -176,5 +197,4 @@ const styles = StyleSheet.create({
   requestText: { color: "#FFFFFF", fontFamily: FONT.pretendard, fontSize: 12, fontWeight: "600" },
   requestTextSent: { color: "#6D5DFB" },
   empty: { color: "#94A3B8", fontFamily: FONT.pretendard, fontSize: 14, textAlign: "center", paddingVertical: 28 },
-  limitText: { color: "#DC2626", fontFamily: FONT.pretendard, fontSize: 12, textAlign: "center", paddingTop: 8 },
 });

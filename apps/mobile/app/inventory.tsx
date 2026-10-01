@@ -21,6 +21,7 @@ import {
   ROOM_THEME_ITEM_STEM,
   ROOM_THEMES,
   RoomBackdrop,
+  stemFromImageUrl,
   useAvatarEquip,
   useInventory,
   useRoomFurniture,
@@ -37,16 +38,6 @@ const ROOM_PREVIEW_HEIGHT = 320;
 
 type MainTab = "avatar" | "myroom";
 type RoomTab = "theme" | "furniture";
-
-// 서버 아이템 image_url("/assets/avatar/hair_basic.png")에서 파일명 stem("hair_basic")만
-// 뽑아낸다. 이 stem이 로컬 카탈로그의 key/가구·테마 매핑과 이어지는 유일한 값이다.
-function stemFromImageUrl(imageUrl: string | null): string | null {
-  if (!imageUrl) {
-    return null;
-  }
-  const fileName = imageUrl.split("/").pop();
-  return fileName ? fileName.replace(/\.[^.]+$/, "") : null;
-}
 
 // 아이템 보관함(코디)과 마이룸 인벤토리(테마+가구)를 한 화면으로 합쳤다. 상단
 // 아바타/마이룸 탭으로 큰 영역을 나누고, 마이룸 탭 안에서 다시 테마/가구를
@@ -95,16 +86,17 @@ export default function InventoryScreen() {
 
   const equipMutation = useUpdateEquippedItemsMutation(accessToken);
 
-  // 착용 변경은 로컬(AvatarEquipContext)에 즉시 반영해 화면을 갱신하고, 동시에
-  // 서버에도 저장한다. key 가 null 이면 해제(userItemId=null), 아니면 매핑된 userItemId 전송.
+  // 착용 변경은 화면에 즉시 반영하고(AvatarEquipContext 가 서버 장착 캐시를 낙관적으로
+  // 갱신), 동시에 서버에 저장한다. 저장이 실패하면 서버 값으로 되돌아간다.
+  // key 가 null 이면 해제(userItemId=null), 아니면 매핑된 userItemId 전송.
   const handleEquip = (slot: LocalAvatarSlot, key: string | null) => {
-    setEquippedItem(slot, key);
     const userItemId = key === null ? null : (keyToUserItemId.get(key) ?? null);
     // 보유 아이템만 노출되므로 key→userItemId 매핑은 정상적으로 잡힌다. 혹시
-    // 매핑이 없으면(비정상) 서버 저장만 건너뛰고 로컬 반영은 유지한다.
+    // 매핑이 없으면(비정상) 서버에 저장할 수 없으니 화면도 바꾸지 않는다 — 화면은 서버 장착에서 나온다.
     if (key !== null && userItemId === null) {
       return;
     }
+    setEquippedItem(slot, key);
     equipMutation.mutate({ equippedItems: [{ slot, userItemId }] });
   };
 

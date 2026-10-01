@@ -3,6 +3,7 @@ export { useMyAvatar, useUpdateEquippedItemsMutation } from "./useAvatarQueries"
 export { AvatarProfileSync } from "./AvatarProfileSync";
 export { AvatarStage, AvatarFaceThumbnail } from "./components/AvatarStage";
 export { RoomScene } from "./components/RoomScene";
+export { RoomSnapshot } from "./components/RoomSnapshot";
 export { RoomBackdrop } from "./components/RoomBackdrop";
 export type { RoomLayoutInfo } from "./components/RoomBackdrop";
 export { RoomThemeProvider, useRoomTheme } from "./RoomThemeContext";
@@ -10,11 +11,17 @@ export { AvatarEquipProvider, useAvatarEquip } from "./AvatarEquipContext";
 export type { EquippedMap } from "./AvatarEquipContext";
 export { ROOM_THEMES, ROOM_THEME_ITEM_STEM } from "./roomThemes";
 export type { RoomTheme, RoomThemeKey } from "./roomThemes";
-export { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, getRoomGridCellRect } from "./roomGrid";
+export {
+  ROOM_GRID_COLS,
+  ROOM_GRID_ROWS,
+  getRoomGridLayout,
+  getRoomGridCellRect,
+  getRoomHeightShowingWall,
+} from "./roomGrid";
 export type { RoomGridLayout } from "./roomGrid";
 export { RoomFurnitureProvider, useRoomFurniture } from "./RoomFurnitureContext";
 export type { FurniturePosition } from "./RoomFurnitureContext";
-export { FURNITURE_SETS, FURNITURE_TYPES, FURNITURE_ITEM_STEM } from "./roomFurniture";
+export { FURNITURE_SETS, FURNITURE_TYPES, FURNITURE_ITEM_STEM, getPosedFurniture } from "./roomFurniture";
 export type { FurnitureSet, FurnitureType } from "./roomFurniture";
 export {
   DEFAULT_LOCAL_KEY_BY_SLOT,
@@ -25,6 +32,7 @@ export {
   REQUIRED_LOCAL_SLOTS,
 } from "./localCatalog";
 export type { LocalAvatarSlot, LocalCatalogItem } from "./localCatalog";
+export { stemFromImageUrl, toEquippedMap } from "./itemStem";
 export { RewardItemVisual, canRenderRewardVisual } from "./components/RewardItemVisual";
 export { inventoryApi } from "./inventoryApi";
 export { useInventory } from "./useInventoryQueries";

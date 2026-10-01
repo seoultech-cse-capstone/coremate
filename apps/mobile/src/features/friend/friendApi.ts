@@ -1,5 +1,6 @@
 import { httpClient } from "../../shared/api/httpClient";
 import type {
+  BlockedUser,
   Friend,
   FriendLearningHistory,
   FriendPoke,
@@ -51,6 +52,19 @@ export const friendApi = {
 
   deleteFriend(friendUserId: number, accessToken: string): Promise<void> {
     return httpClient.delete<void>(`/api/friends/${friendUserId}`, { accessToken });
+  },
+
+  // 차단하면 친구였어도 관계가 끊기고, 상대는 나를 검색하거나 친구 요청을 보낼 수 없다.
+  block(targetUserId: number, accessToken: string): Promise<void> {
+    return httpClient.post<void>(`/api/friends/${targetUserId}/block`, undefined, { accessToken });
+  },
+
+  unblock(targetUserId: number, accessToken: string): Promise<void> {
+    return httpClient.delete<void>(`/api/friends/${targetUserId}/block`, { accessToken });
+  },
+
+  getBlockedUsers(accessToken: string): Promise<BlockedUser[]> {
+    return httpClient.get<BlockedUser[]>("/api/friends/blocks", { accessToken });
   },
 
   getProfile(friendUserId: number, accessToken: string): Promise<FriendProfile> {

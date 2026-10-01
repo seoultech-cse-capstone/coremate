@@ -245,7 +245,6 @@ export default function FriendScreen() {
           setSentUserIds([]);
         }}
         onQueryChange={setAddQuery}
-        isRequestLimitReached={false}
         onSendRequest={(userId) => {
           sendRequestMutation.mutate(userId, {
             onSuccess: () => setSentUserIds((current) => [...current, userId]),

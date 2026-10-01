@@ -3,6 +3,7 @@ package com.coremate.backend.friend.controller;
 import com.coremate.backend.friend.dto.request.PokeFriendRequest;
 import com.coremate.backend.friend.dto.request.RespondFriendRequest;
 import com.coremate.backend.friend.dto.request.SendFriendRequest;
+import com.coremate.backend.friend.dto.response.BlockedUserResponse;
 import com.coremate.backend.friend.dto.response.FriendPokeResponse;
 import com.coremate.backend.friend.dto.response.FriendProfileResponse;
 import com.coremate.backend.friend.dto.response.FriendRequestResponse;
@@ -90,6 +91,34 @@ public class FriendController {
             @PathVariable Long friendUserId
     ) {
         friendService.delete(userDetails.getUserId(), friendUserId);
+    }
+
+    @Operation(summary = "사용자 차단",
+            description = "친구였다면 관계가 끊기고, 차단당한 사용자는 나를 검색하거나 친구 요청을 보낼 수 없다. "
+                    + "차단 사실은 상대에게 알리지 않는다.")
+    @PostMapping("/{targetUserId}/block")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void block(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long targetUserId
+    ) {
+        friendService.block(userDetails.getUserId(), targetUserId);
+    }
+
+    @Operation(summary = "차단 해제", description = "관계를 지워 처음 상태로 돌아간다. 다시 친구가 되려면 요청부터 한다.")
+    @DeleteMapping("/{targetUserId}/block")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unblock(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long targetUserId
+    ) {
+        friendService.unblock(userDetails.getUserId(), targetUserId);
+    }
+
+    @Operation(summary = "차단 목록 조회", description = "내가 차단한 사용자. 최근에 차단한 순서")
+    @GetMapping("/blocks")
+    public List<BlockedUserResponse> getBlockedUsers(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return friendService.getBlockedUsers(userDetails.getUserId());
     }
 
     @Operation(summary = "친구 프로필 조회")

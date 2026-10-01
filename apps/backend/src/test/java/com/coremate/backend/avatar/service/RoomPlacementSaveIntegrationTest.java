@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 방 배치 저장 통합 테스트(H2). 검증 4가지(EX-ITEM-003~006)와 통째 교체,
- * 그리고 포즈를 먼저 끊지 않으면 FK 로 막히는 순서 문제를 확인한다.
+ * 포즈를 먼저 끊지 않으면 FK 로 막히는 순서 문제, 포즈가 가리키던 가구가 남으면 포즈를 잇는지 확인한다.
  */
 @SpringBootTest
 @Transactional
@@ -255,6 +255,76 @@ class RoomPlacementSaveIntegrationTest {
             assertThat(after.placements()).hasSize(1);
             assertThat(after.roomPose()).isNull();
             assertThat(after.roomPosePlacementId()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("포즈가 가리키는 가구가 방에 남는 경우")
+    class PoseSurvives {
+
+        private static final LocalDateTime POSED_AT = LocalDateTime.of(2026, 8, 25, 10, 0);
+
+        private void sitAt(RoomResponse room, Long userItemId, int gridX, int gridY) {
+            UserRoomPlacement desk = userRoomPlacementRepository.findById(
+                    placementIdAt(room, userItemId, gridX, gridY)).orElseThrow();
+            userAvatarProfileRepository.findByUser_UserId(userId).orElseThrow()
+                    .updateRoomPose(RoomPose.SIT_DESK, desk, POSED_AT);
+            entityManager.flush();
+        }
+
+        private Long placementIdAt(RoomResponse room, Long userItemId, int gridX, int gridY) {
+            return room.placements().stream()
+                    .filter(placement -> placement.userItemId().equals(userItemId)
+                            && placement.gridX() == gridX && placement.gridY() == gridY)
+                    .findFirst().orElseThrow().placementId();
+        }
+
+        @Test
+        @DisplayName("다른 가구만 옮기면 포즈와 시각이 그대로다")
+        void keepsPoseWhenOtherFurnitureMoves() {
+            RoomResponse before = save(new Placement(deskUserItemId, 0, 0), new Placement(chairUserItemId, 5, 3));
+            entityManager.flush();
+            sitAt(before, deskUserItemId, 0, 0);
+
+            RoomResponse after = save(new Placement(deskUserItemId, 0, 0), new Placement(chairUserItemId, 2, 2));
+            entityManager.flush();
+
+            assertThat(after.roomPose()).isEqualTo(RoomPose.SIT_DESK);
+            assertThat(after.roomPosePlacementId()).isEqualTo(placementIdAt(after, deskUserItemId, 0, 0));
+            assertThat(after.roomPoseUpdatedAt()).isEqualTo(POSED_AT);
+        }
+
+        @Test
+        @DisplayName("앉아 있던 책상을 옮기면 옮긴 책상에 그대로 앉아 있다")
+        void followsMovedFurniture() {
+            RoomResponse before = save(new Placement(deskUserItemId, 0, 0));
+            entityManager.flush();
+            sitAt(before, deskUserItemId, 0, 0);
+
+            RoomResponse after = save(new Placement(deskUserItemId, 3, 2));
+            entityManager.flush();
+
+            assertThat(after.roomPose()).isEqualTo(RoomPose.SIT_DESK);
+            assertThat(after.roomPosePlacementId()).isEqualTo(placementIdAt(after, deskUserItemId, 3, 2));
+            assertThat(after.roomPoseUpdatedAt()).isEqualTo(POSED_AT);
+        }
+
+        @Test
+        @DisplayName("같은 책상을 여러 개 놓았으면 제자리에 남은 책상을 따른다")
+        void prefersFurnitureLeftInPlace() {
+            Long twinDeskUserItemId = own(item("쌍둥이 책상", "FURNITURE",
+                    "{\"footprint\":{\"w\":2,\"h\":1},\"interaction\":\"desk\"}"), 2);
+            RoomResponse before = save(new Placement(twinDeskUserItemId, 0, 0),
+                    new Placement(twinDeskUserItemId, 0, 2));
+            entityManager.flush();
+            sitAt(before, twinDeskUserItemId, 0, 2);
+
+            // 앉지 않은 책상만 옮긴다. 옮긴 쪽을 앞에 보내 "처음 찾은 것"을 고르는 실수를 잡는다.
+            RoomResponse after = save(new Placement(twinDeskUserItemId, 4, 4),
+                    new Placement(twinDeskUserItemId, 0, 2));
+            entityManager.flush();
+
+            assertThat(after.roomPosePlacementId()).isEqualTo(placementIdAt(after, twinDeskUserItemId, 0, 2));
         }
     }
 }

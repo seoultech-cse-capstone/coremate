@@ -2,9 +2,9 @@ import { Flame, Hand, ChevronRight } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
+import { AvatarFaceThumbnail, toEquippedMap } from "../../avatar";
 import { getAvatarColor } from "../avatarColor";
 import type { Friend } from "../types";
-import { FriendAvatar } from "./FriendAvatar";
 
 type FriendListCardProps = {
   friend: Friend;
@@ -31,9 +31,10 @@ export function FriendListCard({
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <FriendAvatar
+      <AvatarFaceThumbnail
         backgroundColor={avatarColor.background}
-        color={avatarColor.accent}
+        equipped={toEquippedMap(friend.avatarProfile?.equippedItems ?? [])}
+        size={44}
       />
 
       <View style={styles.info}>

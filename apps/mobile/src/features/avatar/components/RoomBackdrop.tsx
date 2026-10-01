@@ -10,7 +10,7 @@ import {
 
 import { ROOM_GRID_COLS, ROOM_GRID_ROWS, getRoomGridLayout, type RoomGridLayout } from "../roomGrid";
 import { useRoomTheme } from "../RoomThemeContext";
-import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR } from "../roomThemes";
+import { FLOOR_DOT_HEIGHT, WALL_DOT_HEIGHT, WALL_EXTEND_COLOR, type RoomTheme } from "../roomThemes";
 import { useRoomFurniture, type FurniturePosition } from "../RoomFurnitureContext";
 import { FURNITURE_TYPES, getFurnitureLayout, type FurnitureType } from "../roomFurniture";
 import { getAvatarDotPx } from "./AvatarStage";
@@ -31,14 +31,24 @@ type RoomBackdropProps = {
    * 그리는데, 이 가구만 그 정렬된 자리에서 back/front로 나눠 아바타를 사이에
    * 끼운다 — 그래야 상호작용 중에도 다른 가구와의 앞뒤 관계가 바뀌지 않는다.
    * null이면(상호작용 중이 아니면) 아바타는 정렬된 가구를 전부 그린 다음
-   * 맨 위에 그린다.
+   * 맨 위에 그린다 — avatarDepthY를 주면 그 규칙을 따른다.
    */
   occupiedFurniture?: FurnitureType | null;
+  /**
+   * 서 있는 아바타 발의 바닥 y. 주면 바닥 기준선((row+1)*rowHeight)이 이보다 아래인 가구,
+   * 즉 아바타보다 앞에 놓인 가구를 아바타 위에 그린다 — 가구 뒤로 지나가거나 서 있을 때
+   * 가구 위로 튀어나와 보이지 않게. 앉거나 누운 가구(occupiedFurniture)가 있으면 그 규칙이 먼저다.
+   */
+  avatarDepthY?: number | null;
   onFloorPress?: (event: GestureResponderEvent) => void;
   /** 폭이 측정될 때마다(및 height 변경 시) 격자 치수를 올려보낸다. */
   onLayoutChange?: (layout: RoomLayoutInfo) => void;
   /** 벽·바닥 위, 크롭 없이 그려지는 오버레이(아바타 등). 바닥과 같은 좌표계. */
   overlay?: ReactNode;
+  /** 남의 방(친구 방)을 그릴 때 넘긴다. 생략하면 내 방 테마(RoomThemeContext)를 그린다. */
+  theme?: RoomTheme;
+  /** 남의 방(친구 방)을 그릴 때 넘긴다. 생략하면 내 방 배치(RoomFurnitureContext)를 그린다. */
+  placements?: Partial<Record<FurnitureType, FurniturePosition>>;
 };
 
 /**
@@ -95,12 +105,17 @@ export function RoomBackdrop({
   showGridLines = true,
   showFurniture = true,
   occupiedFurniture = null,
+  avatarDepthY = null,
   onFloorPress,
   onLayoutChange,
   overlay,
+  theme: themeProp,
+  placements: placementsProp,
 }: RoomBackdropProps) {
-  const { theme } = useRoomTheme();
-  const { placements } = useRoomFurniture();
+  const myRoomTheme = useRoomTheme();
+  const myRoomFurniture = useRoomFurniture();
+  const theme = themeProp ?? myRoomTheme.theme;
+  const placements = placementsProp ?? myRoomFurniture.placements;
   const [width, setWidth] = useState(0);
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -161,6 +176,15 @@ export function RoomBackdrop({
           />,
         );
       } else {
+        // 정렬이 줄 순서라, 아바타보다 앞에 놓인 첫 가구 바로 앞에 아바타를 끼우면 된다.
+        const isInFrontOfAvatar =
+          occupiedFurniture === null &&
+          avatarDepthY !== null &&
+          (placements[type]!.row + 1) * rowHeight > avatarDepthY;
+        if (!avatarInserted && isInFrontOfAvatar) {
+          furnitureAndAvatarNodes.push(<Fragment key="avatar">{overlay}</Fragment>);
+          avatarInserted = true;
+        }
         furnitureAndAvatarNodes.push(
           <FurniturePieces
             key={type}

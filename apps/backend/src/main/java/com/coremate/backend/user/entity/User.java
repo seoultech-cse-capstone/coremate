@@ -64,6 +64,10 @@ public class User {
     @Column(name = "school_verified", nullable = false)
     private boolean schoolVerified;
 
+    // 친구에게 학습 기록(과목별 스탯·Learning History)을 보여줄지. 레벨·출석·아바타·방은 이 값과 관계없이 보인다.
+    @Column(name = "learning_public", nullable = false)
+    private boolean learningPublic;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status;
@@ -90,6 +94,7 @@ public class User {
         this.level = 1;
         this.totalXp = 0;
         this.schoolVerified = false;
+        this.learningPublic = true;
         this.status = UserStatus.ACTIVE;
     }
 
@@ -130,6 +135,10 @@ public class User {
 
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public void updateLearningPublic(boolean learningPublic) {
+        this.learningPublic = learningPublic;
     }
 
     public void withdraw() {
