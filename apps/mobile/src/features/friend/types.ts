@@ -88,7 +88,10 @@ export type FriendProfile = {
   avatarProfile: AvatarProfile | null;
   /** 친구의 방(벽지·가구 배치·마지막 포즈). 읽기 전용이다 */
   room: RoomResponse;
+  /** 친구가 학습 기록을 공개하지 않으면 빈 목록이다 */
   subjectStats: FriendSubjectStat[];
+  /** 친구가 학습 기록(과목별 스탯·Learning History)을 공개했는지. 이 필드가 생기기 전 서버에는 없다(= 공개) */
+  learningPublic?: boolean;
 };
 
 export type FriendLearningHistory = {

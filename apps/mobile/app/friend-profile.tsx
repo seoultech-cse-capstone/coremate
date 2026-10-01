@@ -61,7 +61,11 @@ export default function FriendProfileScreen() {
 
   const queryClient = useQueryClient();
   const { data: profile, isLoading, isError, error } = useFriendProfileQuery(targetUserId);
-  const { data: learningHistory } = useFriendLearningHistoryQuery(targetUserId);
+  // 학습 기록을 공개하지 않은 친구면 서버가 막는다. 프로필을 받기 전에는 공개로 보고 함께 부른다.
+  const { data: learningHistory } = useFriendLearningHistoryQuery(
+    targetUserId,
+    profile?.learningPublic !== false,
+  );
   const { data: subjects = [] } = useSubjects();
   const pokeMutation = usePokeMutation();
   const deleteFriendMutation = useDeleteFriendMutation();
@@ -107,6 +111,7 @@ export default function FriendProfileScreen() {
   }
 
   const avatarColor = getAvatarColor(profile.nickname);
+  const isLearningPublic = profile.learningPublic !== false;
 
   // 콕 찌르기는 취소가 없다. 서버에 기록이 남는 행위라 다시 눌러도 되돌릴 수 없다.
   const poke = () => {
@@ -252,7 +257,12 @@ export default function FriendProfileScreen() {
 
         <View style={styles.panel}>
           <View style={styles.panelContent}>
-            {progressAxes.length > 0 ? (
+            {!isLearningPublic ? (
+              <View style={styles.emptyStatsCard}>
+                <Text style={styles.emptyStatsTitle}>Learning Stats</Text>
+                <Text style={styles.emptyStatsText}>학습 기록을 공개하지 않은 친구예요</Text>
+              </View>
+            ) : progressAxes.length > 0 ? (
               <FriendProgressStats axes={progressAxes} />
             ) : (
               <View style={styles.emptyStatsCard}>
@@ -274,22 +284,26 @@ export default function FriendProfileScreen() {
             </View>
             <View style={styles.learningCard}>
               <Text style={styles.learningTitle}>Learning History</Text>
-              <View style={styles.learningStats}>
-                <LearningStat
-                  label="Study Time"
-                  value={formatDuration(learningHistory?.totalMockSolveTimeSec ?? 0)}
-                />
-                <View style={styles.learningDivider} />
-                <LearningStat
-                  label="Questions"
-                  value={String(learningHistory?.conceptCorrectQuestionCount ?? 0)}
-                />
-                <View style={styles.learningDivider} />
-                <LearningStat
-                  label="Completed"
-                  value={String(learningHistory?.completedConceptCount ?? 0)}
-                />
-              </View>
+              {isLearningPublic ? (
+                <View style={styles.learningStats}>
+                  <LearningStat
+                    label="Study Time"
+                    value={formatDuration(learningHistory?.totalMockSolveTimeSec ?? 0)}
+                  />
+                  <View style={styles.learningDivider} />
+                  <LearningStat
+                    label="Questions"
+                    value={String(learningHistory?.conceptCorrectQuestionCount ?? 0)}
+                  />
+                  <View style={styles.learningDivider} />
+                  <LearningStat
+                    label="Completed"
+                    value={String(learningHistory?.completedConceptCount ?? 0)}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.emptyStatsText}>공개하지 않았어요</Text>
+              )}
             </View>
             <Pressable
               accessibilityRole="button"

@@ -4,6 +4,7 @@ import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
 import com.coremate.backend.user.dto.request.ChangePasswordRequest;
 import com.coremate.backend.user.dto.request.UpdateNicknameRequest;
+import com.coremate.backend.user.dto.request.UpdatePrivacyRequest;
 import com.coremate.backend.user.dto.request.UpdateUserProfileRequest;
 import com.coremate.backend.user.dto.response.MyProfileResponse;
 import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
@@ -63,6 +64,15 @@ public class UserController {
     public void changePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @Valid @RequestBody ChangePasswordRequest request) {
         userService.changePassword(userDetails.getUserId(), request);
+    }
+
+    @Operation(summary = "내 공개 범위 변경",
+            description = "친구에게 학습 기록(과목별 스탯·Learning History)을 보여줄지 정한다. "
+                    + "레벨·출석·아바타·방은 이 설정과 관계없이 친구에게 보인다.")
+    @PatchMapping("/me/privacy")
+    public MyProfileResponse updatePrivacy(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                           @Valid @RequestBody UpdatePrivacyRequest request) {
+        return userService.updatePrivacy(userDetails.getUserId(), request);
     }
 
     @Operation(summary = "내 과목 통계 조회")

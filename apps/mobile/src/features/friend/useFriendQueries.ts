@@ -165,12 +165,13 @@ export function useFriendProfileQuery(friendUserId: number | null) {
   });
 }
 
-export function useFriendLearningHistoryQuery(friendUserId: number | null) {
+/** enabled 가 false 면 부르지 않는다. 학습 기록을 공개하지 않은 친구는 서버가 403으로 막는다. */
+export function useFriendLearningHistoryQuery(friendUserId: number | null, enabled = true) {
   const { accessToken } = useAuth();
 
   return useQuery<FriendLearningHistory>({
     queryKey: ["friends", "learning-history", friendUserId],
     queryFn: () => friendApi.getLearningHistory(friendUserId as number, accessToken as string),
-    enabled: Boolean(accessToken) && friendUserId !== null,
+    enabled: Boolean(accessToken) && friendUserId !== null && enabled,
   });
 }
