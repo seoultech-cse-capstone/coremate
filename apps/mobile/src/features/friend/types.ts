@@ -36,8 +36,10 @@ export type FriendSearchUser = {
   nickname: string;
   schoolName: string | null;
   level: number | null;
-  /** 이미 친구이거나 요청 중이면 서버가 상태를 실어 준다 */
+  /** 검색한 사람 기준 관계 상태. 내가 보낸 요청이 거절됐어도 REQUESTED 로 온다(거절은 알리지 않는다) */
   relationshipStatus: FriendStatus | null;
+  /** 요청을 누가 보냈는지. SENT = 내가 보냄, RECEIVED = 상대가 보냄. 관계가 없으면 null */
+  direction: "SENT" | "RECEIVED" | null;
 };
 
 export type FriendPoke = {

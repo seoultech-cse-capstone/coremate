@@ -9,6 +9,12 @@ public record FriendSearchUserResponse(
         @Schema(example = "corefriend") String nickname,
         @Schema(example = "서울과학기술대학교") String schoolName,
         @Schema(example = "5") Integer level,
-        @Schema(example = "REQUESTED") FriendStatus relationshipStatus
+        @Schema(example = "REQUESTED",
+                description = "검색한 사람 기준 관계 상태. 관계가 없으면 null. "
+                        + "내가 보낸 요청이 거절됐어도 REQUESTED 로 보인다(거절은 알리지 않는다, FR-FRIEND-04)")
+        FriendStatus relationshipStatus,
+        @Schema(example = "SENT",
+                description = "요청을 누가 보냈는지. SENT = 내가 보냄, RECEIVED = 상대가 보냄. 관계가 없으면 null")
+        String direction
 ) {
 }

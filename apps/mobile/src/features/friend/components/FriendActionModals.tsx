@@ -56,16 +56,14 @@ export function AddFriendModal({ visible, query, users, onClose, onQueryChange, 
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <ModalSurface onClose={onClose} onQueryChange={onQueryChange} query={query} title="Add Friend">
         {users.map((user) => {
-          // 서버가 내려준 관계 상태로 이미 친구이거나 요청 중인 사람을 걸러 낸다.
-          const alreadyRelated = user.relationshipStatus !== null;
-          const isSent = sentUserIds.includes(user.userId) || alreadyRelated;
-          const disabled = isSent || isRequestLimitReached;
+          const button = requestButton(user, sentUserIds.includes(user.userId));
+          const disabled = !button.canRequest || isRequestLimitReached;
           return (
             <View key={user.userId} style={styles.row}>
               <PersonAvatar nickname={user.nickname} />
               <PersonInfo nickname={user.nickname} schoolName={user.schoolName} />
               <Pressable disabled={disabled} onPress={() => onSendRequest(user.userId)} style={[styles.requestButton, disabled && styles.requestButtonSent]}>
-                <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{isSent ? "요청함" : "친구 요청"}</Text>
+                <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{button.label}</Text>
               </Pressable>
             </View>
           );
@@ -79,6 +77,29 @@ export function AddFriendModal({ visible, query, users, onClose, onQueryChange, 
       </ModalSurface>
     </Modal>
   );
+}
+
+/**
+ * 검색 결과의 친구 요청 버튼. 관계 상태는 서버가 검색한 사람 기준으로 내려준다 — 내가 보낸 요청이
+ * 거절됐어도 REQUESTED 로 와서 계속 "요청함"으로 보인다(거절은 알리지 않는다).
+ */
+function requestButton(user: FriendSearchUser, justSent: boolean): { label: string; canRequest: boolean } {
+  if (justSent) {
+    return { label: "요청함", canRequest: false };
+  }
+  switch (user.relationshipStatus) {
+    case null:
+    // 내가 거절했던 사람. 마음을 바꾸면 이쪽에서 먼저 요청할 수 있다.
+    case "REJECTED":
+      return { label: "친구 요청", canRequest: true };
+    case "ACCEPTED":
+      return { label: "친구", canRequest: false };
+    case "REQUESTED":
+      // 상대가 보낸 요청은 "요청 온 친구"에서 수락한다.
+      return { label: user.direction === "RECEIVED" ? "요청 받음" : "요청함", canRequest: false };
+    default:
+      return { label: "요청함", canRequest: false };
+  }
 }
 
 type ReceivedRequestsModalProps = {
