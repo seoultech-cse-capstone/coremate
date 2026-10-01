@@ -2,6 +2,7 @@ package com.coremate.backend.friend.service;
 
 import com.coremate.backend.attendance.entity.Attendance;
 import com.coremate.backend.attendance.repository.AttendanceRepository;
+import com.coremate.backend.avatar.dto.response.AvatarEquippedItemResponse;
 import com.coremate.backend.avatar.dto.response.AvatarProfileResponse;
 import com.coremate.backend.avatar.dto.response.RoomResponse;
 import com.coremate.backend.avatar.service.AvatarService;
@@ -34,6 +35,7 @@ import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -72,14 +74,18 @@ public class FriendService {
         }
 
         // 친구 추가 화면에서 너무 많은 사용자가 노출되지 않도록 상위 20명만 반환한다.
-        return friendUserSearchRepository.searchActiveUsers(
-                        userId,
-                        keyword.trim(),
-                        UserStatus.ACTIVE,
-                        PageRequest.of(0, 20)
-                )
-                .stream()
-                .map(user -> toFriendSearchUserResponse(userId, user))
+        List<User> users = friendUserSearchRepository.searchActiveUsers(
+                userId,
+                keyword.trim(),
+                UserStatus.ACTIVE,
+                PageRequest.of(0, 20)
+        );
+        // 목록 아이콘용 장착은 한 번에 읽는다.
+        Map<Long, List<AvatarEquippedItemResponse>> equipped = avatarService.getEquippedItemsByUser(
+                users.stream().map(User::getUserId).toList());
+        return users.stream()
+                .map(user -> toFriendSearchUserResponse(userId, user,
+                        equipped.getOrDefault(user.getUserId(), List.of())))
                 .toList();
     }
 
@@ -104,8 +110,11 @@ public class FriendService {
                     .findByRequester_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
             default -> friendRepository.findRequestedByUserId(userId, FriendStatus.REQUESTED);
         };
+        Map<Long, List<AvatarEquippedItemResponse>> equipped = avatarService.getEquippedItemsByUser(
+                requests.stream().map(friend -> friend.getRequester().getUserId()).toList());
         return requests.stream()
-                .map(friend -> toFriendRequestResponse(friend, userId))
+                .map(friend -> toFriendRequestResponse(friend, userId,
+                        equipped.getOrDefault(friend.getRequester().getUserId(), List.of())))
                 .toList();
     }
 
@@ -124,7 +133,9 @@ public class FriendService {
         eventPublisher.publishEvent(NotificationMessages.friendRequestReceived(
                 receiver.getUserId(), requester.getNickname(), requester.getUserId()));
 
-        return toFriendRequestResponse(friend, userId);
+        Long requesterId = friend.getRequester().getUserId();
+        return toFriendRequestResponse(friend, userId,
+                avatarService.getEquippedItemsByUser(List.of(requesterId)).getOrDefault(requesterId, List.of()));
     }
 
     @Transactional
@@ -269,7 +280,8 @@ public class FriendService {
         );
     }
 
-    private FriendRequestResponse toFriendRequestResponse(Friend friend, Long currentUserId) {
+    private FriendRequestResponse toFriendRequestResponse(Friend friend, Long currentUserId,
+                                                          List<AvatarEquippedItemResponse> requesterEquippedItems) {
         return new FriendRequestResponse(
                 friend.getFriendId(),
                 friend.getRequester().getUserId(),
@@ -278,7 +290,8 @@ public class FriendService {
                 friend.getReceiver().getNickname(),
                 friend.getStatus(),
                 resolveDirection(friend, currentUserId),
-                friend.getCreatedAt()
+                friend.getCreatedAt(),
+                requesterEquippedItems
         );
     }
 
@@ -330,7 +343,8 @@ public class FriendService {
         );
     }
 
-    private FriendSearchUserResponse toFriendSearchUserResponse(Long currentUserId, User user) {
+    private FriendSearchUserResponse toFriendSearchUserResponse(Long currentUserId, User user,
+                                                                List<AvatarEquippedItemResponse> equippedItems) {
         Optional<Friend> relation = friendRepository
                 .findByUserLowIdAndUserHighId(lowId(currentUserId, user.getUserId()), highId(currentUserId, user.getUserId()));
 
@@ -340,7 +354,8 @@ public class FriendService {
                 user.getSchoolName(),
                 user.getLevel(),
                 relation.map(friend -> visibleStatus(friend, currentUserId)).orElse(null),
-                relation.map(friend -> resolveDirection(friend, currentUserId)).orElse(null)
+                relation.map(friend -> resolveDirection(friend, currentUserId)).orElse(null),
+                equippedItems
         );
     }
 

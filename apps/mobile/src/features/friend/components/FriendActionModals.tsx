@@ -2,9 +2,9 @@ import { Search, X } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { FONT } from "../../../../constants/fonts";
+import { AvatarFaceThumbnail, toEquippedMap, type AvatarEquippedItem } from "../../avatar";
 import { getAvatarColor } from "../avatarColor";
 import type { Friend, FriendRequest, FriendSearchUser } from "../types";
-import { FriendAvatar } from "./FriendAvatar";
 import { FriendRequestCard } from "./FriendRequestCard";
 
 type ModalShellProps = {
@@ -29,7 +29,7 @@ export function FriendSearchModal({ visible, query, friends, onClose, onQueryCha
             onPress={() => onOpenProfile(friend.friendUserId)}
             style={styles.row}
           >
-            <PersonAvatar nickname={friend.nickname} />
+            <PersonAvatar equippedItems={friend.avatarProfile?.equippedItems ?? []} nickname={friend.nickname} />
             <PersonInfo nickname={friend.nickname} schoolName={friend.schoolName} />
           </Pressable>
         ))}
@@ -60,7 +60,7 @@ export function AddFriendModal({ visible, query, users, onClose, onQueryChange, 
           const disabled = !button.canRequest || isRequestLimitReached;
           return (
             <View key={user.userId} style={styles.row}>
-              <PersonAvatar nickname={user.nickname} />
+              <PersonAvatar equippedItems={user.equippedItems ?? []} nickname={user.nickname} />
               <PersonInfo nickname={user.nickname} schoolName={user.schoolName} />
               <Pressable disabled={disabled} onPress={() => onSendRequest(user.userId)} style={[styles.requestButton, disabled && styles.requestButtonSent]}>
                 <Text style={[styles.requestText, disabled && styles.requestTextSent]}>{button.label}</Text>
@@ -123,6 +123,7 @@ export function ReceivedRequestsModal({ visible, requests, onClose, onAccept, on
             {requests.map((request) => (
               <FriendRequestCard
                 key={request.friendId}
+                equippedItems={request.requesterEquippedItems ?? []}
                 nickname={request.requesterNickname}
                 schoolName={null}
                 onAccept={() => onAccept(request.friendId)}
@@ -164,9 +165,9 @@ function ModalSurface({
   );
 }
 
-function PersonAvatar({ nickname }: { nickname: string }) {
+function PersonAvatar({ nickname, equippedItems }: { nickname: string; equippedItems: AvatarEquippedItem[] }) {
   const color = getAvatarColor(nickname);
-  return <FriendAvatar backgroundColor={color.background} color={color.accent} />;
+  return <AvatarFaceThumbnail backgroundColor={color.background} equipped={toEquippedMap(equippedItems)} size={44} />;
 }
 
 function PersonInfo({ nickname, schoolName }: { nickname: string; schoolName: string | null }) {

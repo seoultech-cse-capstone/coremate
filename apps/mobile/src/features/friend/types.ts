@@ -1,7 +1,7 @@
 /** 백엔드 friend API 응답 타입. 필드는 서버 응답과 1:1로 맞춘다. */
 
 // 아바타·방은 avatar 도메인 응답(AvatarProfileResponse·RoomResponse)을 그대로 실어 온다.
-import type { AvatarProfile, RoomResponse } from "../avatar";
+import type { AvatarEquippedItem, AvatarProfile, RoomResponse } from "../avatar";
 
 export type FriendStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "BLOCKED";
 
@@ -29,6 +29,8 @@ export type FriendRequest = {
   /** RECEIVED = 내가 받은 요청, SENT = 내가 보낸 요청 */
   direction: "RECEIVED" | "SENT";
   createdAt: string;
+  /** 요청을 보낸 사람이 지금 장착한 아이템(받은 요청 아이콘용). 이 필드가 생기기 전 서버에는 없다 */
+  requesterEquippedItems?: AvatarEquippedItem[];
 };
 
 export type FriendSearchUser = {
@@ -40,6 +42,8 @@ export type FriendSearchUser = {
   relationshipStatus: FriendStatus | null;
   /** 요청을 누가 보냈는지. SENT = 내가 보냄, RECEIVED = 상대가 보냄. 관계가 없으면 null */
   direction: "SENT" | "RECEIVED" | null;
+  /** 지금 장착한 아이템(목록 아이콘용). 이 필드가 생기기 전 서버에는 없다 */
+  equippedItems?: AvatarEquippedItem[];
 };
 
 export type FriendPoke = {
