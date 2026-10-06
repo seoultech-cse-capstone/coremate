@@ -20,10 +20,13 @@ import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,11 +132,27 @@ public class AvatarService {
         );
     }
 
+    // 목록 화면(친구 검색·받은 요청)의 아이콘용. 프로필을 만들거나 기본 아이템을 채우지 않고 지금 장착만 읽는다.
+    // 장착이 하나도 없는 사람은 결과에 없으니 호출부가 빈 목록으로 다룬다(앱은 빠진 부위를 기본 모습으로 그린다).
+    public Map<Long, List<AvatarEquippedItemResponse>> getEquippedItemsByUser(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userAvatarEquippedItemRepository.findByUser_UserIdInOrderBySlotAsc(userIds)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        equipped -> equipped.getUser().getUserId(),
+                        Collectors.collectingAndThen(Collectors.toList(), this::toRenderOrderedResponses)));
+    }
+
     private List<AvatarEquippedItemResponse> getEquippedItems(Long userId) {
+        return toRenderOrderedResponses(userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId));
+    }
+
+    private List<AvatarEquippedItemResponse> toRenderOrderedResponses(List<UserAvatarEquippedItem> equippedItems) {
         // 렌더 순서는 서버가 갖는다. 앱이 따로 순서를 적어두면 둘이 어긋난다.
         // 스택에 없는 슬롯(PET/WALLPAPER/FLOOR)은 뒤로 밀고, 그 안에서는 레포지토리의 slot 순서를 유지한다.
-        return userAvatarEquippedItemRepository.findByUser_UserIdOrderBySlotAsc(userId)
-                .stream()
+        return equippedItems.stream()
                 .map(this::toEquippedItemResponse)
                 .sorted(Comparator.comparing(AvatarEquippedItemResponse::renderOrder,
                         Comparator.nullsLast(Comparator.naturalOrder())))

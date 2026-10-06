@@ -18,12 +18,18 @@ export function AvatarProfileSync() {
   // 먼저 캐시됐을 수 있고(staleTime 동안 그대로 유지됨), 그러면 화면이 비어 보인다.
   // 지급이 끝난 이 시점에 한 번 무효화해 다시 불러오게 한다.
   useEffect(() => {
+    // 로그아웃·게스트 전환. 같은 실행 중에 다음에 로그인하는 계정(가입 직후일 수 있다)도
+    // 지급 뒤 한 번 더 불러오도록 되돌린다. 계정 전환은 늘 토큰이 비는 상태를 거친다.
+    if (!accessToken) {
+      syncedRef.current = false;
+      return;
+    }
     if (avatarQuery.isSuccess && !syncedRef.current) {
       syncedRef.current = true;
       queryClient.invalidateQueries({ queryKey: ["avatar", "inventory"] });
       queryClient.invalidateQueries({ queryKey: ["avatar", "room"] });
     }
-  }, [avatarQuery.isSuccess, queryClient]);
+  }, [accessToken, avatarQuery.isSuccess, queryClient]);
 
   return null;
 }

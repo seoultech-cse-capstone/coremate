@@ -11,9 +11,9 @@
 --   - 재실행 안전: 대상 박스의 기존 구성 행을 지우고 다시 만든다(regenerate).
 --
 -- 선행
---   - random_boxes 에 box_grade = 'STANDARD' 박스가 있어야 한다 (db/seed/04_random_boxes.sql)
+--   - random_boxes 에 box_grade = 'STANDARD' 박스가 있어야 한다 (db/migration/R__04_random_boxes.sql)
 --   - avatar_items 에 is_default 컬럼이 있어야 한다 (용주 1-1). 아이템 목록·등급이
---     확정되면(#173) 이 스크립트를 돌려 나온 결과를 db/seed/06_random_box_items.sql 로 옮긴다(B-10).
+--     확정되면(#173) 이 스크립트를 돌려 나온 결과를 db/migration/R__06_random_box_items.sql 로 옮긴다(B-10).
 --
 -- 버킷 규칙
 --   - 버킷 확률(고정): 하(COMMON) 0.45 / 중(RARE) 0.20 / 상(EPIC) 0.15 / 코인 0.20

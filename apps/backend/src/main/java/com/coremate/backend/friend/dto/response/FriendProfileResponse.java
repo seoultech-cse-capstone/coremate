@@ -22,6 +22,9 @@ public record FriendProfileResponse(
         // 읽기 전용이다. 친구는 배치를 바꿀 수 없고 조회만 된다(FR-AVATAR-04).
         @Schema(description = "친구의 방. 벽지·바닥·배치 가구와 마지막 포즈까지 그대로 보여준다")
         RoomResponse room,
-        @Schema(description = "친구 공개 과목별 요약 스탯") List<FriendSubjectStatResponse> subjectStats
+        @Schema(description = "친구 공개 과목별 요약 스탯. 친구가 학습 기록을 공개하지 않으면 빈 목록")
+        List<FriendSubjectStatResponse> subjectStats,
+        @Schema(example = "true", description = "친구가 학습 기록(과목별 스탯·Learning History)을 공개했는지")
+        Boolean learningPublic
 ) {
 }

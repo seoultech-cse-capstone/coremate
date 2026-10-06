@@ -1,12 +1,9 @@
 /** 백엔드 friend API 응답 타입. 필드는 서버 응답과 1:1로 맞춘다. */
 
-export type FriendStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "BLOCKED";
+// 아바타·방은 avatar 도메인 응답(AvatarProfileResponse·RoomResponse)을 그대로 실어 온다.
+import type { AvatarEquippedItem, AvatarProfile, RoomResponse } from "../avatar";
 
-export type AvatarProfile = {
-  userId: number;
-  /** 베이스 마네킹. 아바타에 성별 구분이 없어 BASIC_01 고정이다 */
-  baseAvatarType: string | null;
-};
+export type FriendStatus = "REQUESTED" | "ACCEPTED" | "REJECTED" | "BLOCKED";
 
 export type Friend = {
   friendId: number;
@@ -32,6 +29,8 @@ export type FriendRequest = {
   /** RECEIVED = 내가 받은 요청, SENT = 내가 보낸 요청 */
   direction: "RECEIVED" | "SENT";
   createdAt: string;
+  /** 요청을 보낸 사람이 지금 장착한 아이템(받은 요청 아이콘용). 이 필드가 생기기 전 서버에는 없다 */
+  requesterEquippedItems?: AvatarEquippedItem[];
 };
 
 export type FriendSearchUser = {
@@ -39,8 +38,21 @@ export type FriendSearchUser = {
   nickname: string;
   schoolName: string | null;
   level: number | null;
-  /** 이미 친구이거나 요청 중이면 서버가 상태를 실어 준다 */
+  /** 검색한 사람 기준 관계 상태. 내가 보낸 요청이 거절됐어도 REQUESTED 로 온다(거절은 알리지 않는다) */
   relationshipStatus: FriendStatus | null;
+  /** 요청을 누가 보냈는지. SENT = 내가 보냄, RECEIVED = 상대가 보냄. 관계가 없으면 null */
+  direction: "SENT" | "RECEIVED" | null;
+  /** 지금 장착한 아이템(목록 아이콘용). 이 필드가 생기기 전 서버에는 없다 */
+  equippedItems?: AvatarEquippedItem[];
+};
+
+/** GET /api/friends/blocks. 내가 차단한 사용자(최근에 차단한 순서) */
+export type BlockedUser = {
+  userId: number;
+  nickname: string;
+  blockedAt: string;
+  /** 지금 장착한 아이템(목록 아이콘용) */
+  equippedItems: AvatarEquippedItem[];
 };
 
 export type FriendPoke = {
@@ -74,7 +86,12 @@ export type FriendProfile = {
   /** 가장 최근 출석일. 출석 기록이 없으면 null */
   lastAttendanceDate: string | null;
   avatarProfile: AvatarProfile | null;
+  /** 친구의 방(벽지·가구 배치·마지막 포즈). 읽기 전용이다 */
+  room: RoomResponse;
+  /** 친구가 학습 기록을 공개하지 않으면 빈 목록이다 */
   subjectStats: FriendSubjectStat[];
+  /** 친구가 학습 기록(과목별 스탯·Learning History)을 공개했는지. 이 필드가 생기기 전 서버에는 없다(= 공개) */
+  learningPublic?: boolean;
 };
 
 export type FriendLearningHistory = {

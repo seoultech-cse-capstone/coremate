@@ -19,7 +19,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
  * AI 약점 분석표 생성 같은 유료 기능의 가격 정책.
  *
  * <p>가격을 코드 상수가 아니라 이 행에서 읽어, 값이 바뀌어도 배포 없이
- * 조정할 수 있게 한다. 시드는 {@code db/seed/02_feature_access_products.sql} 이다.
+ * 조정할 수 있게 한다. 시드는 {@code db/migration/R__02_paid_products.sql} 이다.
  *
  * <p>월간 생성 한도는 두지 않는다(2026-08-11 결정). 코인 가격과 하루 코인 수입 상한이
  * 이미 생성 빈도의 상한 역할을 한다.

@@ -1,21 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useIsFocused } from "expo-router";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, StyleSheet, View, type GestureResponderEvent } from "react-native";
 
-import {
-  AVATAR_FOOT_X_RATIO,
-  AVATAR_FOOT_Y_RATIO,
-  AVATAR_SLEEP_STAGE_HEIGHT,
-  AVATAR_SLEEP_STAGE_WIDTH,
-  AVATAR_STAGE_HEIGHT,
-  AVATAR_STAGE_WIDTH,
-  AVATAR_WIDTH_IN_CELLS,
-  AvatarSleepStage,
-  AvatarStage,
-  getAvatarDotPx,
-} from "./AvatarStage";
+import { AvatarSleepStage, AvatarStage } from "./AvatarStage";
 import { RoomBackdrop, type RoomLayoutInfo } from "./RoomBackdrop";
 import { useAuth } from "../../auth";
 import { useAvatarEquip } from "../AvatarEquipContext";
+import { IDLE_SEQUENCE, SIT_HAND_SEQUENCE, SLEEP_SEQUENCE } from "../avatarFrameSequences";
 import { DEFAULT_LOCAL_KEY_BY_SLOT, LOCAL_CATALOG_BY_KEY } from "../localCatalog";
 import { useRoomFurniture } from "../RoomFurnitureContext";
 import { useSavePoseMutation } from "../useRoomQueries";
@@ -27,47 +18,27 @@ import {
   getFurnitureLayout,
   type FurnitureType,
 } from "../roomFurniture";
+import { getPetX, getRoomAvatarMetrics, getSleepAvatarRect, getStandStart } from "../roomAvatarLayout";
+import {
+  buildWalkGrid,
+  findWalkPath,
+  nearestFreePoint,
+  pickWanderPoint,
+  type FloorPoint,
+} from "../roomPathfinding";
 import { useFrameSequence } from "../useFrameSequence";
-
-// AVATAR_FE.md 2절: 서기(앞) idle은 1→2→3→2 루프, 프레임별 duration이 다르다.
-const IDLE_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
-  { value: 1, duration: 400 },
-  { value: 2, duration: 150 },
-  { value: 3, duration: 400 },
-  { value: 2, duration: 150 },
-];
-// 책상 앉기: 타이핑 손 오버레이 1→2→1→3 루프, 120ms 균일.
-const SIT_HAND_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
-  { value: 1, duration: 120 },
-  { value: 2, duration: 120 },
-  { value: 1, duration: 120 },
-  { value: 3, duration: 120 },
-];
-// 수면: 1→2→3→2 루프(원래 스펙은 4프레임이지만 에셋이 3장이라 idle과 같은 방식으로 재사용).
-const SLEEP_SEQUENCE: { value: 1 | 2 | 3; duration: number }[] = [
-  { value: 1, duration: 400 },
-  { value: 2, duration: 250 },
-  { value: 3, duration: 550 },
-  { value: 2, duration: 250 },
-];
 
 // AVATAR_FE.md 6절: 이동 중 offsetY = -|sin(t)| x 진폭(2~3도트), 주기 ~250ms.
 const HOP_PERIOD_MS = 250;
 const HOP_AMPLITUDE_PX = 12;
 const WALK_SPEED_PX_PER_SEC = 220;
 const MIN_WALK_DURATION_MS = 300;
-// 수면 캔버스(384x216, 48x27도트)는 원본이 1도트=8px라, 세트 배율(도트당 실제 px)을
-// 그 8로 나눠야 AvatarSleepStage의 scale prop과 단위가 맞는다.
-const SLEEP_RAW_PX_PER_DOT = 8;
-
-// 펫: 프레임 애니메이션 없는 정지 이미지라, 강아지 원본(18x13도트)을 기준 상자로 두고
-// contain으로 맞춘다(거북이는 더 납작해서 상자 안에서 살짝 작게 보인다 — 의도된 동작).
-const PET_BOX_WIDTH_DOTS = 18;
-const PET_BOX_HEIGHT_DOTS = 13;
-// 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
+// 펫은 아바타가 걷기 시작한 뒤 이만큼 늦게 출발해서 "따라오는" 느낌을 준다.
 const PET_FOLLOW_DELAY_MS = 220;
-// 아바타 발밑 기준 오른쪽으로 이 정도(칸 단위) 떨어진 자리를 목표로 걷는다.
-const PET_FOLLOW_OFFSET_CELLS = 0.55;
+// 가만히 서 있으면 이 사이 아무 때나 가까운 빈 칸(가로·세로 2칸 안)으로 혼자 걸어간다.
+const WANDER_MIN_DELAY_MS = 6000;
+const WANDER_MAX_DELAY_MS = 12000;
+const WANDER_MAX_STEP_CELLS = 2;
 
 function isWithinRect(
   rect: { left: number; top: number; right: number; bottom: number },
@@ -94,9 +65,10 @@ type RoomSceneProps = {
  * 미세하게 흔들리고(idle), 바닥을 탭하면 그 자리로 통통 튀며 걸어가고(위로
  * 이동하면 뒷모습, 도착하면 다시 정면), 아바타 자리를 탭하면 정면·뒷모습이 토글된다.
  * 배치된 책상·침대를 탭하면 거기로 걸어가서 앉거나 눕고, 다시 탭하면 일어난다.
+ * 걸을 때는 가구를 돌아가고(roomPathfinding), 서서 가만히 두면 가끔 혼자 근처를 걷는다.
  */
 export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: RoomSceneProps) {
-  const { placements, placementIdByType } = useRoomFurniture();
+  const { placements, placementIdByType, posedFurniture, isRoomSettled } = useRoomFurniture();
   const { equipped } = useAvatarEquip();
   const { accessToken } = useAuth();
   const savePose = useSavePoseMutation(accessToken);
@@ -104,6 +76,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
   const [hasPositioned, setHasPositioned] = useState(false);
   const [facing, setFacing] = useState<"front" | "back">("front");
   const [occupancy, setOccupancy] = useState<FurnitureType | null>(null);
+  // 서 있는 아바타 발의 바닥 y. 이보다 앞(아래)에 놓인 가구가 아바타를 가린다(RoomBackdrop).
+  const [avatarDepthY, setAvatarDepthY] = useState<number | null>(null);
+  // 걷기를 마칠 때마다 1씩 오른다. 다음 혼자 걷기를 이 시점부터 다시 잰다.
+  const [restTick, setRestTick] = useState(0);
+  const isFocused = useIsFocused();
 
   // 아바타가 앉거나(desk) 누우면(bed) 그 포즈를, 일어나면 STAND를 서버에 저장한다.
   // occupancy는 로컬 애니메이션 상태이고, 서버에는 마지막 포즈만 남긴다(친구 방 경과시간 기준).
@@ -149,76 +126,123 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
 
   const width = layout?.width ?? 0;
   const floorHeight = (layout?.floorHeight ?? 0) + bottomOverflow;
-  // 아바타 너비를 타일 1칸 크기로 고정한다(dotPx 그대로 쓰면 훨씬 커서 요청대로 조정).
-  const avatarScale = layout ? (AVATAR_WIDTH_IN_CELLS * layout.cellWidth) / AVATAR_STAGE_WIDTH : 0;
-  const avatarRenderWidth = AVATAR_STAGE_WIDTH * avatarScale;
-  const avatarRenderHeight = AVATAR_STAGE_HEIGHT * avatarScale;
-  const feetOffsetX = avatarRenderWidth * AVATAR_FOOT_X_RATIO;
-  const feetOffsetY = avatarRenderHeight * AVATAR_FOOT_Y_RATIO;
-  // 펫·가구 전부 아바타와 같은 "도트당 화면 px"를 쓴다 — 공통 dotPx(배경 격자
-  // 기준)가 아니라 이 값이어야 아바타와 나란히 있을 때 도트 크기가 어긋나지
-  // 않는다. 각자 원본 도트 수만큼만 자연히 크거나 작게 보이므로 항목별 축소
-  // 비율이 따로 필요 없다.
-  const avatarDotPx = layout ? getAvatarDotPx(layout.cellWidth) : 0;
-  const petBoxWidth = PET_BOX_WIDTH_DOTS * avatarDotPx;
-  const petBoxHeight = PET_BOX_HEIGHT_DOTS * avatarDotPx;
-  const petOffsetX = layout ? PET_FOLLOW_OFFSET_CELLS * layout.cellWidth : 0;
+  // 아바타·그림자·펫 크기는 친구 방(RoomSnapshot)과 같은 계산을 쓴다.
+  const {
+    scale: avatarScale,
+    width: avatarRenderWidth,
+    height: avatarRenderHeight,
+    footOffsetX: feetOffsetX,
+    footOffsetY: feetOffsetY,
+    shadowWidth,
+    shadowHeight,
+    dotPx: avatarDotPx,
+    petWidth: petBoxWidth,
+    petHeight: petBoxHeight,
+  } = getRoomAvatarMetrics(layout?.cellWidth ?? 0);
 
   const bedPlacement = placements.bed;
   const bedLayout =
     bedPlacement && layout
       ? getFurnitureLayout("bed", bedPlacement, layout.cellWidth, layout.rowHeight, avatarDotPx)
       : null;
-  // AVATAR_FE.md: 침대 원점 기준 수면 아바타 (4, -12)도트.
-  const sleepScale = bedLayout ? bedLayout.scale / SLEEP_RAW_PX_PER_DOT : 0;
-  const sleepLeft = bedLayout ? bedLayout.containerLeft + 4 * bedLayout.scale : 0;
-  const sleepTop = bedLayout ? bedLayout.containerTop - 12 * bedLayout.scale : 0;
+  const sleepRect = bedLayout ? getSleepAvatarRect(bedLayout) : null;
 
-  // 바닥 크기를 알게 되면 아바타(와 펫) 시작 위치를 한 번만 잡는다.
-  useEffect(() => {
-    if (width > 0 && !hasPositioned) {
-      const startX = width / 2;
-      const startY = floorHeight * 0.65;
-      posX.setValue(startX);
-      posY.setValue(startY);
-      currentPosRef.current = { x: startX, y: startY };
-      const petStartX = Math.max(0, startX + petOffsetX);
+  // 가구가 차지한 칸을 막힌 칸으로 본 바닥 격자. 걸을 길과 혼자 걸을 곳을 여기서 찾는다.
+  const walkGrid = useMemo(
+    () => (layout ? buildWalkGrid(placements, layout.cellWidth, layout.rowHeight, floorHeight) : null),
+    [placements, layout, floorHeight],
+  );
+
+  // 걷지 않고 그 자리에 바로 둔다(처음 위치, 앉은 가구를 옮긴 경우). 펫도 옆자리로 옮긴다.
+  const placeAvatarAt = useCallback(
+    (x: number, y: number) => {
+      posX.setValue(x);
+      posY.setValue(y);
+      currentPosRef.current = { x, y };
+      setAvatarDepthY(y);
+      const petStartX = getPetX(x, layout?.cellWidth ?? 0, width);
       petX.setValue(petStartX);
-      petY.setValue(startY);
-      petCurrentPosRef.current = { x: petStartX, y: startY };
-      setHasPositioned(true);
-    }
-  }, [width, floorHeight, hasPositioned, posX, posY, petX, petY, petOffsetX]);
+      petY.setValue(y);
+      petCurrentPosRef.current = { x: petStartX, y };
+    },
+    [layout, width, posX, posY, petX, petY],
+  );
 
-  const startWalk = (
-    from: { x: number; y: number },
-    targetX: number,
-    targetY: number,
-    onArrive?: () => void,
-  ) => {
-    const distance = Math.hypot(targetX - from.x, targetY - from.y);
-    if (distance < 6) {
+  // 바닥 크기와 방 응답을 알게 되면 아바타(와 펫) 시작 위치를 한 번만 잡는다. 마지막에 앉거나
+  // 누운 가구가 방에 있으면 거기서 그 포즈로, 아니면 기본 자리에 서서 시작한다(FR-AVATAR-06).
+  // 서버에 이미 있는 포즈라 다시 저장하지 않는다.
+  // 서서 시작하는데 그 자리에 가구가 있으면 가장 가까운 빈 칸에 선다(가구 속에 서 있지 않게).
+  useEffect(() => {
+    if (!layout || !walkGrid || !isRoomSettled || hasPositioned) {
+      return;
+    }
+    const posedPosition = posedFurniture ? placements[posedFurniture] : undefined;
+    const start =
+      posedFurniture && posedPosition
+        ? getFurnitureInteractionAnchor(posedFurniture, posedPosition, layout.cellWidth, layout.rowHeight, avatarDotPx)
+        : nearestFreePoint(walkGrid, getStandStart(width, floorHeight));
+    placeAvatarAt(Math.round(start.x), Math.round(start.y));
+    setOccupancy(posedFurniture && posedPosition ? posedFurniture : null);
+    setHasPositioned(true);
+  }, [layout, walkGrid, isRoomSettled, hasPositioned, posedFurniture, placements, avatarDotPx, width, floorHeight, placeAvatarAt]);
+
+  // 앉거나 누운 채로 그 가구를 인벤토리에서 옮기면 옮긴 자리로 따라가고, 빼면 그 자리에서 일어난다.
+  // 서버도 배치를 저장할 때 같은 규칙으로 포즈를 잇거나 비우므로 여기서 다시 저장하지 않는다.
+  const occupiedPosition = occupancy ? placements[occupancy] : undefined;
+  useEffect(() => {
+    if (!occupancy || !layout) {
+      return;
+    }
+    if (!occupiedPosition) {
+      setOccupancy(null);
+      return;
+    }
+    const anchor = getFurnitureInteractionAnchor(
+      occupancy,
+      occupiedPosition,
+      layout.cellWidth,
+      layout.rowHeight,
+      avatarDotPx,
+    );
+    const x = Math.round(anchor.x);
+    const y = Math.round(anchor.y);
+    // 막 걸어와 앉은 경우처럼 이미 그 자리면 그대로 둔다(따라오던 펫을 끊지 않게).
+    if (x !== currentPosRef.current.x || y !== currentPosRef.current.y) {
+      placeAvatarAt(x, y);
+    }
+  }, [occupancy, occupiedPosition, layout, avatarDotPx, placeAvatarAt]);
+
+  // 경유점을 차례로 걷는다(from 제외, 마지막이 목적지). 가구를 돌아가는 길이면 경유점이 여러 개다.
+  // 구간마다 앞·뒷모습과 가구 앞뒤 순서를 바꾸고, 다 걸으면 onArrive를 부른다.
+  const walkAlong = (from: FloorPoint, waypoints: FloorPoint[], onArrive?: () => void) => {
+    const target = waypoints[waypoints.length - 1];
+    const segmentLengths = waypoints.map((point, index) => {
+      const segmentStart = index === 0 ? from : waypoints[index - 1];
+      return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y);
+    });
+    const totalLength = segmentLengths.reduce((sum, length) => sum + length, 0);
+    if (totalLength < 6) {
       // 이미 목표 근처라 걷는 애니메이션 없이 바로 도착 처리한다 — 그렇다고 위치를
       // 그대로 두면(from) 가구 앵커처럼 정확히 고정돼야 하는 좌표가 매번 "거의
-      // 비슷하지만 조금씩 다른" 값으로 남는다. 무조건 targetX/Y로 스냅해야 한다.
+      // 비슷하지만 조금씩 다른" 값으로 남는다. 무조건 목적지로 스냅해야 한다.
       // hopPhase도 같이 0으로 되돌려야 한다 — 이동 중 재탭으로 여기 들어온
-      // 경우라면 hopLoop는 handleFloorPress에서 이미 stop()됐지만 값 자체는
+      // 경우라면 hopLoop는 walkTo에서 이미 stop()됐지만 값 자체는
       // 멈춘 그 순간(임의의 튀어오른 높이)에 남아있어서, 리셋 안 하면 앉는/눕는
       // y 위치에 그 잔여 튐 높이가 매번 다르게 얹혀 보인다.
       hopPhase.setValue(0);
-      posX.setValue(targetX);
-      posY.setValue(targetY);
-      currentPosRef.current = { x: targetX, y: targetY };
+      posX.setValue(target.x);
+      posY.setValue(target.y);
+      currentPosRef.current = target;
       isMovingRef.current = false;
+      setAvatarDepthY(target.y);
       onArrive?.();
+      setRestTick((tick) => tick + 1);
       return;
     }
 
-    const movingUp = targetY < from.y - 4;
-    setFacing(movingUp ? "back" : "front");
     isMovingRef.current = true;
-
-    const duration = Math.max(MIN_WALK_DURATION_MS, (distance / WALK_SPEED_PX_PER_SEC) * 1000);
+    // 아주 짧은 길도 MIN_WALK_DURATION_MS는 걸리게 전체 시간을 정하고, 구간 길이대로 나눈다.
+    const totalDuration = Math.max(MIN_WALK_DURATION_MS, (totalLength / WALK_SPEED_PX_PER_SEC) * 1000);
 
     hopPhase.setValue(0);
     const hopLoop = Animated.loop(
@@ -232,46 +256,70 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     hopLoopRef.current = hopLoop;
     hopLoop.start();
 
-    Animated.parallel([
-      Animated.timing(posX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
-      Animated.timing(posY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      // 이동 도중 다시 탭해서 끊긴 애니메이션(finished=false)의 콜백은 여기서 멈춘다.
-      // 그대로 두면 이미 시작된 "다음" 이동의 hopLoop를 멈추고 위치·상태를 옛 목적지로
-      // 되돌려버려서 이상하게 움직이는 것처럼 보인다.
-      if (!finished) {
-        return;
-      }
-      hopLoopRef.current?.stop();
-      hopPhase.setValue(0);
-      currentPosRef.current = { x: targetX, y: targetY };
-      isMovingRef.current = false;
-      if (onArrive) {
-        // 가구에 도착한 거라면 곧바로 앉기/수면 렌더링으로 바뀌어서 facing 값은
-        // 더 이상 안 쓰인다. 여기서 굳이 setFacing까지 같이 부르면(둘 다 이 Animated
-        // 콜백 안이라 리액트가 하나로 묶어주지 못할 수 있음) "정면으로 선 채 도착"
-        // 프레임이 한 번 그려졌다가 바로 앉는 모습으로 바뀌면서 깜빡여 보인다.
-        onArrive();
-      } else {
-        setFacing("front");
-      }
-    });
+    const walkSegment = (index: number) => {
+      const segmentStart = index === 0 ? from : waypoints[index - 1];
+      const segmentEnd = waypoints[index];
+      // 옆 모습 그림이 없어 앞·뒷모습만 쓴다. 옆으로 걸으며 살짝 올라가는 구간(가구에서 나오는 첫 걸음 등)까지
+      // 뒷모습으로 바꾸면 구간마다 깜빡여 보여서, 위로 가는 정도가 옆으로 가는 것의 절반은 넘을 때만 뒷모습이다.
+      const risesSteeply =
+        segmentEnd.y < segmentStart.y - 4 &&
+        segmentStart.y - segmentEnd.y >= Math.abs(segmentEnd.x - segmentStart.x) * 0.5;
+      setFacing(risesSteeply ? "back" : "front");
+      // 앞(아래)으로 걸으면 구간을 시작할 때 가구 앞으로 나오고, 뒤로 걸으면 구간이 끝날 때 뒤로 간다.
+      setAvatarDepthY(Math.max(segmentStart.y, segmentEnd.y));
+      const duration = totalDuration * (segmentLengths[index] / totalLength);
+      Animated.parallel([
+        Animated.timing(posX, { toValue: segmentEnd.x, duration, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(posY, { toValue: segmentEnd.y, duration, easing: Easing.linear, useNativeDriver: true }),
+      ]).start(({ finished }) => {
+        // 이동 도중 다시 탭해서 끊긴 애니메이션(finished=false)의 콜백은 여기서 멈춘다.
+        // 그대로 두면 이미 시작된 "다음" 이동의 hopLoop를 멈추고 위치·상태를 옛 목적지로
+        // 되돌려버려서 이상하게 움직이는 것처럼 보인다.
+        if (!finished) {
+          return;
+        }
+        currentPosRef.current = segmentEnd;
+        if (index < waypoints.length - 1) {
+          walkSegment(index + 1);
+          return;
+        }
+        hopLoopRef.current?.stop();
+        hopPhase.setValue(0);
+        isMovingRef.current = false;
+        setAvatarDepthY(segmentEnd.y);
+        if (onArrive) {
+          // 가구에 도착한 거라면 곧바로 앉기/수면 렌더링으로 바뀌어서 facing 값은
+          // 더 이상 안 쓰인다. 여기서 굳이 setFacing까지 같이 부르면(둘 다 이 Animated
+          // 콜백 안이라 리액트가 하나로 묶어주지 못할 수 있음) "정면으로 선 채 도착"
+          // 프레임이 한 번 그려졌다가 바로 앉는 모습으로 바뀌면서 깜빡여 보인다.
+          onArrive();
+        } else {
+          setFacing("front");
+        }
+        setRestTick((tick) => tick + 1);
+      });
+    };
+    walkSegment(0);
   };
 
-  // 아바타보다 살짝 늦게, 아바타 옆자리(petOffsetX)를 향해 걸어온다. 사람과 같은
+  // 아바타보다 살짝 늦게, 아바타 옆자리(getPetX)를 향해 가구를 돌아서 걸어온다. 사람과 같은
   // 통통 튐(HOP_PERIOD_MS/HOP_AMPLITUDE_PX)을 그대로 쓴다. 도착 지점만 맞추면
-  // 되므로 아바타의 실시간 좌표를 계속 추적할 필요 없이(리스너 없이) 목표점
-  // 하나만 넘기면 충분하다.
-  const startPetWalk = (from: { x: number; y: number }, targetX: number, targetY: number) => {
-    const distance = Math.hypot(targetX - from.x, targetY - from.y);
-    if (distance < 4) {
-      // startWalk의 같은 조기 리턴 경로와 같은 이유로, hopPhase 잔여값도
+  // 되므로 아바타의 실시간 좌표를 계속 추적할 필요 없이(리스너 없이) 경유점만 넘기면 충분하다.
+  const petWalkAlong = (from: FloorPoint, waypoints: FloorPoint[]) => {
+    const target = waypoints[waypoints.length - 1];
+    const segmentLengths = waypoints.map((point, index) => {
+      const segmentStart = index === 0 ? from : waypoints[index - 1];
+      return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y);
+    });
+    const totalLength = segmentLengths.reduce((sum, length) => sum + length, 0);
+    if (totalLength < 4) {
+      // walkAlong의 같은 조기 리턴 경로와 같은 이유로, hopPhase 잔여값도
       // 같이 0으로 되돌린다 — 안 그러면 멈춘 순간의 임의의 튐 높이가 남는다.
       petHopPhase.setValue(0);
-      petCurrentPosRef.current = { x: targetX, y: targetY };
+      petCurrentPosRef.current = target;
       return;
     }
-    const duration = Math.max(MIN_WALK_DURATION_MS, (distance / WALK_SPEED_PX_PER_SEC) * 1000);
+    const totalDuration = Math.max(MIN_WALK_DURATION_MS, (totalLength / WALK_SPEED_PX_PER_SEC) * 1000);
 
     petHopPhase.setValue(0);
     const hopLoop = Animated.loop(
@@ -285,21 +333,110 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
     petHopLoopRef.current = hopLoop;
     hopLoop.start();
 
-    Animated.parallel([
-      Animated.timing(petX, { toValue: targetX, duration, easing: Easing.linear, useNativeDriver: true }),
-      Animated.timing(petY, { toValue: targetY, duration, easing: Easing.linear, useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      if (!finished) {
+    const walkSegment = (index: number) => {
+      const segmentEnd = waypoints[index];
+      const duration = totalDuration * (segmentLengths[index] / totalLength);
+      Animated.parallel([
+        Animated.timing(petX, { toValue: segmentEnd.x, duration, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(petY, { toValue: segmentEnd.y, duration, easing: Easing.linear, useNativeDriver: true }),
+      ]).start(({ finished }) => {
+        if (!finished) {
+          return;
+        }
+        petCurrentPosRef.current = segmentEnd;
+        if (index < waypoints.length - 1) {
+          walkSegment(index + 1);
+          return;
+        }
+        petHopLoopRef.current?.stop();
+        petHopPhase.setValue(0);
+      });
+    };
+    walkSegment(0);
+  };
+
+  // 지금 자리(걷는 중이면 멈춘 그 자리)에서 target까지 가구를 돌아 걷는다. 펫은 조금 늦게 따라온다.
+  const walkTo = (target: FloorPoint, onArrive?: () => void) => {
+    if (!walkGrid || !layout) {
+      return;
+    }
+    // 의자/책상처럼 cellWidth÷7 같은 나눗셈에서 나온 목표 좌표는 168.428571...처럼
+    // 끝없는 소수다. 가구(chair/desk)는 일반 top/left 스타일이라 RN 레이아웃 엔진이
+    // 매 렌더 같은 값으로 정수 픽셀에 스냅하지만, 아바타는 useNativeDriver
+    // Animated.Value라 GPU 합성 단계에서 서브픽셀 그대로 그려진다 — 같은 논리값이라도
+    // 두 파이프라인의 반올림 방식이 달라서 가구와 아바타 사이 간격이 기기에 따라
+    // 1px 안팎으로 어긋나 보일 수 있다. 정수로 스냅해서 이 불일치를 없앤다.
+    const destination = { x: Math.round(target.x), y: Math.round(target.y) };
+
+    if (petItem) {
+      if (petFollowTimeoutRef.current) {
+        clearTimeout(petFollowTimeoutRef.current);
+      }
+      const petTarget = { x: getPetX(destination.x, layout.cellWidth, width), y: destination.y };
+      petFollowTimeoutRef.current = setTimeout(() => {
+        // 펫이 아직 걷는 중이면 멈춘 그 자리에서 다시 길을 찾는다.
+        petHopLoopRef.current?.stop();
+        let petResolvedX: number | null = null;
+        let petResolvedY: number | null = null;
+        const tryPetStart = () => {
+          if (petResolvedX === null || petResolvedY === null) {
+            return;
+          }
+          const petFrom = { x: petResolvedX, y: petResolvedY };
+          petWalkAlong(petFrom, findWalkPath(walkGrid, petFrom, petTarget));
+        };
+        petX.stopAnimation((value) => {
+          petResolvedX = value;
+          tryPetStart();
+        });
+        petY.stopAnimation((value) => {
+          petResolvedY = value;
+          tryPetStart();
+        });
+      }, PET_FOLLOW_DELAY_MS);
+    }
+
+    if (!isMovingRef.current) {
+      // 서있는 중이면 지금 위치가 곧 restPos이니 브릿지 왕복 없이 바로 출발한다.
+      const from = currentPosRef.current;
+      walkAlong(from, findWalkPath(walkGrid, from, destination), onArrive);
+      return;
+    }
+
+    // 이동 중 재탭: 진행 중인 애니메이션을 멈추고, 멈춘 바로 그 위치에서 새로 시작한다.
+    // stopAnimation은 네이티브→JS 브릿지 왕복이 있어서, X·Y를 순서대로(중첩) 기다리면
+    // 그만큼 두 배로 느려진다 — 동시에 요청하고 둘 다 도착했을 때만 시작한다.
+    hopLoopRef.current?.stop();
+    let resolvedX: number | null = null;
+    let resolvedY: number | null = null;
+    const tryStart = () => {
+      if (resolvedX === null || resolvedY === null) {
         return;
       }
-      petHopLoopRef.current?.stop();
-      petHopPhase.setValue(0);
-      petCurrentPosRef.current = { x: targetX, y: targetY };
+      const from = { x: resolvedX, y: resolvedY };
+      walkAlong(from, findWalkPath(walkGrid, from, destination), onArrive);
+    };
+    posX.stopAnimation((value) => {
+      resolvedX = value;
+      tryStart();
+    });
+    posY.stopAnimation((value) => {
+      resolvedY = value;
+      tryStart();
     });
   };
 
+  // 바닥 안에서 아바타가 화면 밖으로 나가지 않는 발 위치로 자른다.
+  const clampToFloor = (point: FloorPoint): FloorPoint => ({
+    x: Math.min(
+      Math.max(point.x, feetOffsetX),
+      Math.max(width - (avatarRenderWidth - feetOffsetX), feetOffsetX),
+    ),
+    y: Math.min(Math.max(point.y, 0), floorHeight),
+  });
+
   const handleFloorPress = (event: GestureResponderEvent) => {
-    if (!hasPositioned || !layout) {
+    if (!hasPositioned || !layout || !walkGrid) {
       return;
     }
     const { locationX, locationY } = event.nativeEvent;
@@ -346,74 +483,44 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
       return isWithinRect(getFurnitureFootprintRect(type, position, cellWidth, rowHeight), locationX, locationY);
     });
 
-    let targetX: number;
-    let targetY: number;
-    let onArrive: (() => void) | undefined;
-
     if (hitType) {
       const position = placements[hitType];
       if (!position) {
         return;
       }
       const anchor = getFurnitureInteractionAnchor(hitType, position, cellWidth, rowHeight, avatarDotPx);
-      targetX = anchor.x;
-      targetY = anchor.y;
-      onArrive = () => changeOccupancy(hitType);
-    } else {
-      targetX = Math.min(
-        Math.max(locationX, feetOffsetX),
-        Math.max(width - (avatarRenderWidth - feetOffsetX), feetOffsetX),
-      );
-      targetY = Math.min(Math.max(locationY, 0), floorHeight);
-    }
-
-    // 의자/책상처럼 cellWidth÷7 같은 나눗셈에서 나온 목표 좌표는 168.428571...처럼
-    // 끝없는 소수다. 가구(chair/desk)는 일반 top/left 스타일이라 RN 레이아웃 엔진이
-    // 매 렌더 같은 값으로 정수 픽셀에 스냅하지만, 아바타는 useNativeDriver
-    // Animated.Value라 GPU 합성 단계에서 서브픽셀 그대로 그려진다 — 같은 논리값이라도
-    // 두 파이프라인의 반올림 방식이 달라서 가구와 아바타 사이 간격이 기기에 따라
-    // 1px 안팎으로 어긋나 보일 수 있다. 정수로 스냅해서 이 불일치를 없앤다.
-    targetX = Math.round(targetX);
-    targetY = Math.round(targetY);
-
-    if (petItem) {
-      if (petFollowTimeoutRef.current) {
-        clearTimeout(petFollowTimeoutRef.current);
-      }
-      const petTargetX = Math.min(Math.max(targetX + petOffsetX, 0), width);
-      const petTargetY = targetY;
-      petFollowTimeoutRef.current = setTimeout(() => {
-        startPetWalk(petCurrentPosRef.current, petTargetX, petTargetY);
-      }, PET_FOLLOW_DELAY_MS);
-    }
-
-    if (!isMovingRef.current) {
-      // 서있는 중이면 지금 위치가 곧 restPos이니 브릿지 왕복 없이 바로 출발한다.
-      startWalk(restPos, targetX, targetY, onArrive);
+      walkTo(anchor, () => changeOccupancy(hitType));
       return;
     }
 
-    // 이동 중 재탭: 진행 중인 애니메이션을 멈추고, 멈춘 바로 그 위치에서 새로 시작한다.
-    // stopAnimation은 네이티브→JS 브릿지 왕복이 있어서, X·Y를 순서대로(중첩) 기다리면
-    // 그만큼 두 배로 느려진다 — 동시에 요청하고 둘 다 도착했을 때만 시작한다.
-    hopLoopRef.current?.stop();
-    let resolvedX: number | null = null;
-    let resolvedY: number | null = null;
-    const tryStart = () => {
-      if (resolvedX === null || resolvedY === null) {
-        return;
-      }
-      startWalk({ x: resolvedX, y: resolvedY }, targetX, targetY, onArrive);
-    };
-    posX.stopAnimation((value) => {
-      resolvedX = value;
-      tryStart();
-    });
-    posY.stopAnimation((value) => {
-      resolvedY = value;
-      tryStart();
-    });
+    // 장식용 가구(냉장고 등)를 누르면 그 위가 아니라 가장 가까운 빈 칸까지 간다.
+    walkTo(clampToFloor(nearestFreePoint(walkGrid, clampToFloor({ x: locationX, y: locationY }))));
   };
+
+  // 서서 가만히 있으면 가끔 근처 빈 칸으로 혼자 걷는다. 앉거나 누워 있을 때, 다른 탭을 보고 있을 때는 쉰다.
+  // 사용자가 탭해서 걷는 중에 시간이 되면 건너뛰고, 그 걸음이 끝나면(restTick) 다시 잰다.
+  const wander = useEffectEvent(() => {
+    if (isMovingRef.current || !walkGrid || !layout) {
+      return;
+    }
+    const target = pickWanderPoint(walkGrid, currentPosRef.current, {
+      // 바닥 아래로 넘쳐 그린 부분(bottomOverflow)은 패널에 가려지므로 고르지 않는다.
+      maxRows: Math.floor(layout.floorHeight / layout.rowHeight),
+      maxStepCells: WANDER_MAX_STEP_CELLS,
+    });
+    if (target) {
+      walkTo(clampToFloor(target));
+    }
+  });
+
+  useEffect(() => {
+    if (!hasPositioned || occupancy || !isFocused) {
+      return;
+    }
+    const delay = WANDER_MIN_DELAY_MS + Math.random() * (WANDER_MAX_DELAY_MS - WANDER_MIN_DELAY_MS);
+    const timer = setTimeout(() => wander(), delay);
+    return () => clearTimeout(timer);
+  }, [hasPositioned, occupancy, isFocused, restTick]);
 
   const hopOffset = hopPhase.interpolate({
     inputRange: [0, 0.25, 0.5, 0.75, 1],
@@ -427,6 +534,7 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
 
   return (
     <RoomBackdrop
+      avatarDepthY={avatarDepthY}
       bottomOverflow={bottomOverflow}
       height={height}
       occupiedFurniture={occupancy}
@@ -439,18 +547,18 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 바뀔 때마다 이 서브트리(AvatarSleepStage)와 아래 서기/앉기 서브트리
                 (AvatarStage)를 통째로 교체하면, 그 순간 처음 마운트되는 쪽 이미지가
                 디코드되며 깜빡인다. 둘 다 항상 그려두고 안 보이는 쪽만 투명하게 둔다. */}
-            {bedLayout ? (
+            {sleepRect ? (
               <View
                 style={{
                   position: "absolute",
-                  left: sleepLeft,
-                  top: sleepTop,
-                  width: AVATAR_SLEEP_STAGE_WIDTH * sleepScale,
-                  height: AVATAR_SLEEP_STAGE_HEIGHT * sleepScale,
+                  left: sleepRect.left,
+                  top: sleepRect.top,
+                  width: sleepRect.width,
+                  height: sleepRect.height,
                   opacity: occupancy === "bed" ? 1 : 0,
                 }}
               >
-                <AvatarSleepStage frame={sleepFrame} hairKey={hairKey ?? undefined} scale={sleepScale} />
+                <AvatarSleepStage frame={sleepFrame} hairKey={hairKey ?? undefined} scale={sleepRect.scale} />
               </View>
             ) : null}
             <View style={{ opacity: occupancy === "bed" ? 0 : 1 }}>
@@ -460,11 +568,11 @@ export function RoomScene({ height, bottomOverflow = 0, showGridLines = true }: 
                 style={[
                   styles.shadow,
                   {
-                    width: avatarRenderWidth * 0.6,
-                    height: avatarRenderWidth * 0.6 * 0.35,
+                    width: shadowWidth,
+                    height: shadowHeight,
                     transform: [
-                      { translateX: Animated.subtract(posX, (avatarRenderWidth * 0.6) / 2) },
-                      { translateY: Animated.subtract(posY, (avatarRenderWidth * 0.6 * 0.35) / 2) },
+                      { translateX: Animated.subtract(posX, shadowWidth / 2) },
+                      { translateY: Animated.subtract(posY, shadowHeight / 2) },
                     ],
                   },
                 ]}

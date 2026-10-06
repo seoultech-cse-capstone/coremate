@@ -10,15 +10,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface FriendUserSearchRepository extends JpaRepository<User, Long> {
 
+    // 닉네임으로만 찾는다. 이메일까지 부분 일치로 찾으면 이메일 일부만 입력해 남의 닉네임과
+    // 가입 여부를 알아낼 수 있다. 닉네임은 유일해서 이것만으로 특정인을 찾을 수 있다.
     @Query("""
             select u
             from User u
             where u.status = :status
               and u.userId <> :currentUserId
-              and (
-                    lower(u.nickname) like lower(concat('%', :keyword, '%'))
-                 or lower(u.email) like lower(concat('%', :keyword, '%'))
-              )
+              and lower(u.nickname) like lower(concat('%', :keyword, '%'))
             order by u.nickname asc
             """)
     List<User> searchActiveUsers(
