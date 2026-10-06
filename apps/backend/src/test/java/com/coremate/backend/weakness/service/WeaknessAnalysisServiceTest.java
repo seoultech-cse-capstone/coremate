@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -17,7 +18,9 @@ import static org.mockito.Mockito.when;
 
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
+import com.coremate.backend.global.idempotency.IdempotencyGuard;
 import com.coremate.backend.paid.service.FeatureAccessPricingService;
+import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
 import com.coremate.backend.solve.entity.SolveSession;
 import com.coremate.backend.solve.repository.SolveLogRepository;
@@ -56,12 +59,17 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -90,9 +98,36 @@ class WeaknessAnalysisServiceTest {
     @Mock private ConceptRelationRepository conceptRelationRepository;
     @Mock private SolveLogRepository solveLogRepository;
     @Mock private SolveSessionRepository weaknessSolveSessionRepository;
+    @Mock private IdempotencyGuard idempotencyGuard;
+    @Mock private TransactionTemplate transactionTemplate;
 
     @InjectMocks
     private WeaknessAnalysisService service;
+
+    // 트랜잭션 분할(#320) 이후 생성 로직은 TransactionTemplate 으로 짧은 트랜잭션을 연다.
+    // 단위 테스트에선 실제 트랜잭션이 없으므로, 콜백을 그 자리에서 실행하도록 스텁한다.
+    @BeforeEach
+    void stubTransactionTemplate() {
+        lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(mock(TransactionStatus.class));
+        });
+        lenient().doAnswer(invocation -> {
+            Consumer<TransactionStatus> action = invocation.getArgument(0);
+            action.accept(mock(TransactionStatus.class));
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
+
+        // 트랜잭션 분할 후 저장 tx 는 리포트를 findById 로 재로드한다. 준비 tx 가 저장한 엔티티를
+        // 기억해 findById 로도 돌려줘, 단위 테스트에서 재로드가 같은 인스턴스를 가리키게 한다.
+        WeaknessAnalysisReport[] savedReport = new WeaknessAnalysisReport[1];
+        lenient().when(reportRepository.save(any(WeaknessAnalysisReport.class))).thenAnswer(invocation -> {
+            savedReport[0] = invocation.getArgument(0);
+            return savedReport[0];
+        });
+        lenient().when(reportRepository.findById(any()))
+                .thenAnswer(invocation -> Optional.ofNullable(savedReport[0]));
+    }
 
     @Test
     void 생성비용_사전조회는_실제_차감과_같은_정책조회를_쓴다() {
@@ -124,6 +159,44 @@ class WeaknessAnalysisServiceTest {
     }
 
     /**
+     * 트랜잭션 분할(#320) 이후, AI 호출이 트랜잭션 밖에서 실패하면 자동 롤백이 없으므로
+     * 보상 단계가 코인을 환불하고 리포트를 FAILED 로 바꾸며 멱등키를 해제해야 한다.
+     */
+    @Test
+    void aiFailureRefundsCoinUnregistersKeyAndMarksFailed() {
+        when(props.getCoinCost()).thenReturn(100);
+        when(featureAccessPricingService.priceCoinOf(
+                FeatureAccessPricingService.WEAKNESS_ANALYSIS_CREATE, false, 100)).thenReturn(80);
+        when(selectionValidator.validateAndLoad(anyLong(), any()))
+                .thenReturn(List.of(mock(SolveSession.class)));
+
+        WeaknessEvidenceLogResponse wrong = evidence(9501L, "WRONG", "B");
+        ConceptCandidate candidate = new ConceptCandidate(9301L, "완전 이진 트리", "한 줄 정의",
+                5, 2, 1, 0, 40, new BigDecimal("0.800"), new BigDecimal("0.200"),
+                WeaknessType.CONCEPT_CONFUSION, List.of(wrong));
+        when(scoringService.score(any()))
+                .thenReturn(new WeaknessScoringResult(List.of(candidate), 10, 2, 1, 0, true));
+        when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any())).thenReturn(Optional.empty());
+        when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of(
+                9501L, profileView("RECALL", Map.of("B", "CPT_M01"))));
+
+        // AI 호출이 실패한다(타임아웃 등).
+        when(aiClient.analyze(any())).thenThrow(new RuntimeException("timeout"));
+
+        CoreMateException ex = assertThrows(CoreMateException.class,
+                () -> service.createReport(1L, request(), "key-1"));
+
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
+        // 코인은 차감됐다가(준비 tx) 환불된다(보상 tx).
+        verify(rewardService).spendCoin(eq(1L), eq(80), eq(CurrencyReason.WEAKNESS_ANALYSIS_CREATE), any(), any());
+        verify(rewardService).earnCoin(eq(1L), eq(80), eq(CurrencyReason.REFUND), any(), any());
+        // 같은 키로 재시도할 수 있도록 멱등키를 해제한다.
+        verify(idempotencyGuard).unregister(1L, "key-1");
+        // AI 실패 시 개념은 저장되지 않는다.
+        verify(conceptRepository, never()).save(any());
+    }
+
+    /**
      * 진단 프로필이 AI 입력에 실제로 실리는지 검증한다(C1 배선 회귀 방지).
      * 같은 오개념 코드가 2회 나오면 repeated_misconceptions 로 집계돼야 한다.
      */
@@ -142,7 +215,6 @@ class WeaknessAnalysisServiceTest {
                 .thenReturn(new WeaknessScoringResult(List.of(candidate), 10, 2, 1, 0, true));
         when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any()))
                 .thenReturn(Optional.empty());
-        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         // 두 오답이 같은 오개념 코드를 가리키고, LONG_TIME 문항은 코드가 없다.
@@ -191,7 +263,6 @@ class WeaknessAnalysisServiceTest {
         when(scoringService.score(any()))
                 .thenReturn(new WeaknessScoringResult(List.of(candidate), 10, 2, 1, 0, true));
         when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any())).thenReturn(Optional.empty());
-        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         // AI 는 1번·3번 근거만 지목했다(e1, e3).
@@ -233,7 +304,6 @@ class WeaknessAnalysisServiceTest {
                 .thenReturn(new WeaknessScoringResult(List.of(candidate), 3, 2, 0, 1, true));
         when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any()))
                 .thenReturn(Optional.empty());
-        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of(
@@ -289,7 +359,6 @@ class WeaknessAnalysisServiceTest {
                 .thenReturn(new WeaknessScoringResult(List.of(bigO, bigTheta), 5, 5, 0, 2, true));
         when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any()))
                 .thenReturn(Optional.empty());
-        when(reportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(conceptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of());
         when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of(), null));

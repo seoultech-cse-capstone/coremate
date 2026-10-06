@@ -69,6 +69,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -108,133 +109,199 @@ public class WeaknessAnalysisService {
     private final SolveLogRepository solveLogRepository;
     private final SolveSessionRepository weaknessSolveSessionRepository;
     private final IdempotencyGuard idempotencyGuard;
+    private final TransactionTemplate transactionTemplate;
 
     // ----------------------------------------------------------------------- //
     // 생성
     // ----------------------------------------------------------------------- //
-    // 컨트롤러 진입점. 멱등키를 먼저 등록해 동시/재시도 요청으로 비싼 LLM 호출·코인 차감·리포트가
-    // 중복되지 않게 막고(#168), 실제 생성은 기존 createReport 를 같은 트랜잭션에서 재사용한다.
-    @Transactional
+    private static final String CREATE_OPERATION = "WEAKNESS_REPORT_CREATE";
+
+    // 컨트롤러 진입점. 멱등키로 동시/재시도 요청의 중복(비싼 LLM 호출·코인 차감·리포트)을 막는다(#168).
     public WeaknessAnalysisReportDetailResponse createReport(
             Long userId, CreateWeaknessAnalysisReportRequest request, String idempotencyKey) {
-        idempotencyGuard.register(userId, idempotencyKey, "WEAKNESS_REPORT_CREATE");
-        return createReport(userId, request);
+        return generateReport(userId, request, idempotencyKey);
     }
 
-    @Transactional
+    // 멱등키 없이 생성(내부·테스트용).
     public WeaknessAnalysisReportDetailResponse createReport(Long userId, CreateWeaknessAnalysisReportRequest request) {
-        List<SolveSession> sessions = selectionValidator.validateAndLoad(userId, request.solveSessionIds());
-        WeaknessScoringResult scoring = scoringService.score(sessions);
-        if (!scoring.sufficient()) {
-            throw new CoreMateException(ErrorCode.WEAKNESS_INSUFFICIENT_EVIDENCE);
+        return generateReport(userId, request, null);
+    }
+
+    // 생성 오케스트레이션. 비싼 AI 호출(실측 27~36초, 타임아웃 최대 120초)을 트랜잭션 "밖"에서
+    // 수행해 그동안 DB 커넥션을 붙잡지 않도록 트랜잭션을 세 단계로 쪼갠다(#320):
+    //   ① 준비 tx: 검증·스코어링·멱등 → 리포트(GENERATING)·세션 저장 → 코인 차감 → 커밋
+    //   ② AI 호출: 트랜잭션 밖 (커넥션 미점유)
+    //   ③ 저장 tx: 성공 시 개념·근거 저장 후 COMPLETED / 실패 시 FAILED + 코인 환불 + 멱등키 해제
+    // 한 트랜잭션이던 기존 설계의 "AI 실패 시 자동 롤백(코인 원복)"은 ③의 명시적 보상으로 대체한다.
+    private WeaknessAnalysisReportDetailResponse generateReport(
+            Long userId, CreateWeaknessAnalysisReportRequest request, String idempotencyKey) {
+        // ① 준비 tx (짧게 커밋)
+        PreparedReport prepared = transactionTemplate.execute(status -> {
+            if (idempotencyKey != null) {
+                idempotencyGuard.register(userId, idempotencyKey, CREATE_OPERATION);
+            }
+            List<SolveSession> sessions = selectionValidator.validateAndLoad(userId, request.solveSessionIds());
+            WeaknessScoringResult scoring = scoringService.score(sessions);
+            if (!scoring.sufficient()) {
+                throw new CoreMateException(ErrorCode.WEAKNESS_INSUFFICIENT_EVIDENCE);
+            }
+
+            String fingerprint = buildFingerprint(userId, request.solveSessionIds());
+            // 멱등: 동일 요청으로 완료된 분석표가 있으면 재사용(코인·AI 호출 없음).
+            WeaknessAnalysisReport existing = reportRepository
+                    .findByRequestFingerprintAndStatus(fingerprint, AnalysisReportStatus.COMPLETED)
+                    .orElse(null);
+            if (existing != null) {
+                return PreparedReport.reuse(toDetail(existing));
+            }
+
+            Subject subject = resolveSubject(sessions.get(0));
+            Long subjectId = subject != null ? subject.getSubjectId() : null;
+            String scopeName = subject != null ? subject.getSubjectName() : null;
+
+            int coinCost = getCreateCoinCost();
+
+            WeaknessAnalysisReport report = reportRepository.save(WeaknessAnalysisReport.builder()
+                    .userId(userId)
+                    .subjectId(subjectId)
+                    .categoryLv1Id(request.categoryLv1Id())
+                    .categoryLv2Id(request.categoryLv2Id())
+                    .conceptId(request.conceptId())
+                    .analysisScopeType(request.analysisScopeType())
+                    .analysisScopeNameSnapshot(scopeName)
+                    .title(resolveTitle(request, scopeName))
+                    .reportFormat("MARKDOWN")
+                    .selectedSessionCount(sessions.size())
+                    .totalQuestionCount(scoring.totalQuestionCount())
+                    .totalWrongCount(scoring.totalWrongCount())
+                    .totalLongTimeCount(scoring.totalLongTimeCount())
+                    .totalHintUsedCount(scoring.totalHintUsedCount())
+                    .coinCost(coinCost)
+                    .requestFingerprint(fingerprint)
+                    .build());
+            report.markGenerating();
+            saveSessions(report, sessions);
+
+            rewardService.spendCoin(userId, coinCost, CurrencyReason.WEAKNESS_ANALYSIS_CREATE,
+                    REFERENCE_TYPE, report.getAnalysisReportId());
+
+            // 선택 회차는 지금(tx 안에서) 응답 DTO 로 변환해 둔다. 다음 단계는 다른 트랜잭션이라
+            // 엔티티가 detached 되어 지연 로딩을 할 수 없기 때문이다.
+            List<EligibleSolveSessionResponse> selectedSessions = sessions.stream()
+                    .map(this::toSelectedSession)
+                    .toList();
+            AiRequestBundle bundle = buildAiRequest(subject, scoring);
+            return PreparedReport.proceed(report.getAnalysisReportId(), coinCost, fingerprint,
+                    scoring, bundle, selectedSessions);
+        });
+
+        if (prepared.reused() != null) {
+            return prepared.reused();
         }
 
-        String fingerprint = buildFingerprint(userId, request.solveSessionIds());
-        // 멱등: 동일 요청으로 완료된 분석표가 있으면 재사용(코인·AI 호출 없음).
-        WeaknessAnalysisReport existing = reportRepository
-                .findByRequestFingerprintAndStatus(fingerprint, AnalysisReportStatus.COMPLETED)
-                .orElse(null);
-        if (existing != null) {
-            return toDetail(existing);
-        }
-
-        Subject subject = resolveSubject(sessions.get(0));
-        Long subjectId = subject != null ? subject.getSubjectId() : null;
-        String scopeName = subject != null ? subject.getSubjectName() : null;
-
-        int coinCost = getCreateCoinCost();
-
-        // 리포트 저장(REQUESTED) 후 코인 차감(참조 연결). AI 실패 시 트랜잭션 롤백으로 코인 원복.
-        WeaknessAnalysisReport report = reportRepository.save(WeaknessAnalysisReport.builder()
-                .userId(userId)
-                .subjectId(subjectId)
-                .categoryLv1Id(request.categoryLv1Id())
-                .categoryLv2Id(request.categoryLv2Id())
-                .conceptId(request.conceptId())
-                .analysisScopeType(request.analysisScopeType())
-                .analysisScopeNameSnapshot(scopeName)
-                .title(resolveTitle(request, scopeName))
-                .reportFormat("MARKDOWN")
-                .selectedSessionCount(sessions.size())
-                .totalQuestionCount(scoring.totalQuestionCount())
-                .totalWrongCount(scoring.totalWrongCount())
-                .totalLongTimeCount(scoring.totalLongTimeCount())
-                .totalHintUsedCount(scoring.totalHintUsedCount())
-                .coinCost(coinCost)
-                .requestFingerprint(fingerprint)
-                .build());
-        report.markGenerating();
-        saveSessions(report, sessions);
-
-        rewardService.spendCoin(userId, coinCost, CurrencyReason.WEAKNESS_ANALYSIS_CREATE,
-                REFERENCE_TYPE, report.getAnalysisReportId());
-
-        // AI 호출
-        AiRequestBundle bundle = buildAiRequest(subject, scoring);
+        // ② AI 호출 (트랜잭션 밖 — 이 구간에는 DB 커넥션을 쥐지 않는다)
         long startedAt = System.currentTimeMillis();
         AiWeaknessAnalysisResponse aiResponse;
         try {
-            aiResponse = aiClient.analyze(bundle.request());
+            aiResponse = aiClient.analyze(prepared.bundle().request());
         } catch (RuntimeException ex) {
+            int latencyMs = (int) (System.currentTimeMillis() - startedAt);
+            // ③-실패 보상 tx: FAILED 마킹 + 코인 환불 + 멱등키 해제(같은 키로 재시도 허용)
+            transactionTemplate.executeWithoutResult(status -> {
+                WeaknessAnalysisReport report = reportRepository.findById(prepared.reportId())
+                        .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED));
+                report.markFailed("AI 호출 실패");
+                rewardService.earnCoin(userId, prepared.coinCost(), CurrencyReason.REFUND,
+                        REFERENCE_TYPE, prepared.reportId());
+                saveAiCallLog(prepared.reportId(), prepared.fingerprint(), latencyMs, "FAILED", null);
+                if (idempotencyKey != null) {
+                    idempotencyGuard.unregister(userId, idempotencyKey);
+                }
+            });
             // 사용자에겐 동일한 메시지가 나가므로, 원인(타임아웃·서버다운·스키마 불일치 등)은
             // 여기서 남기지 않으면 사후에 구분할 방법이 없다.
             log.error("약점분석 AI 호출 실패 (userId={}, reportId={}, candidates={}, latencyMs={})",
-                    userId, report.getAnalysisReportId(), scoring.candidates().size(),
-                    System.currentTimeMillis() - startedAt, ex);
+                    userId, prepared.reportId(), prepared.scoring().candidates().size(), latencyMs, ex);
             throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
         }
         int latencyMs = (int) (System.currentTimeMillis() - startedAt);
-        saveAiCallLog(report.getAnalysisReportId(), fingerprint, latencyMs, "SUCCESS", aiResponse.meta());
 
-        // 교차검증 + 개념/근거 저장
-        Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> aiByConcept = indexAiByConcept(aiResponse);
-        Map<Long, List<RelatedConceptResponse>> relatedByConceptId = loadRelatedConcepts(
-                scoring.candidates().stream().map(ConceptCandidate::conceptId).toList());
-        List<WeaknessConceptResponse> conceptResponses = new ArrayList<>();
-        int sortOrder = 0;
-        for (ConceptCandidate candidate : scoring.candidates()) {
-            AiWeaknessAnalysisResponse.ConceptAnalysis ai = aiByConcept.get(candidate.conceptId());
-            CrossResult cross = crossValidate(candidate.backendCandidateType(), ai, candidate.typeSeparation());
+        // ③-성공 저장 tx: 교차검증 + 개념/근거 저장 → COMPLETED
+        return transactionTemplate.execute(status -> {
+            WeaknessAnalysisReport report = reportRepository.findById(prepared.reportId())
+                    .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED));
+            saveAiCallLog(report.getAnalysisReportId(), prepared.fingerprint(), latencyMs, "SUCCESS",
+                    aiResponse.meta());
 
-            WeaknessAnalysisConcept concept = conceptRepository.save(WeaknessAnalysisConcept.builder()
-                    .report(report)
-                    .conceptId(candidate.conceptId())
-                    .sortOrder(sortOrder++)
-                    .weaknessScore(candidate.weaknessScore())
-                    .evidenceStrength(candidate.evidenceStrength())
-                    .typeSeparation(candidate.typeSeparation())
-                    .backendCandidateType(candidate.backendCandidateType())
-                    .aiPrimaryType(cross.aiPrimaryType())
-                    .aiSecondarySignals(writeSignals(ai))
-                    .aiAnalysisStatus(cross.analysisStatus())
-                    .typeAgreement(cross.agreement())
-                    .finalType(cross.finalType())
-                    .finalTypeSource(cross.finalTypeSource())
-                    .reconciliationReason(cross.reason())
-                    .causeCode(ai != null ? ai.causeCode() : null)
-                    .confusedRelation(ai != null ? ai.confusedRelation() : null)
-                    .diagnosis(ai != null ? ai.diagnosis() : null)
-                    .likelyCause(ai != null ? ai.likelyCause() : null)
-                    .conceptTip(ai != null ? ai.conceptTip() : null)
-                    .questionCount(candidate.questionCount())
-                    .wrongCount(candidate.wrongCount())
-                    .longTimeCount(candidate.longTimeCount())
-                    .hintUsedCount(candidate.hintUsedCount())
-                    .build());
+            WeaknessScoringResult scoring = prepared.scoring();
+            AiRequestBundle bundle = prepared.bundle();
+            Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> aiByConcept = indexAiByConcept(aiResponse);
+            Map<Long, List<RelatedConceptResponse>> relatedByConceptId = loadRelatedConcepts(
+                    scoring.candidates().stream().map(ConceptCandidate::conceptId).toList());
+            List<WeaknessConceptResponse> conceptResponses = new ArrayList<>();
+            int sortOrder = 0;
+            for (ConceptCandidate candidate : scoring.candidates()) {
+                AiWeaknessAnalysisResponse.ConceptAnalysis ai = aiByConcept.get(candidate.conceptId());
+                CrossResult cross = crossValidate(candidate.backendCandidateType(), ai, candidate.typeSeparation());
 
-            List<WeaknessEvidenceLogResponse> evidence = markCitedEvidence(
-                    candidate.evidence(),
-                    bundle.evidenceRefsByConceptId().get(candidate.conceptId()),
-                    ai != null ? ai.evidenceRefs() : null);
-            saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), evidence);
-            conceptResponses.add(toConceptResponse(concept, candidate, ai, cross, evidence,
-                    relatedByConceptId.getOrDefault(candidate.conceptId(), List.of())));
+                WeaknessAnalysisConcept concept = conceptRepository.save(WeaknessAnalysisConcept.builder()
+                        .report(report)
+                        .conceptId(candidate.conceptId())
+                        .sortOrder(sortOrder++)
+                        .weaknessScore(candidate.weaknessScore())
+                        .evidenceStrength(candidate.evidenceStrength())
+                        .typeSeparation(candidate.typeSeparation())
+                        .backendCandidateType(candidate.backendCandidateType())
+                        .aiPrimaryType(cross.aiPrimaryType())
+                        .aiSecondarySignals(writeSignals(ai))
+                        .aiAnalysisStatus(cross.analysisStatus())
+                        .typeAgreement(cross.agreement())
+                        .finalType(cross.finalType())
+                        .finalTypeSource(cross.finalTypeSource())
+                        .reconciliationReason(cross.reason())
+                        .causeCode(ai != null ? ai.causeCode() : null)
+                        .confusedRelation(ai != null ? ai.confusedRelation() : null)
+                        .diagnosis(ai != null ? ai.diagnosis() : null)
+                        .likelyCause(ai != null ? ai.likelyCause() : null)
+                        .conceptTip(ai != null ? ai.conceptTip() : null)
+                        .questionCount(candidate.questionCount())
+                        .wrongCount(candidate.wrongCount())
+                        .longTimeCount(candidate.longTimeCount())
+                        .hintUsedCount(candidate.hintUsedCount())
+                        .build());
+
+                List<WeaknessEvidenceLogResponse> evidence = markCitedEvidence(
+                        candidate.evidence(),
+                        bundle.evidenceRefsByConceptId().get(candidate.conceptId()),
+                        ai != null ? ai.evidenceRefs() : null);
+                saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), evidence);
+                conceptResponses.add(toConceptResponse(concept, candidate, ai, cross, evidence,
+                        relatedByConceptId.getOrDefault(candidate.conceptId(), List.of())));
+            }
+
+            report.markCompleted(aiResponse.overview(), null, props.getAiModelLabel(), props.getPromptVersion(),
+                    props.getSchemaVersion(), props.getScoringRuleVersion(), props.getDiagnosticProfileVersion());
+
+            return buildDetailResponse(report, prepared.selectedSessions(), conceptResponses);
+        });
+    }
+
+    // 준비 tx 가 다음 단계로 넘기는 정보. reused 가 있으면 멱등 재사용이라 AI 를 호출하지 않는다.
+    private record PreparedReport(
+            Long reportId, int coinCost, String fingerprint,
+            WeaknessScoringResult scoring, AiRequestBundle bundle,
+            List<EligibleSolveSessionResponse> selectedSessions,
+            WeaknessAnalysisReportDetailResponse reused) {
+
+        static PreparedReport reuse(WeaknessAnalysisReportDetailResponse detail) {
+            return new PreparedReport(null, 0, null, null, null, null, detail);
         }
 
-        report.markCompleted(aiResponse.overview(), null, props.getAiModelLabel(), props.getPromptVersion(),
-                props.getSchemaVersion(), props.getScoringRuleVersion(), props.getDiagnosticProfileVersion());
-
-        return buildDetail(report, sessions, conceptResponses);
+        static PreparedReport proceed(Long reportId, int coinCost, String fingerprint,
+                WeaknessScoringResult scoring, AiRequestBundle bundle,
+                List<EligibleSolveSessionResponse> selectedSessions) {
+            return new PreparedReport(reportId, coinCost, fingerprint, scoring, bundle, selectedSessions, null);
+        }
     }
 
     // ----------------------------------------------------------------------- //
@@ -810,14 +877,6 @@ public class WeaknessAnalysisService {
                 session.getSolveSessionId(), session.getSolveSessionTitleSnapshot(), null,
                 null, null, null, null, null, null, null, null,
                 totalQuestionCount, session.getWrongCountSnapshot(), null, null, null, null, true, null);
-    }
-
-    private WeaknessAnalysisReportDetailResponse buildDetail(WeaknessAnalysisReport report,
-            List<SolveSession> sessions, List<WeaknessConceptResponse> concepts) {
-        List<EligibleSolveSessionResponse> selected = sessions.stream()
-                .map(this::toSelectedSession)
-                .toList();
-        return buildDetailResponse(report, selected, concepts);
     }
 
     private WeaknessAnalysisReportDetailResponse buildDetailResponse(WeaknessAnalysisReport report,
