@@ -10,6 +10,7 @@ public enum NotificationType {
     FRIEND_REQUEST_RECEIVED(NotificationCategory.FRIEND),
     FRIEND_REQUEST_ACCEPTED(NotificationCategory.FRIEND),
     LEARNING_REMINDER(NotificationCategory.LEARNING),
+    WEAKNESS_REPORT_READY(NotificationCategory.LEARNING),
     LEVEL_UP(NotificationCategory.REWARD),
     NEW_DEVICE_LOGIN(NotificationCategory.SYSTEM);
 

@@ -8,6 +8,7 @@ import com.coremate.backend.weakness.dto.response.EligibleSolveSessionResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisCostResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportDetailResponse;
 import com.coremate.backend.weakness.dto.response.WeaknessAnalysisReportSummaryResponse;
+import com.coremate.backend.weakness.dto.type.AnalysisReportStatus;
 import com.coremate.backend.weakness.service.WeaknessAnalysisService;
 import com.coremate.backend.weakness.service.WeaknessEligibilityService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -77,16 +79,23 @@ public class WeaknessAnalysisController {
     }
 
     @Operation(summary = "약점 분석표 생성",
-            description = "완료 모의고사 1~5개(같은 과목)를 선택해 검증·스코어링 후 AI 해석·교차검증까지 수행하고 분석표를 저장한다. 코인이 차감된다.")
+            description = "완료 모의고사 1~5개(같은 과목)를 선택해 검증·스코어링 후 코인을 차감하고, AI 해석은 "
+                    + "백그라운드에서 수행한다. 생성을 시작하면 GENERATING 상태의 분석표와 함께 202 를 즉시 반환하고, "
+                    + "완료 시 FCM 알림을 보낸다(앱은 상세 조회 폴링으로도 완료를 확인할 수 있다). 코인이 차감된다.")
     @PostMapping("/reports")
-    public ApiResponse<WeaknessAnalysisReportDetailResponse> createWeaknessAnalysisReport(
+    public ResponseEntity<ApiResponse<WeaknessAnalysisReportDetailResponse>> createWeaknessAnalysisReport(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateWeaknessAnalysisReportRequest request
     ) {
         WeaknessAnalysisReportDetailResponse data =
                 analysisService.createReport(userDetails.getUserId(), request, idempotencyKey);
-        return ApiResponse.success("약점 분석표 생성 성공", data);
+        // 새로 생성을 시작했으면 202(백그라운드 진행), 멱등 재사용으로 이미 완성된 분석표면 200.
+        if (data.status() == AnalysisReportStatus.GENERATING) {
+            return ResponseEntity.accepted()
+                    .body(ApiResponse.success("약점 분석표 생성을 시작했어요", data));
+        }
+        return ResponseEntity.ok(ApiResponse.success("약점 분석표 생성 성공", data));
     }
 
     @Operation(summary = "생성된 약점 분석표 목록 조회",

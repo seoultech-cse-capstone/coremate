@@ -7,5 +7,6 @@ public enum NotificationTargetType {
     FRIEND,
     DAILY_QUIZ,
     MYPAGE,
-    SETTING
+    SETTING,
+    WEAKNESS_REPORT
 }
