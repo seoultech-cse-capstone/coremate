@@ -40,6 +40,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -100,14 +102,47 @@ public class FriendService {
         return results;
     }
 
-    // 친구 목록 화면은 수락된 친구만 보여준다.
-    @Transactional
+    // 친구 목록 화면은 수락된 친구만 보여준다. 순수 조회이므로 클래스 기본값(readOnly=true)을 그대로 쓴다.
+    // 아바타·출석을 친구마다 조회하던 N+1 을 친구 ID 목록 배치 조회로 바꿔 커넥션 점유를 줄인다(#322).
     public List<FriendResponse> getFriends(Long userId) {
         findActiveUser(userId);
-        return friendRepository.findAllByUserIdAndStatus(userId, FriendStatus.ACCEPTED)
+        // 친구 양쪽 User 는 레포지토리의 @EntityGraph 로 함께 로딩돼, 아래 getOtherUser 접근은 추가 쿼리가 없다.
+        List<Friend> friends = friendRepository.findAllByUserIdAndStatus(userId, FriendStatus.ACCEPTED)
                 .stream()
                 .filter(friend -> friend.getOtherUser(userId).getStatus() == UserStatus.ACTIVE)
-                .map(friend -> toFriendResponse(friend, userId))
+                .toList();
+        if (friends.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> friendUserIds = friends.stream()
+                .map(friend -> friend.getOtherUser(userId).getUserId())
+                .toList();
+        Map<Long, AvatarProfileResponse> avatarByUser = avatarService.getAvatarProfilesByUser(friendUserIds);
+        Set<Long> attendedTodayUserIds = Set.copyOf(
+                attendanceRepository.findUserIdsAttendedOn(friendUserIds, LocalDate.now()));
+        Map<Long, Long> attendanceCountByUser = attendanceRepository.countByUserIds(friendUserIds).stream()
+                .collect(Collectors.toMap(
+                        AttendanceRepository.AttendanceCountByUser::getUserId,
+                        AttendanceRepository.AttendanceCountByUser::getAttendanceCount));
+
+        return friends.stream()
+                .map(friend -> {
+                    User friendUser = friend.getOtherUser(userId);
+                    Long friendUserId = friendUser.getUserId();
+                    return new FriendResponse(
+                            friend.getFriendId(),
+                            friendUserId,
+                            friendUser.getNickname(),
+                            friendUser.getSchoolName(),
+                            friendUser.getLevel(),
+                            friend.getStatus(),
+                            attendedTodayUserIds.contains(friendUserId),
+                            attendanceCountByUser.getOrDefault(friendUserId, 0L),
+                            avatarByUser.get(friendUserId),
+                            friend.getCreatedAt(),
+                            friend.getAcceptedAt());
+                })
                 .toList();
     }
 

@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,6 +58,36 @@ public class AvatarService {
     @Transactional
     public AvatarProfileResponse getAvatarProfile(Long userId) {
         return toProfileResponse(getOrCreateProfile(userId));
+    }
+
+    // 친구 목록처럼 여러 사람의 아바타 프로필을 한 번에 읽는다(#322). 사람마다 getAvatarProfile 을 부르면
+    // 목록 길이만큼 쿼리가 나가고, 쓰기 경로(프로필 생성·기본 아이템 지급)가 섞여 커넥션을 길게 쥔다.
+    // 여기서는 생성·지급 없이 지금 상태만 읽는다 — 프로필이 없는 사람은 기본값으로 돌려주고(앱이 기본 모습을
+    // 그린다), 남을 목록에서 봤다고 그 사람의 프로필이 생기지 않게 한다.
+    public Map<Long, AvatarProfileResponse> getAvatarProfilesByUser(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<AvatarEquippedItemResponse>> equippedByUser = getEquippedItemsByUser(userIds);
+        Map<Long, UserAvatarProfile> profileByUser = userAvatarProfileRepository.findByUser_UserIdIn(userIds)
+                .stream()
+                .collect(Collectors.toMap(profile -> profile.getUser().getUserId(), profile -> profile));
+        Map<Long, AvatarProfileResponse> result = new LinkedHashMap<>();
+        for (Long userId : userIds) {
+            List<AvatarEquippedItemResponse> equippedItems = equippedByUser.getOrDefault(userId, List.of());
+            UserAvatarProfile profile = profileByUser.get(userId);
+            result.put(userId, profile != null
+                    ? toProfileResponse(profile, equippedItems)
+                    : defaultProfileResponse(userId, equippedItems));
+        }
+        return result;
+    }
+
+    // 프로필이 아직 없는 사용자의 기본 응답. 베이스 마네킹만 두고 포즈 정보는 비운다.
+    private AvatarProfileResponse defaultProfileResponse(Long userId,
+            List<AvatarEquippedItemResponse> equippedItems) {
+        return new AvatarProfileResponse(userId, UserAvatarProfile.DEFAULT_BASE_AVATAR_TYPE,
+                equippedItems, null, null, null, null);
     }
 
     @Transactional
@@ -120,10 +151,15 @@ public class AvatarService {
     }
 
     private AvatarProfileResponse toProfileResponse(UserAvatarProfile profile) {
+        return toProfileResponse(profile, getEquippedItems(profile.getUser().getUserId()));
+    }
+
+    private AvatarProfileResponse toProfileResponse(UserAvatarProfile profile,
+            List<AvatarEquippedItemResponse> equippedItems) {
         return new AvatarProfileResponse(
                 profile.getUser().getUserId(),
                 profile.getBaseAvatarType(),
-                getEquippedItems(profile.getUser().getUserId()),
+                equippedItems,
                 profile.getRoomPose(),
                 profile.getRoomPoseUpdatedAt(),
                 RoomPoseElapsed.label(profile.getRoomPose(), profile.getRoomPoseUpdatedAt(),
