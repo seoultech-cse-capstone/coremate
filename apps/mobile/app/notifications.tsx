@@ -26,6 +26,7 @@ const TARGET_ROUTES: Record<string, string | null> = {
   DAILY_QUIZ: "/(tabs)/home",
   MYPAGE: "/(tabs)/mypage",
   SETTING: "/device-management",
+  WEAKNESS_REPORT: "/weakness-report",
 };
 
 export default function NotificationsScreen() {
@@ -40,6 +41,16 @@ export default function NotificationsScreen() {
   const openNotification = (notification: AppNotification) => {
     if (!notification.isRead) {
       markRead.mutate(notification.notificationId);
+    }
+    // 약점분석 완료 알림은 target_id(리포트 ID)로 해당 분석표 상세를 바로 연다.
+    if (notification.targetType === "WEAKNESS_REPORT") {
+      if (notification.targetId !== null) {
+        router.push({
+          pathname: "/weakness-report",
+          params: { reportId: String(notification.targetId) },
+        } as never);
+      }
+      return;
     }
     const route = TARGET_ROUTES[notification.targetType];
     if (route) {

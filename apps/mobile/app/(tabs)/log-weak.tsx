@@ -1105,6 +1105,15 @@ function WeaknessReportCard({
         </Pressable>
       </View>
 
+      {item.status === "GENERATING" ? (
+        <View style={styles.reportStatusRow}>
+          <ActivityIndicator color={BRAND_PURPLE} size="small" />
+          <Text style={styles.reportGeneratingText}>분석 중이에요. 완료되면 알려드릴게요.</Text>
+        </View>
+      ) : item.status === "FAILED" ? (
+        <Text style={styles.reportFailedText}>분석에 실패했어요. 코인은 환불됐어요.</Text>
+      ) : null}
+
       {generatedDate ? (
         <View style={styles.dateRow}>
           <CalendarDays color="#6b7280" size={16} strokeWidth={2} />
@@ -1384,6 +1393,25 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 12,
     fontWeight: "500",
+  },
+  reportStatusRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  reportGeneratingText: {
+    color: BRAND_PURPLE,
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  reportFailedText: {
+    marginTop: 8,
+    color: "#dc2626",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
   },
   resultLabel: {
     color: "#6b7280",
