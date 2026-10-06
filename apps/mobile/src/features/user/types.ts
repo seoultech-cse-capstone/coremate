@@ -18,6 +18,8 @@ export type MyProfile = {
   attendanceCount: number;
   /** 가장 최근 출석일. 출석 기록이 없으면 null */
   lastAttendanceDate: string | null;
+  /** 친구에게 학습 기록(과목별 스탯·Learning History) 공개 여부. 이 필드가 생기기 전 서버에는 없다(= 공개) */
+  learningPublic?: boolean;
 };
 
 /** PUT /api/users/me 요청. UpdateUserProfileRequest와 1:1 대응 */
@@ -25,6 +27,11 @@ export type UpdateMyProfileRequest = {
   nickname?: string;
   schoolName?: string;
   schoolEmail?: string;
+};
+
+/** PATCH /api/users/me/privacy 요청. UpdatePrivacyRequest와 1:1 대응 */
+export type UpdatePrivacyRequest = {
+  learningPublic: boolean;
 };
 
 /** GET /api/users/me/subject-stats 항목. UserSubjectStatResponse와 1:1 대응 */

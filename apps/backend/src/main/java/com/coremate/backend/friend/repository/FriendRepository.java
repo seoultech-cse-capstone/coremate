@@ -2,6 +2,7 @@ package com.coremate.backend.friend.repository;
 
 import com.coremate.backend.friend.dto.type.FriendStatus;
 import com.coremate.backend.friend.entity.Friend;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -31,20 +32,15 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
     List<Friend> findAllByUserIdAndStatus(@Param("userId") Long userId, @Param("status") FriendStatus status);
 
     @EntityGraph(attributePaths = {"requester", "receiver"})
-    @Query("""
-            select f
-            from Friend f
-            where (f.requester.userId = :userId or f.receiver.userId = :userId)
-              and f.status = :status
-            order by f.createdAt desc
-            """)
-    List<Friend> findRequestedByUserId(@Param("userId") Long userId, @Param("status") FriendStatus status);
-
-    @EntityGraph(attributePaths = {"requester", "receiver"})
     List<Friend> findByReceiver_UserIdAndStatusOrderByCreatedAtDesc(Long receiverId, FriendStatus status);
 
     @EntityGraph(attributePaths = {"requester", "receiver"})
-    List<Friend> findByRequester_UserIdAndStatusOrderByCreatedAtDesc(Long requesterId, FriendStatus status);
+    List<Friend> findByRequester_UserIdAndStatusInOrderByCreatedAtDesc(
+            Long requesterId, Collection<FriendStatus> statuses);
+
+    // 차단 목록. 차단하면 requester 가 차단한 사람으로 바뀌고 updated_at 이 차단 시각이 된다.
+    @EntityGraph(attributePaths = {"requester", "receiver"})
+    List<Friend> findByRequester_UserIdAndStatusOrderByUpdatedAtDesc(Long requesterId, FriendStatus status);
 
     @Query("""
             select count(f) > 0

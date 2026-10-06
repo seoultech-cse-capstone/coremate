@@ -1,0 +1,21 @@
+# Prometheus 스크레이프 설정 (이슈 #273)
+#
+# [로컬 부하테스트용] 2초 간격. 무릎 지점(pending 폭증)의 순간을 촘촘히 포착한다.
+# 스크레이프 1회 비용은 backend ~4ms(한 코어의 0.4%)라 로컬에선 무시 가능.
+#
+# [운영 상시 모니터링은 15초로] 이 파일은 로컬 전용이다. 운영(ECS, 0.5 vCPU 공유)에
+# Prometheus 를 붙인다면 scrape_interval 을 15s(Prometheus 기본)로 둔다. 운영은 uri 가
+# 많아 http_server_requests_seconds_bucket 시계열이 폭증하므로 촘촘한 스크레이프는
+# backend CPU·저장량만 낭비한다.
+global:
+  scrape_interval: 2s
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: coremate-backend
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # docker-compose.local.yml 의 backend 서비스. 같은 네트워크라 이름으로 해석된다.
+      - targets: ["backend:8080"]
+        labels:
+          service: coremate-backend

@@ -10,6 +10,7 @@ import com.coremate.backend.avatar.service.RoomService;
 import com.coremate.backend.friend.dto.request.PokeFriendRequest;
 import com.coremate.backend.friend.dto.request.RespondFriendRequest;
 import com.coremate.backend.friend.dto.request.SendFriendRequest;
+import com.coremate.backend.friend.dto.response.BlockedUserResponse;
 import com.coremate.backend.friend.dto.response.FriendPokeResponse;
 import com.coremate.backend.friend.dto.response.FriendProfileResponse;
 import com.coremate.backend.friend.dto.response.FriendRequestResponse;
@@ -34,9 +35,12 @@ import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -83,10 +87,17 @@ public class FriendService {
         // 목록 아이콘용 장착은 한 번에 읽는다.
         Map<Long, List<AvatarEquippedItemResponse>> equipped = avatarService.getEquippedItemsByUser(
                 users.stream().map(User::getUserId).toList());
-        return users.stream()
-                .map(user -> toFriendSearchUserResponse(userId, user,
-                        equipped.getOrDefault(user.getUserId(), List.of())))
-                .toList();
+        List<FriendSearchUserResponse> results = new ArrayList<>();
+        for (User user : users) {
+            Optional<Friend> relation = findRelation(userId, user.getUserId());
+            // 나를 차단한 사람은 검색에 보이지 않는다. 차단 사실은 알리지 않는다.
+            if (relation.filter(friend -> isBlockedBy(friend, user.getUserId())).isPresent()) {
+                continue;
+            }
+            results.add(toFriendSearchUserResponse(userId, user, relation,
+                    equipped.getOrDefault(user.getUserId(), List.of())));
+        }
+        return results;
     }
 
     // 친구 목록 화면은 수락된 친구만 보여준다.
@@ -104,11 +115,11 @@ public class FriendService {
         findActiveUser(userId);
         String normalizedDirection = normalizeDirection(direction);
         List<Friend> requests = switch (normalizedDirection) {
-            case REQUEST_DIRECTION_RECEIVED -> friendRepository
-                    .findByReceiver_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
-            case REQUEST_DIRECTION_SENT -> friendRepository
-                    .findByRequester_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
-            default -> friendRepository.findRequestedByUserId(userId, FriendStatus.REQUESTED);
+            case REQUEST_DIRECTION_RECEIVED -> receivedRequests(userId);
+            case REQUEST_DIRECTION_SENT -> sentRequests(userId);
+            default -> Stream.concat(receivedRequests(userId).stream(), sentRequests(userId).stream())
+                    .sorted(Comparator.comparing(Friend::getCreatedAt).reversed())
+                    .toList();
         };
         Map<Long, List<AvatarEquippedItemResponse>> equipped = avatarService.getEquippedItemsByUser(
                 requests.stream().map(friend -> friend.getRequester().getUserId()).toList());
@@ -161,14 +172,80 @@ public class FriendService {
         return toFriendResponse(friend, userId);
     }
 
+    // 친구 삭제는 수락된 관계만 지운다. 거절 기록까지 지울 수 있으면 거절당한 쪽이 지우고 다시 요청할 수 있다.
     @Transactional
     public void delete(Long userId, Long friendUserId) {
         validateNotSelf(userId, friendUserId);
         Friend friend = findAnyRelation(userId, friendUserId);
-        if (!friend.involves(userId)) {
+        if (!friend.involves(userId) || friend.getStatus() != FriendStatus.ACCEPTED) {
             throw new CoreMateException(ErrorCode.FRIEND_NOT_FOUND);
         }
         friendRepository.delete(friend);
+    }
+
+    // 차단. 친구였다면 관계가 끊기고, 상대는 나를 검색하거나 친구 요청을 보낼 수 없다.
+    // 프로필·콕 찌르기는 수락된 관계만 되므로 함께 막힌다. 차단 사실은 상대에게 알리지 않는다.
+    @Transactional
+    public void block(Long userId, Long targetUserId) {
+        User blocker = findActiveUser(userId);
+        validateNotSelf(userId, targetUserId);
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
+
+        Optional<Friend> relation = findRelation(userId, targetUserId);
+        if (relation.isEmpty()) {
+            Friend friend = new Friend(blocker, target);
+            friend.block(blocker, target);
+            friendRepository.save(friend);
+            return;
+        }
+        // 상대가 이미 나를 차단했으면 그대로 둔다. 내 차단으로 덮어쓰면 상대의 차단이 풀린다.
+        if (!isBlockedBy(relation.get(), targetUserId)) {
+            relation.get().block(blocker, target);
+        }
+    }
+
+    // 차단 해제. 관계 자체를 지워 처음 상태로 돌아간다(다시 친구가 되려면 요청부터).
+    @Transactional
+    public void unblock(Long userId, Long targetUserId) {
+        validateNotSelf(userId, targetUserId);
+        Friend friend = findRelation(userId, targetUserId)
+                .filter(found -> isBlockedBy(found, userId))
+                .orElseThrow(() -> new CoreMateException(ErrorCode.FRIEND_BLOCK_NOT_FOUND));
+        friendRepository.delete(friend);
+    }
+
+    public List<BlockedUserResponse> getBlockedUsers(Long userId) {
+        findActiveUser(userId);
+        List<Friend> blocks = friendRepository.findByRequester_UserIdAndStatusOrderByUpdatedAtDesc(
+                userId, FriendStatus.BLOCKED);
+        Map<Long, List<AvatarEquippedItemResponse>> equipped = avatarService.getEquippedItemsByUser(
+                blocks.stream().map(friend -> friend.getReceiver().getUserId()).toList());
+        return blocks.stream()
+                .map(friend -> new BlockedUserResponse(
+                        friend.getReceiver().getUserId(),
+                        friend.getReceiver().getNickname(),
+                        friend.getUpdatedAt(),
+                        equipped.getOrDefault(friend.getReceiver().getUserId(), List.of())))
+                .toList();
+    }
+
+    private boolean isBlockedBy(Friend friend, Long blockerId) {
+        return friend.getStatus() == FriendStatus.BLOCKED && friend.getRequester().getUserId().equals(blockerId);
+    }
+
+    private Optional<Friend> findRelation(Long userId, Long otherUserId) {
+        return friendRepository.findByUserLowIdAndUserHighId(lowId(userId, otherUserId), highId(userId, otherUserId));
+    }
+
+    private List<Friend> receivedRequests(Long userId) {
+        return friendRepository.findByReceiver_UserIdAndStatusOrderByCreatedAtDesc(userId, FriendStatus.REQUESTED);
+    }
+
+    // 보낸 요청에는 거절된 것도 넣는다. 보낸 사람에게는 거절을 알리지 않고 대기 중으로 보여 준다(visibleStatus).
+    private List<Friend> sentRequests(Long userId) {
+        return friendRepository.findByRequester_UserIdAndStatusInOrderByCreatedAtDesc(
+                userId, List.of(FriendStatus.REQUESTED, FriendStatus.REJECTED));
     }
 
     @Transactional
@@ -179,9 +256,13 @@ public class FriendService {
     }
 
     // 친구 상세 프로필 Learning History 섹션. 친구 관계(ACCEPTED)인 경우에만 조회 가능하다. (FR-FRIEND-05)
+    // 친구가 학습 기록을 공개하지 않았으면 0으로 채우지 않고 막는다. 0은 "아직 안 했다"로 읽힌다.
     public LearningHistoryResponse getLearningHistory(Long userId, Long friendUserId) {
         validateAcceptedFriend(userId, friendUserId);
-        findActiveUser(friendUserId);
+        User friendUser = findActiveUser(friendUserId);
+        if (!friendUser.isLearningPublic()) {
+            throw new CoreMateException(ErrorCode.FRIEND_LEARNING_PRIVATE);
+        }
         return learningHistoryService.getStats(friendUserId);
     }
 
@@ -232,6 +313,12 @@ public class FriendService {
     // 거절된 관계는 거절한 쪽(그 요청을 받았던 사람)만 다시 요청할 수 있다. 거절당한 쪽에는 요청이
     // 계속 대기 중인 것처럼 보이므로(거절은 알리지 않는다, FR-FRIEND-04) 그쪽의 재요청은 중복 요청으로 막는다.
     private Friend reopenRequestIfPossible(Friend friend, User requester, User receiver) {
+        // 내가 차단한 사람에게는 차단을 풀어야 요청할 수 있다. 나를 차단한 사람은 없는 사용자처럼 다룬다.
+        if (friend.getStatus() == FriendStatus.BLOCKED) {
+            throw new CoreMateException(isBlockedBy(friend, requester.getUserId())
+                    ? ErrorCode.FRIEND_BLOCKED_BY_ME
+                    : ErrorCode.USER_NOT_FOUND);
+        }
         if (friend.getStatus() == FriendStatus.REJECTED
                 && friend.getReceiver().getUserId().equals(requester.getUserId())) {
             friend.reopen(requester, receiver);
@@ -288,7 +375,7 @@ public class FriendService {
                 friend.getRequester().getNickname(),
                 friend.getReceiver().getUserId(),
                 friend.getReceiver().getNickname(),
-                friend.getStatus(),
+                visibleStatus(friend, currentUserId),
                 resolveDirection(friend, currentUserId),
                 friend.getCreatedAt(),
                 requesterEquippedItems
@@ -311,7 +398,8 @@ public class FriendService {
                 lastAttendanceDate(friendUser.getUserId()),
                 avatarProfile,
                 room,
-                toSubjectStats(friendUser.getUserId())
+                friendUser.isLearningPublic() ? toSubjectStats(friendUser.getUserId()) : List.of(),
+                friendUser.isLearningPublic()
         );
     }
 
@@ -344,10 +432,8 @@ public class FriendService {
     }
 
     private FriendSearchUserResponse toFriendSearchUserResponse(Long currentUserId, User user,
+                                                                Optional<Friend> relation,
                                                                 List<AvatarEquippedItemResponse> equippedItems) {
-        Optional<Friend> relation = friendRepository
-                .findByUserLowIdAndUserHighId(lowId(currentUserId, user.getUserId()), highId(currentUserId, user.getUserId()));
-
         return new FriendSearchUserResponse(
                 user.getUserId(),
                 user.getNickname(),

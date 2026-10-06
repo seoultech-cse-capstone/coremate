@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
 import { router, useLocalSearchParams } from "expo-router";
-import { ChevronLeft, Flame, Hand, MapPin } from "lucide-react-native";
+import { ChevronLeft, Flame, Hand, House, MapPin } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -20,6 +20,7 @@ import { AvatarFaceThumbnail, toEquippedMap } from "../src/features/avatar";
 import { useSubjects } from "../src/features/content";
 import {
   isPokeLimitError,
+  useBlockUserMutation,
   useDeleteFriendMutation,
   useFriendLearningHistoryQuery,
   useFriendProfileQuery,
@@ -60,10 +61,15 @@ export default function FriendProfileScreen() {
 
   const queryClient = useQueryClient();
   const { data: profile, isLoading, isError, error } = useFriendProfileQuery(targetUserId);
-  const { data: learningHistory } = useFriendLearningHistoryQuery(targetUserId);
+  // 학습 기록을 공개하지 않은 친구면 서버가 막는다. 프로필을 받기 전에는 공개로 보고 함께 부른다.
+  const { data: learningHistory } = useFriendLearningHistoryQuery(
+    targetUserId,
+    profile?.learningPublic !== false,
+  );
   const { data: subjects = [] } = useSubjects();
   const pokeMutation = usePokeMutation();
   const deleteFriendMutation = useDeleteFriendMutation();
+  const blockUserMutation = useBlockUserMutation();
 
   const [isPoked, setIsPoked] = useState(false);
   const [pokeMessage, setPokeMessage] = useState<string | null>(null);
@@ -105,6 +111,7 @@ export default function FriendProfileScreen() {
   }
 
   const avatarColor = getAvatarColor(profile.nickname);
+  const isLearningPublic = profile.learningPublic !== false;
 
   // 콕 찌르기는 취소가 없다. 서버에 기록이 남는 행위라 다시 눌러도 되돌릴 수 없다.
   const poke = () => {
@@ -144,6 +151,30 @@ export default function FriendProfileScreen() {
     ]);
   };
 
+  // 차단하면 친구 관계가 끊기고, 상대는 나를 검색하거나 친구 요청을 보낼 수 없다(알리지 않는다).
+  const confirmBlock = () => {
+    Alert.alert(
+      "친구 차단",
+      `${profile.nickname} 님을 차단할까요?\n친구 관계가 끊기고, 상대는 나를 검색하거나 친구 요청을 보낼 수 없어요. 차단은 설정 > 친구 설정에서 풀 수 있어요.`,
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "차단",
+          style: "destructive",
+          onPress: () => {
+            if (targetUserId === null) {
+              return;
+            }
+            blockUserMutation.mutate(targetUserId, {
+              onSuccess: () => router.back(),
+              onError: (error) => Alert.alert("친구 차단", getApiErrorMessage(error)),
+            });
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.container}>
       <BlurView
@@ -181,18 +212,25 @@ export default function FriendProfileScreen() {
             onPress={() => setIsRoomModalVisible(true)}
             style={styles.avatarButton}
           >
-            <AvatarFaceThumbnail
-              backgroundColor={avatarColor.background}
-              equipped={toEquippedMap(profile.avatarProfile?.equippedItems ?? [])}
-              size={90}
-            />
-            {/* 접속 여부는 서버가 내려주지 않는다. 친구 목록과 같게 오늘 출석 여부로 표시한다. */}
-            <View
-              style={[
-                styles.attendanceIndicator,
-                profile.attendedToday ? styles.attended : styles.notAttended,
-              ]}
-            />
+            <View>
+              <AvatarFaceThumbnail
+                backgroundColor={avatarColor.background}
+                equipped={toEquippedMap(profile.avatarProfile?.equippedItems ?? [])}
+                size={90}
+              />
+              {/* 접속 여부는 서버가 내려주지 않는다. 친구 목록과 같게 오늘 출석 여부로 표시한다. */}
+              <View
+                style={[
+                  styles.attendanceIndicator,
+                  profile.attendedToday ? styles.attended : styles.notAttended,
+                ]}
+              />
+            </View>
+            {/* 친구 방은 얼굴을 눌러야 열린다. 표시가 없으면 친구 방이 있는 줄 모르고 지나친다. */}
+            <View style={styles.roomHint}>
+              <House color="#FFFFFF" size={13} strokeWidth={2.4} />
+              <Text style={styles.roomHintText}>방 보기</Text>
+            </View>
           </Pressable>
           <Text style={styles.nickname}>{profile.nickname}</Text>
           <View style={styles.schoolRow}>
@@ -226,7 +264,12 @@ export default function FriendProfileScreen() {
 
         <View style={styles.panel}>
           <View style={styles.panelContent}>
-            {progressAxes.length > 0 ? (
+            {!isLearningPublic ? (
+              <View style={styles.emptyStatsCard}>
+                <Text style={styles.emptyStatsTitle}>Learning Stats</Text>
+                <Text style={styles.emptyStatsText}>학습 기록을 공개하지 않은 친구예요</Text>
+              </View>
+            ) : progressAxes.length > 0 ? (
               <FriendProgressStats axes={progressAxes} />
             ) : (
               <View style={styles.emptyStatsCard}>
@@ -248,22 +291,26 @@ export default function FriendProfileScreen() {
             </View>
             <View style={styles.learningCard}>
               <Text style={styles.learningTitle}>Learning History</Text>
-              <View style={styles.learningStats}>
-                <LearningStat
-                  label="Study Time"
-                  value={formatDuration(learningHistory?.totalMockSolveTimeSec ?? 0)}
-                />
-                <View style={styles.learningDivider} />
-                <LearningStat
-                  label="Questions"
-                  value={String(learningHistory?.conceptCorrectQuestionCount ?? 0)}
-                />
-                <View style={styles.learningDivider} />
-                <LearningStat
-                  label="Completed"
-                  value={String(learningHistory?.completedConceptCount ?? 0)}
-                />
-              </View>
+              {isLearningPublic ? (
+                <View style={styles.learningStats}>
+                  <LearningStat
+                    label="Study Time"
+                    value={formatDuration(learningHistory?.totalMockSolveTimeSec ?? 0)}
+                  />
+                  <View style={styles.learningDivider} />
+                  <LearningStat
+                    label="Questions"
+                    value={String(learningHistory?.conceptCorrectQuestionCount ?? 0)}
+                  />
+                  <View style={styles.learningDivider} />
+                  <LearningStat
+                    label="Completed"
+                    value={String(learningHistory?.completedConceptCount ?? 0)}
+                  />
+                </View>
+              ) : (
+                <Text style={styles.emptyStatsText}>공개하지 않았어요</Text>
+              )}
             </View>
             <Pressable
               accessibilityRole="button"
@@ -290,6 +337,15 @@ export default function FriendProfileScreen() {
               style={styles.deleteButton}
             >
               <Text style={styles.deleteButtonText}>친구 삭제</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={blockUserMutation.isPending}
+              hitSlop={8}
+              onPress={confirmBlock}
+              style={styles.blockButton}
+            >
+              <Text style={styles.blockButtonText}>차단하기</Text>
             </Pressable>
           </View>
         </View>
@@ -375,7 +431,8 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   avatarButton: {
-    position: "relative",
+    alignItems: "center",
+    gap: 8,
   },
   attendanceIndicator: {
     position: "absolute",
@@ -389,6 +446,21 @@ const styles = StyleSheet.create({
   },
   attended: { backgroundColor: "#22C55E" },
   notAttended: { backgroundColor: "#94A3B8" },
+  roomHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  roomHintText: {
+    color: "#FFFFFF",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   nickname: {
     marginTop: 4,
     color: "#FFFFFF",
@@ -545,6 +617,17 @@ const styles = StyleSheet.create({
     borderColor: "#FCA5A5",
     borderRadius: 8,
     backgroundColor: "#FFF7F7",
+  },
+  blockButton: {
+    alignSelf: "center",
+    paddingVertical: 10,
+  },
+  blockButtonText: {
+    color: "#94A3B8",
+    fontFamily: FONT.pretendard,
+    fontSize: 13,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   deleteButtonText: {
     color: "#DC2626",

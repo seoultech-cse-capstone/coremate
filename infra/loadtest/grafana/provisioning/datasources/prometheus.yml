@@ -1,0 +1,11 @@
+# Grafana 데이터소스 자동 등록 (이슈 #273)
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

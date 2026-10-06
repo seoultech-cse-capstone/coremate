@@ -5,6 +5,7 @@ import { getApiErrorCode } from "../../shared/utils/apiError";
 import { useAuth } from "../auth/AuthContext";
 import { friendApi } from "./friendApi";
 import type {
+  BlockedUser,
   Friend,
   FriendLearningHistory,
   FriendProfile,
@@ -14,6 +15,7 @@ import type {
 
 const FRIENDS_QUERY_KEY = ["friends"];
 const FRIEND_REQUESTS_QUERY_KEY = ["friends", "requests"];
+const BLOCKED_USERS_QUERY_KEY = ["friends", "blocks"];
 
 /** 콕 찌르기 한도 초과 시 서버가 돌려주는 에러 코드(EX-FRIEND-003). */
 const POKE_LIMIT_CODES = [
@@ -103,6 +105,38 @@ export function useDeleteFriendMutation() {
   });
 }
 
+/** 내가 차단한 사용자. 설정 > 친구 설정에서 풀 수 있다. */
+export function useBlockedUsersQuery() {
+  const { accessToken } = useAuth();
+
+  return useQuery<BlockedUser[]>({
+    queryKey: BLOCKED_USERS_QUERY_KEY,
+    queryFn: () => friendApi.getBlockedUsers(accessToken as string),
+    enabled: Boolean(accessToken),
+  });
+}
+
+// 차단·해제는 친구 목록·요청·검색·차단 목록을 모두 바꾸므로 친구 쿼리 전체(["friends"])를 다시 불러온다.
+export function useBlockUserMutation() {
+  const { accessToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (targetUserId: number) => friendApi.block(targetUserId, accessToken as string),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY }),
+  });
+}
+
+export function useUnblockUserMutation() {
+  const { accessToken } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (targetUserId: number) => friendApi.unblock(targetUserId, accessToken as string),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: FRIENDS_QUERY_KEY }),
+  });
+}
+
 /**
  * 콕 찌르기. 한도(같은 친구 1일 3회, 전체 1일 30회)를 넘기면 서버가 429로 막는다.
  * 성공한 대상은 화면에서 버튼을 눌린 상태로 유지하고, 한도 초과는 안내 문구로 보여준다.
@@ -131,12 +165,13 @@ export function useFriendProfileQuery(friendUserId: number | null) {
   });
 }
 
-export function useFriendLearningHistoryQuery(friendUserId: number | null) {
+/** enabled 가 false 면 부르지 않는다. 학습 기록을 공개하지 않은 친구는 서버가 403으로 막는다. */
+export function useFriendLearningHistoryQuery(friendUserId: number | null, enabled = true) {
   const { accessToken } = useAuth();
 
   return useQuery<FriendLearningHistory>({
     queryKey: ["friends", "learning-history", friendUserId],
     queryFn: () => friendApi.getLearningHistory(friendUserId as number, accessToken as string),
-    enabled: Boolean(accessToken) && friendUserId !== null,
+    enabled: Boolean(accessToken) && friendUserId !== null && enabled,
   });
 }

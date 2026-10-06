@@ -40,6 +40,17 @@ export function getRoomGridLayout(width: number, roomHeight: number): RoomGridLa
   return { cellWidth, rowHeight, gridHeight, gridBottomMargin, floorHeight, wallHeight, dotPx };
 }
 
+/**
+ * 바닥 전체(격자+아래 여백)와 벽 아래쪽 wallDots 도트만큼이 보이는 방 높이. 친구 방처럼 폭이 정해진
+ * 상자에서 벽 그림(창문 등)이 잘리지 않게 높이를 정할 때 쓴다.
+ */
+export function getRoomHeightShowingWall(width: number, wallDots: number): number {
+  const cellWidth = width / ROOM_GRID_COLS;
+  const rowHeight = cellWidth * ROW_HEIGHT_RATIO;
+  const floorHeight = rowHeight * (ROOM_GRID_ROWS + GRID_BOTTOM_MARGIN_ROWS);
+  return floorHeight + wallDots * (cellWidth / DOTS_PER_CELL_WIDTH);
+}
+
 /** row·col(0부터 시작) 칸의 바닥 기준 좌상단 좌표와 크기. 가구 배치 좌표 변환에 쓴다. */
 export function getRoomGridCellRect(row: number, col: number, layout: RoomGridLayout) {
   return {

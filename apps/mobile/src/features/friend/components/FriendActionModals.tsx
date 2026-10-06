@@ -95,8 +95,9 @@ function requestButton(user: FriendSearchUser, justSent: boolean): { label: stri
     case "REQUESTED":
       // 상대가 보낸 요청은 "요청 온 친구"에서 수락한다.
       return { label: user.direction === "RECEIVED" ? "요청 받음" : "요청함", canRequest: false };
-    default:
-      return { label: "요청함", canRequest: false };
+    // 내가 차단한 사람. 나를 차단한 사람은 서버가 검색 결과에서 뺀다. 차단은 설정 > 친구 설정에서 푼다.
+    case "BLOCKED":
+      return { label: "차단함", canRequest: false };
   }
 }
 
