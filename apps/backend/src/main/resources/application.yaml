@@ -21,12 +21,6 @@ spring:
     show-sql: true
     open-in-view: false
 
-  flyway:
-    # 테이블은 있는데 이력(flyway_schema_history)이 없는 DB — Flyway 도입 전부터 쓰던 운영·로컬 DB — 를
-    # V1__baseline 이 적용된 상태로 간주하고 V2 부터 실행한다. 빈 DB 는 V1 부터 전부 실행하므로 영향이 없다.
-    # 모든 환경에 이력 테이블이 생기면 지운다. 켜 둔 채면 엉뚱한 DB 에 붙어도 조용히 V1 로 간주하기 때문이다.
-    baseline-on-migrate: true
-
   data:
     redis:
       host: localhost
@@ -101,3 +95,19 @@ weakness:
     # 근거 충분도(min-evidence-strength)가 두 번째 관문으로 남아 있어 문항 수가 적은 개념은
     # 점수가 높아도 통과하지 못한다.
     min-weakness-score: 40
+
+# 부하테스트 관측용(이슈 #273). Prometheus 가 /actuator/prometheus 를 긁어 Grafana 로 본다.
+# 노출 범위를 health·prometheus·metrics 로 한정한다(운영에서도 과다 노출 방지).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  metrics:
+    tags:
+      # 그래프에서 인스턴스/앱 구분용 공통 태그.
+      application: coremate-backend
+    distribution:
+      # http.server.requests 를 히스토그램으로 내보내 Grafana 에서 p95/p99 를 계산할 수 있게 한다.
+      percentiles-histogram:
+        http.server.requests: true

@@ -13,8 +13,13 @@
 | `V{번호}__{설명}.sql` | 스키마 변경, 일회성 데이터 보정 | **한 번만.** 번호 순서대로 |
 | `R__{번호}_{이름}.sql` | 정책·마스터 데이터(보상 정책·상품·아이템) | **파일 내용이 바뀔 때마다** 통째로 다시. V 가 다 끝난 뒤 이름순으로 |
 
-`V1__baseline.sql` 은 Flyway 도입 시점(2026-09-30)의 스키마 전체다. 이미 테이블이 있던 DB(운영·기존 로컬)에서는
-실행하지 않고 "적용됨"으로만 기록한다(`spring.flyway.baseline-on-migrate`).
+`V1__baseline.sql` 은 Flyway 도입 시점(2026-09-30)의 스키마 전체다. 이미 테이블이 있던 DB(운영·기존 로컬)는
+전환 첫 기동 때 실행하지 않고 "적용됨"으로만 기록했다(`spring.flyway.baseline-on-migrate`, 2026-10-08 설정 제거).
+
+> 테이블은 있는데 이력 테이블(`flyway_schema_history`)이 없는 옛 로컬 DB 로 띄우면
+> `Found non-empty schema(s) ... but no schema history table` 으로 기동이 멈춘다. 둘 중 하나로 푼다.
+> - 데이터를 살릴 때: 한 번만 `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true` 를 백엔드 환경변수에 넣고 띄운 뒤 뺀다.
+> - 데이터가 필요 없을 때: `cd infra && docker compose -f docker-compose.local.yml down -v` 로 볼륨을 지우고 다시 띄운다(V1 부터 전부 실행).
 
 ## 스키마를 바꿀 때
 

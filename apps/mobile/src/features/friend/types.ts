@@ -100,5 +100,5 @@ export type FriendLearningHistory = {
   /** 개념 문제집에서 맞힌 서로 다른 문제 수 */
   conceptCorrectQuestionCount: number;
   /** PASS(전 문제 정답)로 통과한 개념 수 */
-  completedConceptCount: number;
+  passedConceptCount: number;
 };

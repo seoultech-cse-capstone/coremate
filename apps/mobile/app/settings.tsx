@@ -7,7 +7,6 @@ import {
   Globe,
   KeyRound,
   LogOut,
-  Pencil,
   Shield,
   Smartphone,
   UserCog,
@@ -28,15 +27,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { useLogoutMutation } from "../src/features/auth";
+import { Toast } from "../src/shared/components/Toast";
+import { useToast } from "../src/shared/hooks/useToast";
 
 type SettingRoute =
   | "/edit-profile"
-  | "/edit-nickname"
   | "/change-password"
   | "/device-management"
   | "/notification-settings"
   | "/friend-settings"
-  | "/language-settings"
   | "/terms-policies"
   | "/privacy-policy"
   | "/delete-account";
@@ -51,7 +50,7 @@ type SettingItem = {
       action?: never;
     }
   | {
-      action: "logout";
+      action: "logout" | "comingSoon";
       route?: never;
     }
 );
@@ -65,8 +64,8 @@ const settingSections: SettingSection[] = [
   {
     title: "계정",
     items: [
+      // 닉네임은 회원정보 수정 화면에서 함께 보여 준다(#246). 따로 메뉴를 두면 같은 값이 두 곳에 나온다.
       { label: "회원정보 수정", Icon: UserCog, route: "/edit-profile" },
-      { label: "닉네임 수정", Icon: Pencil, route: "/edit-nickname" },
       { label: "비밀번호 변경", Icon: KeyRound, route: "/change-password" },
       { label: "기기 관리", Icon: Smartphone, route: "/device-management" },
     ],
@@ -76,7 +75,8 @@ const settingSections: SettingSection[] = [
     items: [
       { label: "알림 설정", Icon: Bell, route: "/notification-settings" },
       { label: "친구 설정", Icon: Users, route: "/friend-settings" },
-      { label: "언어 설정", Icon: Globe, route: "/language-settings" },
+      // 다국어 지원 전까지는 진입을 막고 준비 중 안내만 띄운다(#248).
+      { label: "언어 설정", Icon: Globe, action: "comingSoon" },
       { label: "약관 및 정책", Icon: FileText, route: "/terms-policies" },
       { label: "개인정보 처리방침", Icon: Shield, route: "/privacy-policy" },
     ],
@@ -93,6 +93,7 @@ const settingSections: SettingSection[] = [
 export default function SettingsScreen() {
   const [logoutVisible, setLogoutVisible] = useState(false);
   const logoutMutation = useLogoutMutation();
+  const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
 
   const handleLogout = () => {
     if (logoutMutation.isPending) {
@@ -107,8 +108,12 @@ export default function SettingsScreen() {
   };
 
   const handlePress = (item: SettingItem) => {
-    if (item.action === "logout") {
-      setLogoutVisible(true);
+    if (item.action !== undefined) {
+      if (item.action === "logout") {
+        setLogoutVisible(true);
+      } else {
+        showToast("준비중입니다");
+      }
       return;
     }
 
@@ -226,6 +231,8 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
+
+      <Toast message={toastMessage} opacity={toastOpacity} />
     </View>
   );
 }

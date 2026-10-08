@@ -2,6 +2,7 @@ package com.coremate.backend.auth.controller;
 
 import com.coremate.backend.auth.dto.response.SessionItem;
 import com.coremate.backend.auth.dto.response.SessionListResponse;
+import com.coremate.backend.auth.entity.SessionRevokeReason;
 import com.coremate.backend.auth.service.UserSessionService;
 import com.coremate.backend.global.config.OpenApiConfig;
 import com.coremate.backend.global.security.CustomUserDetails;
@@ -56,6 +57,7 @@ public class SessionController {
     @PostMapping("/revoke-others")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void revokeOtherSessions(@AuthenticationPrincipal CustomUserDetails userDetails) {
-        userSessionService.revokeOthers(userDetails.getUserId(), userDetails.getSessionId());
+        userSessionService.revokeOthers(userDetails.getUserId(), userDetails.getSessionId(),
+                SessionRevokeReason.REMOTE_LOGOUT);
     }
 }

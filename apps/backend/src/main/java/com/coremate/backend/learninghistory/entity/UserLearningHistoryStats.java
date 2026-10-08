@@ -38,8 +38,8 @@ public class UserLearningHistoryStats {
     private int conceptCorrectQuestionCount;
 
     /** ③ PASS(전 문제 정답)로 통과한 서로 다른 개념 수 */
-    @Column(name = "completed_concept_count", nullable = false)
-    private int completedConceptCount;
+    @Column(name = "passed_concept_count", nullable = false)
+    private int passedConceptCount;
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
@@ -48,7 +48,7 @@ public class UserLearningHistoryStats {
         this.userId = userId;
         this.totalMockSolveTimeSec = 0;
         this.conceptCorrectQuestionCount = 0;
-        this.completedConceptCount = 0;
+        this.passedConceptCount = 0;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -66,8 +66,8 @@ public class UserLearningHistoryStats {
         touch();
     }
 
-    public void increaseCompletedConcept() {
-        this.completedConceptCount += 1;
+    public void increasePassedConcept() {
+        this.passedConceptCount += 1;
         touch();
     }
 

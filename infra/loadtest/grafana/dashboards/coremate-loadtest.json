@@ -1,0 +1,131 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "title": "CoreMate Load Test",
+  "uid": "coremate-loadtest",
+  "tags": ["coremate", "loadtest", "issue-273"],
+  "timezone": "browser",
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "row",
+      "title": "HikariCP 커넥션 풀 (병목 1순위 관찰)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "커넥션 상태 (active / idle / pending)",
+      "description": "pending>0 이 지속되면 풀 고갈 = 요청이 커넥션을 기다리는 중. active 가 max 에 붙고 pending 이 쌓이는 순간이 무릎 지점.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "hikaricp_connections_active", "legendFormat": "active" },
+        { "refId": "B", "expr": "hikaricp_connections_idle", "legendFormat": "idle" },
+        { "refId": "C", "expr": "hikaricp_connections_pending", "legendFormat": "pending(대기)" },
+        { "refId": "D", "expr": "hikaricp_connections_max", "legendFormat": "max(풀 크기)" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "커넥션 획득/사용 시간 (p95)",
+      "description": "hikaricp_connections_acquire = 커넥션을 얻기까지 기다린 시간. usage = 커넥션을 쥐고 있던 시간. 획득 시간이 튀면 풀 부족.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_acquire_seconds_bucket[1m])) by (le))", "legendFormat": "acquire p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_usage_seconds_bucket[1m])) by (le))", "legendFormat": "usage p95" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "HTTP 처리량 / 지연 / 에러 (엔드포인트별)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
+    },
+    {
+      "type": "timeseries",
+      "title": "처리량 RPS (uri별)",
+      "description": "초당 요청 수. 부하를 올려도 RPS 가 더 안 오르고 평평해지면 그 지점이 처리량 한계.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count[1m])) by (uri)", "legendFormat": "{{uri}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "에러율 (5xx 비율)",
+      "description": "5xx / 전체. 풀 고갈로 JDBC 커넥션 타임아웃이 나면 여기서 500 이 치솟는다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[1m])) / clamp_min(sum(rate(http_server_requests_seconds_count[1m])), 1)", "legendFormat": "5xx 비율" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "지연 p95 (uri별)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[1m])) by (le, uri))", "legendFormat": "{{uri}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "지연 p99 (uri별)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[1m])) by (le, uri))", "legendFormat": "{{uri}}" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "JVM / CPU (자원 병목)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 }
+    },
+    {
+      "type": "timeseries",
+      "title": "JVM 힙 사용량",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 27 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "heap used" },
+        { "refId": "B", "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})", "legendFormat": "heap max" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU 사용률 (process / system)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 27 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1, "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "process_cpu_usage", "legendFormat": "process" },
+        { "refId": "B", "expr": "system_cpu_usage", "legendFormat": "system" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "GC pause (p95) / 처리량",
+      "description": "GC 정지가 길어지면 응답 지연 스파이크의 원인이 된다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 27 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(jvm_gc_pause_seconds_bucket[1m])) by (le))", "legendFormat": "gc pause p95" }
+      ]
+    }
+  ]
+}

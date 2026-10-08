@@ -99,11 +99,11 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
               AND s.correctCount = s.totalQuestionCount
               AND s.concept.active = true
             """)
-    long countDistinctSolvedConcepts(@Param("userId") Long userId);
+    long countDistinctPassedConcepts(@Param("userId") Long userId);
 
     /**
      * 과목별 학습 달성률의 "합격한 개념": 해당 과목 하위에서 합격(PASS)한 개념 문제집 세션을 가진
-     * 서로 다른 개념 수. FR-STAT-02 가 정한 기준이며, 복습탭 카운팅(countDistinctSolvedConcepts)과 같다.
+     * 서로 다른 개념 수. FR-STAT-02 가 정한 기준이며, 복습탭 카운팅(countDistinctPassedConcepts)과 같다.
      * 분모(countByCategoryLv2_..._AndActiveTrue)가 활성 개념만 세므로 여기서도 비활성 개념을 뺀다.
      */
     @Query("""
@@ -116,7 +116,7 @@ public interface SolveSessionRepository extends JpaRepository<SolveSession, Long
               AND s.concept.active = true
               AND s.concept.categoryLv2.categoryLv1.subject.subjectId = :subjectId
             """)
-    long countDistinctSolvedConceptsBySubject(@Param("userId") Long userId, @Param("subjectId") Long subjectId);
+    long countDistinctPassedConceptsBySubject(@Param("userId") Long userId, @Param("subjectId") Long subjectId);
 
     /**
      * 문제집 완료 상태(모의고사)용: 지정 유형·부모 필터에 맞는 COMPLETED 모의고사 회차.

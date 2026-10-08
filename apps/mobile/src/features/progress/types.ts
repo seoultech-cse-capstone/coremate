@@ -7,8 +7,8 @@ export type ApiEnvelope<T> = {
 /** GET /api/v1/progress/concepts/summary 응답. ConceptCountSummaryResponse와 1:1 대응 */
 export type ConceptCountSummary = {
   totalConceptCount: number;
-  solvedConceptCount: number;
-  unsolvedConceptCount: number;
+  passedConceptCount: number;
+  notPassedConceptCount: number;
 };
 
 /** GET /api/v1/progress/subjects 응답. SubjectProgressResponse와 1:1 대응 */
@@ -19,7 +19,7 @@ export type SubjectProgress = {
   solvedQuestionCount: number;
   correctQuestionCount: number;
   wrongQuestionCount: number;
-  completedConceptCount: number;
+  passedConceptCount: number;
   totalConceptCount: number;
   completedCategoryMockCount: number;
   completedSubjectMockCount: number;

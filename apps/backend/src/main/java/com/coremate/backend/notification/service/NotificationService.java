@@ -153,6 +153,18 @@ public class NotificationService {
         notificationRepository.markAllRead(userId, LocalDateTime.now());
     }
 
+    // 알림함에서 한 건을 지운다. 읽음 처리와 같은 조회를 써서 남의 알림과 없는(이미 지운)
+    // 알림을 똑같이 NOTIFICATION_NOT_FOUND 로 막는다(AR-OWNER-06). 남의 알림만 403 으로
+    // 구분하면 그 ID 가 존재한다는 사실이 드러난다.
+    // 발송 기록(notification_send_logs)은 notification_id 를 논리 참조만 하므로 그대로 둔다.
+    @Transactional
+    public void deleteNotification(Long userId, Long notificationId) {
+        Notification notification = notificationRepository
+                .findByNotificationIdAndUser_UserId(notificationId, userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        notificationRepository.delete(notification);
+    }
+
     private User findActiveUser(Long userId) {
         return userRepository.findById(userId)
                 .filter(user -> user.getStatus() == UserStatus.ACTIVE)

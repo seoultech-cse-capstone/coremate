@@ -28,4 +28,14 @@ public class IdempotencyGuard {
             throw new CoreMateException(ErrorCode.DUPLICATE_REQUEST);
         }
     }
+
+    // 트랜잭션을 분할해 비즈니스 로직을 등록과 다른 트랜잭션에서 수행하는 경우, 실패 보상 단계에서
+    // 이 메서드로 키를 지워 같은 키로 재시도할 수 있게 한다(등록·로직이 한 트랜잭션이면 롤백으로
+    // 충분하므로 호출할 필요가 없다). 반드시 보상 트랜잭션 안에서 호출한다.
+    public void unregister(Long userId, String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return;
+        }
+        idempotencyKeyRepository.deleteByUserIdAndIdempotencyKey(userId, idempotencyKey.trim());
+    }
 }

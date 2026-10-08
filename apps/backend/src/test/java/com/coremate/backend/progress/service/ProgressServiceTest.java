@@ -45,30 +45,30 @@ class ProgressServiceTest {
     void 개념_카운팅은_전체에서_풀었어요를_뺀_값을_아직_못풀었어요로_계산한다() {
         long userId = 1L;
         when(conceptRepository.countByActiveTrue()).thenReturn(500L);
-        when(solveSessionRepository.countDistinctSolvedConcepts(userId)).thenReturn(100L);
+        when(solveSessionRepository.countDistinctPassedConcepts(userId)).thenReturn(100L);
 
         ConceptCountSummaryResponse result = progressService.getConceptCountSummary(userId);
 
         assertThat(result.totalConceptCount()).isEqualTo(500L);
-        assertThat(result.solvedConceptCount()).isEqualTo(100L);
-        assertThat(result.unsolvedConceptCount()).isEqualTo(400L);
+        assertThat(result.passedConceptCount()).isEqualTo(100L);
+        assertThat(result.notPassedConceptCount()).isEqualTo(400L);
     }
 
     @Test
     void 풀이한_개념이_없으면_전체가_아직_못풀었어요가_된다() {
         long userId = 2L;
         when(conceptRepository.countByActiveTrue()).thenReturn(42L);
-        when(solveSessionRepository.countDistinctSolvedConcepts(userId)).thenReturn(0L);
+        when(solveSessionRepository.countDistinctPassedConcepts(userId)).thenReturn(0L);
 
         ConceptCountSummaryResponse result = progressService.getConceptCountSummary(userId);
 
         assertThat(result.totalConceptCount()).isEqualTo(42L);
-        assertThat(result.solvedConceptCount()).isEqualTo(0L);
-        assertThat(result.unsolvedConceptCount()).isEqualTo(42L);
+        assertThat(result.passedConceptCount()).isEqualTo(0L);
+        assertThat(result.notPassedConceptCount()).isEqualTo(42L);
     }
 
     @Test
-    void 과목_달성률은_완료한_개념을_전체_개념으로_나눈_비율이다() {
+    void 과목_달성률은_합격한_개념을_전체_개념으로_나눈_비율이다() {
         long userId = 1L;
         Subject subject = org.mockito.Mockito.mock(Subject.class);
         when(subject.getSubjectId()).thenReturn(10L);
@@ -76,7 +76,7 @@ class ProgressServiceTest {
         when(subjectRepository.findAllByActiveTrueOrderBySortOrderAsc()).thenReturn(List.of(subject));
         when(conceptRepository.countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(10L))
                 .thenReturn(40L);
-        when(solveSessionRepository.countDistinctSolvedConceptsBySubject(userId, 10L)).thenReturn(12L);
+        when(solveSessionRepository.countDistinctPassedConceptsBySubject(userId, 10L)).thenReturn(12L);
         when(solveLogRepository.aggregateQuestionCountsBySubject(userId)).thenReturn(List.of());
 
         List<SubjectProgressResponse> result = progressService.getSubjectProgress(userId);
@@ -85,7 +85,7 @@ class ProgressServiceTest {
         SubjectProgressResponse subjectProgress = result.get(0);
         assertThat(subjectProgress.subjectId()).isEqualTo(10L);
         assertThat(subjectProgress.subjectName()).isEqualTo("자료구조");
-        assertThat(subjectProgress.completedConceptCount()).isEqualTo(12);
+        assertThat(subjectProgress.passedConceptCount()).isEqualTo(12);
         assertThat(subjectProgress.totalConceptCount()).isEqualTo(40);
         assertThat(subjectProgress.achievementRate()).isEqualTo(30.0);
         // 집계 행이 없는 과목(풀이 기록 없음)은 문항 카운트가 0이어야 한다.
@@ -103,7 +103,7 @@ class ProgressServiceTest {
         when(subjectRepository.findAllByActiveTrueOrderBySortOrderAsc()).thenReturn(List.of(subject));
         when(conceptRepository.countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(10L))
                 .thenReturn(40L);
-        when(solveSessionRepository.countDistinctSolvedConceptsBySubject(userId, 10L)).thenReturn(12L);
+        when(solveSessionRepository.countDistinctPassedConceptsBySubject(userId, 10L)).thenReturn(12L);
         when(solveLogRepository.aggregateQuestionCountsBySubject(userId))
                 .thenReturn(List.of(new SubjectQuestionCount(10L, 50L, 38L)));
 
@@ -123,7 +123,7 @@ class ProgressServiceTest {
         when(subjectRepository.findAllByActiveTrueOrderBySortOrderAsc()).thenReturn(List.of(subject));
         when(conceptRepository.countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(10L))
                 .thenReturn(0L);
-        when(solveSessionRepository.countDistinctSolvedConceptsBySubject(userId, 10L)).thenReturn(0L);
+        when(solveSessionRepository.countDistinctPassedConceptsBySubject(userId, 10L)).thenReturn(0L);
         when(solveLogRepository.aggregateQuestionCountsBySubject(userId)).thenReturn(List.of());
 
         List<SubjectProgressResponse> result = progressService.getSubjectProgress(userId);

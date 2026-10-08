@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { router } from "expo-router";
 import { AppState } from "react-native";
 
 import { setAuthHandlers, type SessionRevokedCode } from "../../shared/api/httpClient";
@@ -99,6 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus("unauthenticated");
   }, []);
 
+  // 세션은 끝났지만 사용자가 이유를 아는 경우(비밀번호 재설정·변경, 재발급 실패). 안내 모달 없이
+  // 로그아웃하고 로그인 화면으로 보낸다. 상태만 바꾸면 홈이 빈 화면과 오류로 남는다(#350).
+  const handleSessionExpired = useCallback(async () => {
+    await signOut();
+    router.replace("/");
+  }, [signOut]);
+
   const clearRevokedReason = useCallback(() => {
     setRevokedReason(null);
   }, []);
@@ -136,15 +144,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthHandlers({
       getRefreshToken: () => tokenStorage.getRefreshToken(),
       onTokensRefreshed: updateTokens,
-      // 단순 만료·네트워크 오류는 지금처럼 조용히 로그아웃만 한다.
-      onRefreshFailed: signOut,
+      // 단순 만료·네트워크 오류는 안내 없이 로그아웃하고 로그인 화면으로 보낸다.
+      onRefreshFailed: handleSessionExpired,
       onSessionRevoked: handleSessionRevoked,
     });
 
     return () => {
       setAuthHandlers(null);
     };
-  }, [updateTokens, signOut, handleSessionRevoked]);
+  }, [updateTokens, handleSessionExpired, handleSessionRevoked]);
 
   // 백그라운드에 있는 동안 다른 기기에서 해지되면 앱은 그 사실을 모른다.
   // 포그라운드로 돌아올 때 한 번 확인해서 복귀 즉시 안내가 뜨게 한다.

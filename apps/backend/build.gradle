@@ -26,6 +26,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 
+	// 부하테스트 관측용(이슈 #273). actuator 가 HikariCP·JVM·HTTP 지연 메트릭을 노출하고,
+	// micrometer-registry-prometheus 가 /actuator/prometheus 로 Prometheus 가 긁을 수 있게 한다.
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 
 	runtimeOnly 'com.mysql:mysql-connector-j'

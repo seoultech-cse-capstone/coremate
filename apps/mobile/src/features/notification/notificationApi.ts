@@ -55,6 +55,10 @@ export const notificationApi = {
   markAllRead(accessToken: string): Promise<void> {
     return httpClient.patch<void>("/api/notifications/read-all", undefined, { accessToken });
   },
+
+  deleteNotification(notificationId: number, accessToken: string): Promise<void> {
+    return httpClient.delete<void>(`/api/notifications/${notificationId}`, { accessToken });
+  },
 };
 
 /**

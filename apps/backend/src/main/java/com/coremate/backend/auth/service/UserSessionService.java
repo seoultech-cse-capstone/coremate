@@ -182,12 +182,24 @@ public class UserSessionService {
                 .forEach(session -> session.revoke(reason, now));
     }
 
-    /** 현재 기기를 뺀 나머지 전부 해지. 기기 목록을 관찰용에서 대응용으로 바꾸는 요소다. */
-    public void revokeOthers(Long userId, String currentSessionId) {
+    /**
+     * 현재 기기를 뺀 나머지 전부 해지. 기기 목록을 관찰용에서 대응용으로 바꾸는 요소다.
+     *
+     * <p>기기 목록의 "다른 모든 기기에서 로그아웃"(REMOTE_LOGOUT)과 로그인 상태 비밀번호 변경
+     * (PASSWORD_CHANGE)이 같이 쓴다. 사유를 호출부가 넘기는 이유는 쫓겨난 기기의 안내가 사유로
+     * 갈리기 때문이다. 비밀번호 변경에 원격 해지 안내를 띄우면 본인이 한 일이 침해 경고처럼 보인다.
+     *
+     * <p>현재 세션을 모르면 아무것도 해지하지 않는다. 뺄 기기를 가릴 수 없어 지금 쓰는 기기까지
+     * 끊기기 때문이다. 인증 필터가 sid 없는 토큰을 이미 막으므로 정상 경로에서는 오지 않는다.
+     */
+    public void revokeOthers(Long userId, String currentSessionId, SessionRevokeReason reason) {
+        if (currentSessionId == null || currentSessionId.isBlank()) {
+            return;
+        }
         LocalDateTime now = LocalDateTime.now();
         userSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(userId).stream()
                 .filter(session -> !session.getSessionId().equals(currentSessionId))
-                .forEach(session -> session.revoke(SessionRevokeReason.REMOTE_LOGOUT, now));
+                .forEach(session -> session.revoke(reason, now));
     }
 
     /**
@@ -263,7 +275,7 @@ public class UserSessionService {
             case MAX_SESSION_EXCEEDED -> ErrorCode.SESSION_REVOKED_BY_OTHER_DEVICE;
             case REMOTE_LOGOUT -> ErrorCode.SESSION_REVOKED_BY_USER;
             // 본인이 이유를 아는 해지는 놀라는 안내를 띄우지 않는다.
-            case USER_LOGOUT, PASSWORD_RESET, WITHDRAWAL -> ErrorCode.SESSION_EXPIRED;
+            case USER_LOGOUT, PASSWORD_RESET, PASSWORD_CHANGE, WITHDRAWAL -> ErrorCode.SESSION_EXPIRED;
         };
     }
 

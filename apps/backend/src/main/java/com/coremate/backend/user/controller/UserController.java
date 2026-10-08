@@ -58,12 +58,14 @@ public class UserController {
     }
     */
 
-    @Operation(summary = "내 비밀번호 변경", description = "로그인 상태에서 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경한다.")
+    @Operation(summary = "내 비밀번호 변경",
+            description = "로그인 상태에서 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경한다. "
+                    + "성공하면 지금 기기만 남기고 다른 기기는 모두 로그아웃된다.")
     @PatchMapping("/me/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal CustomUserDetails userDetails,
                                @Valid @RequestBody ChangePasswordRequest request) {
-        userService.changePassword(userDetails.getUserId(), request);
+        userService.changePassword(userDetails.getUserId(), userDetails.getSessionId(), request);
     }
 
     @Operation(summary = "내 공개 범위 변경",

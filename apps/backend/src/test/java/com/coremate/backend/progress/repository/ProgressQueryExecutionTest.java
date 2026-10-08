@@ -44,9 +44,9 @@ class ProgressQueryExecutionTest {
     }
 
     @Test
-    void 과목별_완료개념_카운트_쿼리가_실행된다() {
+    void 과목별_합격개념_카운트_쿼리가_실행된다() {
         assertThat(solveSessionRepository
-                .countDistinctSolvedConceptsBySubject(ABSENT_USER_ID, ABSENT_ID))
+                .countDistinctPassedConceptsBySubject(ABSENT_USER_ID, ABSENT_ID))
                 .isZero();
     }
 

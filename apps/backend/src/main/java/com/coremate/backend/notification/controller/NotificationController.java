@@ -113,4 +113,17 @@ public class NotificationController {
     ) {
         notificationService.markAllRead(userDetails.getUserId());
     }
+
+    @Operation(
+            summary = "알림 삭제",
+            description = "본인 알림 1건을 알림함에서 지운다. 남의 알림이거나 이미 지운 알림이면 404(NOTIFICATION_NOT_FOUND)다."
+    )
+    @DeleteMapping("/{notificationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteNotification(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long notificationId
+    ) {
+        notificationService.deleteNotification(userDetails.getUserId(), notificationId);
+    }
 }

@@ -11,6 +11,6 @@ public record LearningHistoryResponse(
         int conceptCorrectQuestionCount,
 
         @Schema(description = "PASS(전 문제 정답)로 통과한 개념 수", example = "7")
-        int completedConceptCount
+        int passedConceptCount
 ) {
 }
