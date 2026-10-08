@@ -56,15 +56,15 @@ class ConceptPassRateQueryTest {
 
     @Test
     @DisplayName("복습탭 '풀었어요'는 다 맞힌 개념만 센다")
-    void solvedConceptCountUsesPassNotCompleted() {
-        assertThat(solveSessionRepository.countDistinctSolvedConcepts(USER_ID)).isEqualTo(1);
+    void passedConceptCountUsesPassNotCompleted() {
+        assertThat(solveSessionRepository.countDistinctPassedConcepts(USER_ID)).isEqualTo(1);
     }
 
     @Test
     @DisplayName("과목별 학습 달성률도 다 맞힌 개념만 센다")
     void subjectConceptCountUsesPassNotCompleted() {
         assertThat(solveSessionRepository
-                .countDistinctSolvedConceptsBySubject(USER_ID, SUBJECT_ID)).isEqualTo(1);
+                .countDistinctPassedConceptsBySubject(USER_ID, SUBJECT_ID)).isEqualTo(1);
     }
 
     @Test

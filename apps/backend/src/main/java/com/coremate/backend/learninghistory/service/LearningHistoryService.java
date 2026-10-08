@@ -37,7 +37,7 @@ public class LearningHistoryService {
                 .map(s -> new LearningHistoryResponse(
                         s.getTotalMockSolveTimeSec(),
                         s.getConceptCorrectQuestionCount(),
-                        s.getCompletedConceptCount()))
+                        s.getPassedConceptCount()))
                 .orElse(new LearningHistoryResponse(0, 0, 0));
     }
 
@@ -45,7 +45,7 @@ public class LearningHistoryService {
      * 완료된 세션 유형에 따라 지표를 누적한다.
      * ① 모의고사: 풀이 시간 합산
      * ② 개념 문제집: 새로 맞힌 distinct 문제 수
-     * ③ 개념 문제집: 최초 PASS 시 완료 개념 +1
+     * ③ 개념 문제집: 최초 PASS 시 합격 개념 +1
      */
     public void accumulate(SolveSession session, List<SolveLog> logs, int correctCount) {
         Long userId = session.getUserId();
@@ -85,11 +85,11 @@ public class LearningHistoryService {
             }
         }
 
-        // ③ 최초 PASS 시 완료 개념 +1
+        // ③ 최초 PASS 시 합격 개념 +1
         boolean isPass = session.getTotalQuestionCount() > 0
                 && correctCount == session.getTotalQuestionCount();
         if (isPass && !solveSessionRepository.existsPassedConceptSession(userId, conceptId, sessionId)) {
-            stats.increaseCompletedConcept();
+            stats.increasePassedConcept();
         }
     }
 }

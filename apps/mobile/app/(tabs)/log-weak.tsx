@@ -908,11 +908,11 @@ function StatsSummary({
           label: "총 개념",
         },
         {
-          value: (conceptCountSummary?.solvedConceptCount ?? 0).toString(),
+          value: (conceptCountSummary?.passedConceptCount ?? 0).toString(),
           label: "풀었어요",
         },
         {
-          value: (conceptCountSummary?.unsolvedConceptCount ?? 0).toString(),
+          value: (conceptCountSummary?.notPassedConceptCount ?? 0).toString(),
           label: "아직 못풀었어요",
         },
       ]

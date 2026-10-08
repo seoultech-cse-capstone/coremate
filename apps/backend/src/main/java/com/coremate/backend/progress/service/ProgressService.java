@@ -44,9 +44,9 @@ public class ProgressService {
     @Transactional(readOnly = true)
     public ConceptCountSummaryResponse getConceptCountSummary(Long userId) {
         long totalConceptCount = conceptRepository.countByActiveTrue();
-        long solvedConceptCount = solveSessionRepository.countDistinctSolvedConcepts(userId);
-        long unsolvedConceptCount = totalConceptCount - solvedConceptCount;
-        return new ConceptCountSummaryResponse(totalConceptCount, solvedConceptCount, unsolvedConceptCount);
+        long passedConceptCount = solveSessionRepository.countDistinctPassedConcepts(userId);
+        long notPassedConceptCount = totalConceptCount - passedConceptCount;
+        return new ConceptCountSummaryResponse(totalConceptCount, passedConceptCount, notPassedConceptCount);
     }
 
     /**
@@ -113,10 +113,10 @@ public class ProgressService {
                 .map(subject -> {
                     long totalConceptCount = conceptRepository
                             .countByCategoryLv2_CategoryLv1_Subject_SubjectIdAndActiveTrue(subject.getSubjectId());
-                    long completedConceptCount = solveSessionRepository
-                            .countDistinctSolvedConceptsBySubject(userId, subject.getSubjectId());
+                    long passedConceptCount = solveSessionRepository
+                            .countDistinctPassedConceptsBySubject(userId, subject.getSubjectId());
                     double achievementRate = totalConceptCount > 0
-                            ? BigDecimal.valueOf(completedConceptCount * 100.0 / totalConceptCount)
+                            ? BigDecimal.valueOf(passedConceptCount * 100.0 / totalConceptCount)
                                     .setScale(1, RoundingMode.HALF_UP).doubleValue()
                             : 0.0;
 
@@ -129,7 +129,7 @@ public class ProgressService {
                             userId, subject.getSubjectId(), subject.getSubjectName(),
                             solvedQuestionCount, correctQuestionCount,
                             solvedQuestionCount - correctQuestionCount,
-                            (int) completedConceptCount, (int) totalConceptCount,
+                            (int) passedConceptCount, (int) totalConceptCount,
                             0, 0, 0, achievementRate);
                 })
                 .toList();

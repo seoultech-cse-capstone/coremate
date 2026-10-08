@@ -22,8 +22,8 @@ public record SubjectProgressResponse(
         @Schema(description = "틀린 문제 수", example = "24")
         Integer wrongQuestionCount,
 
-        @Schema(description = "완료한 개념 수", example = "12")
-        Integer completedConceptCount,
+        @Schema(description = "합격(PASS, 전 문제 정답)한 개념 수", example = "12")
+        Integer passedConceptCount,
 
         @Schema(description = "전체 개념 수", example = "40")
         Integer totalConceptCount,
