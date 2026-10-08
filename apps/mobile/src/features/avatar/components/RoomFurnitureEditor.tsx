@@ -53,6 +53,13 @@ export function RoomFurnitureEditor({ height, onFloorTap, onDropBlocked }: RoomF
   const [drag, setDrag] = useState<Drag | null>(null);
   // 제스처 콜백은 만들어질 때의 값을 잡으므로, 끄는 중 상태는 ref 로도 들고 있는다.
   const dragRef = useRef<Drag | null>(null);
+  // 놓은 직후의 새 자리. setPlacement 는 캐시를 한 박자 늦게(비동기) 바꾸므로, 그 사이 끌기 상태만
+  // 지우면 원래 자리가 한 번 그려졌다가 새 자리로 튄다. 캐시(placements)가 바뀔 때까지 새 자리를 대신 보여 준다.
+  const [pendingDrop, setPendingDrop] = useState<{
+    type: FurnitureType;
+    target: FurniturePosition;
+    basePlacements: typeof placements;
+  } | null>(null);
 
   const updateDrag = (next: Drag | null) => {
     dragRef.current = next;
@@ -143,6 +150,7 @@ export function RoomFurnitureEditor({ height, onFloorTap, onDropBlocked }: RoomF
         if (moved) {
           if (current.canDrop) {
             setPlacement(current.type, current.target);
+            setPendingDrop({ type: current.type, target: current.target, basePlacements: placements });
           } else {
             onDropBlocked();
           }
@@ -156,6 +164,7 @@ export function RoomFurnitureEditor({ height, onFloorTap, onDropBlocked }: RoomF
       .runOnJS(true)
       .onEnd((event, success) => {
         if (success && layout) {
+          setPendingDrop(null);
           onFloorTap(event.x, event.y - layout.wallHeight, layout);
         }
       });
@@ -169,13 +178,17 @@ export function RoomFurnitureEditor({ height, onFloorTap, onDropBlocked }: RoomF
 
   // 끄는 동안 원래 자리의 가구는 숨긴다. 고스트가 새 자리를 보여 준다.
   const visiblePlacements = useMemo(() => {
-    if (!drag) {
-      return undefined;
+    if (drag) {
+      const next = { ...placements };
+      delete next[drag.type];
+      return next;
     }
-    const next = { ...placements };
-    delete next[drag.type];
-    return next;
-  }, [drag, placements]);
+    // 캐시가 아직 놓기 전 그대로면(같은 객체) 새 자리를 덧씌운다. 캐시가 바뀌면 그대로 쓴다.
+    if (pendingDrop && pendingDrop.basePlacements === placements) {
+      return { ...placements, [pendingDrop.type]: pendingDrop.target };
+    }
+    return undefined;
+  }, [drag, pendingDrop, placements]);
 
   const ghost = drag && layout ? renderGhost(drag, layout) : null;
 
