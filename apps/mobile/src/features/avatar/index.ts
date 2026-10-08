@@ -5,6 +5,8 @@ export { AvatarStage, AvatarFaceThumbnail } from "./components/AvatarStage";
 export { RoomScene } from "./components/RoomScene";
 export { RoomSnapshot } from "./components/RoomSnapshot";
 export { RoomBackdrop } from "./components/RoomBackdrop";
+export { RoomFurnitureEditor } from "./components/RoomFurnitureEditor";
+export { FurnitureSetPreview } from "./components/FurnitureSetPreview";
 export type { RoomLayoutInfo } from "./components/RoomBackdrop";
 export { RoomThemeProvider, useRoomTheme } from "./RoomThemeContext";
 export { AvatarEquipProvider, useAvatarEquip } from "./AvatarEquipContext";

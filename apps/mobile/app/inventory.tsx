@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { CheckCircle2, ChevronLeft } from "lucide-react-native";
 import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -21,6 +21,8 @@ import {
   ROOM_THEME_ITEM_STEM,
   ROOM_THEMES,
   RoomBackdrop,
+  RoomFurnitureEditor,
+  FurnitureSetPreview,
   stemFromImageUrl,
   useAvatarEquip,
   useInventory,
@@ -34,7 +36,11 @@ import {
 import { Toast } from "../src/shared/components/Toast";
 import { useToast } from "../src/shared/hooks/useToast";
 
-const ROOM_PREVIEW_HEIGHT = 320;
+// 가구 탭에서 아래 선택창이 한 줄 넘게 보이도록 벽을 조금만 남긴다(#244). 냉장고·선반처럼 키 큰
+// 가구를 맨 윗줄에 놓아도 벽 쪽으로 솟은 부분이 잘리지 않는 높이다.
+const ROOM_PREVIEW_HEIGHT = 290;
+// 가구 선택 카드 미리보기 크기. 한 줄에 네 개가 들어가는 카드 폭에 맞췄다.
+const FURNITURE_THUMBNAIL_SIZE = 56;
 
 type MainTab = "avatar" | "myroom";
 type RoomTab = "theme" | "furniture";
@@ -105,7 +111,6 @@ export default function InventoryScreen() {
   const { placements, setPlacement } = useRoomFurniture();
   const [roomTab, setRoomTab] = useState<RoomTab>("theme");
   const [selectedFurnitureType, setSelectedFurnitureType] = useState<FurnitureType>("bed");
-  const [layout, setLayout] = useState<RoomLayoutInfo | null>(null);
   const { message: toastMessage, opacity: toastOpacity, showToast } = useToast();
 
   const itemsBySlot = useMemo(() => {
@@ -140,18 +145,14 @@ export default function InventoryScreen() {
   const equippedPetKey = rawPetSelection !== undefined ? rawPetSelection : (DEFAULT_LOCAL_KEY_BY_SLOT.PET ?? null);
   const equippedPetItem = equippedPetKey ? LOCAL_CATALOG_BY_KEY.get(equippedPetKey) : undefined;
 
-  const handleFloorPress = (event: GestureResponderEvent) => {
-    if (!layout) {
-      return;
-    }
+  const handleFloorTap = (floorX: number, floorY: number, layout: RoomLayoutInfo) => {
     // 보유하지 않은 가구는 놓을 수 없다. 목록이 비면 기본 선택값(bed)이 남아 있어도
     // 여기서 막지 않으면 미보유 가구가 배치돼 버린다.
     if (!ownedStems.has(FURNITURE_ITEM_STEM[selectedFurnitureType])) {
       return;
     }
-    const { locationX, locationY } = event.nativeEvent;
-    const col = Math.floor(locationX / layout.cellWidth);
-    const row = Math.floor(locationY / layout.rowHeight);
+    const col = Math.floor(floorX / layout.cellWidth);
+    const row = Math.floor(floorY / layout.rowHeight);
     if (row < 0 || row >= ROOM_GRID_ROWS) {
       // 격자 아래 빈 여백을 탭한 것 — 가구를 놓을 수 없는 구역이라 무시한다.
       return;
@@ -298,11 +299,15 @@ export default function InventoryScreen() {
           ) : (
             <>
               <View style={styles.roomPreviewArea}>
-                <RoomBackdrop
-                  height={ROOM_PREVIEW_HEIGHT}
-                  onFloorPress={roomTab === "furniture" ? handleFloorPress : undefined}
-                  onLayoutChange={setLayout}
-                />
+                {roomTab === "furniture" ? (
+                  <RoomFurnitureEditor
+                    height={ROOM_PREVIEW_HEIGHT}
+                    onDropBlocked={() => showToast("다른 가구와 겹쳐서 옮길 수 없어요")}
+                    onFloorTap={handleFloorTap}
+                  />
+                ) : (
+                  <RoomBackdrop height={ROOM_PREVIEW_HEIGHT} />
+                )}
               </View>
 
               <View style={styles.tabRow}>
@@ -360,12 +365,10 @@ export default function InventoryScreen() {
               ) : (
                 <>
                   <Text style={styles.helperText}>
-                    놓을 가구를 고르고, 위 미리보기의 바닥을 탭해서 놓아보세요. 이미 놓인
-                    자리를 한 번 더 탭하면 치워져요. 침대·책상은 앉거나 누울 수 있고,
-                    나머지는 장식용이에요.
+                    고른 가구는 바닥을 탭해서 놓고, 놓인 가구는 꾹 눌러 끌어서 옮겨요. 다시 탭하면 치워져요.
                   </Text>
 
-                  <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+                  <ScrollView contentContainerStyle={styles.furnitureGrid} showsVerticalScrollIndicator={false}>
                     {inventoryQuery.isPending ? (
                       <Text style={styles.statusText}>불러오는 중…</Text>
                     ) : ownedFurnitureTypes.length === 0 ? (
@@ -379,24 +382,22 @@ export default function InventoryScreen() {
                       return (
                         <Pressable
                           key={type}
-                          style={[styles.card, isToolSelected && styles.cardSelected]}
+                          style={[styles.card, styles.furnitureCard, isToolSelected && styles.cardSelected]}
                           onPress={() => setSelectedFurnitureType(type)}
                         >
                           {isPlaced ? (
-                            <View style={styles.selectedBadge}>
-                              <CheckCircle2 color="#16C45B" size={20} strokeWidth={2.4} />
+                            <View style={styles.furnitureBadge}>
+                              <CheckCircle2 color="#16C45B" size={16} strokeWidth={2.4} />
                             </View>
                           ) : null}
 
-                          <View style={styles.thumbnailBox}>
-                            <Image
-                              resizeMode="contain"
-                              source={FURNITURE_SETS[type].pieces[0].source}
-                              style={styles.furniturePreviewImage}
-                            />
+                          <View style={styles.furnitureThumbnailBox}>
+                            <FurnitureSetPreview size={FURNITURE_THUMBNAIL_SIZE} type={type} />
                           </View>
 
-                          <Text style={styles.cardLabel}>{FURNITURE_SETS[type].label}</Text>
+                          <Text numberOfLines={1} style={styles.furnitureLabel}>
+                            {FURNITURE_SETS[type].label}
+                          </Text>
                         </Pressable>
                       );
                     })}
@@ -533,8 +534,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     color: "#64748b",
     fontFamily: FONT.pretendard,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
   },
   statusText: {
     width: "100%",
@@ -602,9 +603,40 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "45%",
   },
-  furniturePreviewImage: {
+  // 가구 탭은 카드를 한 줄에 네 개로 작게 둬서, 짧아진 선택창에서도 가구가 두 줄 보이게 한다(#244).
+  furnitureGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  furnitureCard: {
+    width: "23%",
+    padding: 6,
+  },
+  furnitureBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    zIndex: 1,
+  },
+  furnitureThumbnailBox: {
     width: "100%",
-    height: "100%",
+    height: FURNITURE_THUMBNAIL_SIZE + 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    marginBottom: 6,
+    backgroundColor: "#ffffff",
+  },
+  furnitureLabel: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
   },
   cardLabel: {
     color: "#111827",
