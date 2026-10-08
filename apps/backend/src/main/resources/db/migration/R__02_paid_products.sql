@@ -24,11 +24,12 @@ INSERT INTO feature_access_products
 VALUES
     ('WEAKNESS_ANALYSIS_CREATE', 'ANALYSIS_CREATE_REQUEST', 'AI 약점 분석표 생성',
      100, 50, 'CREATE_ONCE', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    target_type = VALUES(target_type), product_name = VALUES(product_name),
-    price_coin = VALUES(price_coin), premium_price_coin = VALUES(premium_price_coin),
-    access_policy = VALUES(access_policy),
-    is_active = VALUES(is_active), updated_at = NOW();
+    target_type = new.target_type, product_name = new.product_name,
+    price_coin = new.price_coin, premium_price_coin = new.premium_price_coin,
+    access_policy = new.access_policy,
+    is_active = new.is_active, updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
 -- 프리미엄 구독
@@ -47,10 +48,11 @@ VALUES
     ('PREMIUM_MONTHLY', 'CoreMate 프리미엄', NULL, 50, 300, 10,
      '일일 50코인, 월간 보너스 300코인, 랜덤박스 10% 할인. 분석표 할인가는 feature_access_products 참조',
      TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    plan_name = VALUES(plan_name), price_krw = VALUES(price_krw),
-    daily_coin_amount = VALUES(daily_coin_amount),
-    monthly_bonus_coin = VALUES(monthly_bonus_coin),
-    random_box_discount_rate = VALUES(random_box_discount_rate),
-    description = VALUES(description),
-    is_active = VALUES(is_active), updated_at = NOW();
+    plan_name = new.plan_name, price_krw = new.price_krw,
+    daily_coin_amount = new.daily_coin_amount,
+    monthly_bonus_coin = new.monthly_bonus_coin,
+    random_box_discount_rate = new.random_box_discount_rate,
+    description = new.description,
+    is_active = new.is_active, updated_at = NOW();

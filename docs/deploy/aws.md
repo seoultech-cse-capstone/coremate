@@ -88,7 +88,8 @@ Flyway 를 넣고 처음 main 에 배포하면, 운영 DB 는 테이블은 있�
 
 전제는 **운영 스키마 = V1** 이다. 배포 전에 아래 방법으로 `scripts/db/schema_fingerprint.sql` 을 운영에 돌려, 빈 MySQL 8.4 에
 Flyway 로 만든 DB 에서 같은 파일을 돌린 결과와 MD5 가 같은지 본다(2026-09-30 기준값 `e174a734c3b315f1d46f0aae662d49ea`, 51개 테이블).
-전환이 끝나면 `application.yaml` 의 `baseline-on-migrate` 를 지운다.
+전환이 끝나면 `application.yaml` 의 `baseline-on-migrate` 를 지운다 — **2026-10-08 지웠다**(#298). 이제 이력 테이블이 없는
+DB 에 붙으면 조용히 V1 로 간주하지 않고 기동이 멈춘다.
 
 **2026-09-30 대조 결과: 일치.** 운영 51개 테이블 지문이 기준값과 한 줄도 다르지 않았다(MD5 `e174a734…` 동일).
 
