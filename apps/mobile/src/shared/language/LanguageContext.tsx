@@ -3,7 +3,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -23,25 +22,9 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<ContentLanguage>("ko");
 
-  // 앱 시작 시 저장된 언어 설정을 복원한다.
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const stored = await SecureStore.getItemAsync(LANGUAGE_KEY);
-        if (mounted && (stored === "ko" || stored === "en")) {
-          setLanguageState(stored);
-        }
-      } catch (error) {
-        console.error("[language] 저장된 언어 설정 복원 실패", error);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // 언어 설정 메뉴를 막아 둔 동안(#248)은 저장된 언어를 복원하지 않고 한국어로 시작한다.
+  // 예전에 English 를 고른 사용자는 메뉴가 막혀 되돌릴 길이 없기 때문이다. 메뉴를 다시 열 때
+  // SecureStore.getItemAsync(LANGUAGE_KEY) 로 복원하던 효과를 되살린다.
 
   const setLanguage = useCallback((next: ContentLanguage) => {
     setLanguageState(next);

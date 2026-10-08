@@ -83,7 +83,16 @@ export default function EditProfileScreen() {
             <View style={detailStyles.field}>
               <Text style={detailStyles.fieldText}>{profileQuery.data?.nickname}</Text>
             </View>
-            <Text style={detailStyles.helperText}>닉네임은 상점의 닉네임 변경권으로 바꿀 수 있습니다.</Text>
+            <Text style={detailStyles.helperText}>닉네임은 상점의 닉네임 변경권으로 바꿀 수 있어요.</Text>
+            {/* 닉네임 수정 메뉴를 따로 두지 않고 여기서 상점으로 보낸다(#246). */}
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={6}
+              style={styles.shopLink}
+              onPress={() => router.push("/avatar-shop")}
+            >
+              <Text style={styles.shopLinkText}>상점에서 닉네임 바꾸기 ›</Text>
+            </Pressable>
 
             <Text style={[detailStyles.label, { marginTop: 16 }]}>학교</Text>
             <TextInput
@@ -133,5 +142,14 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  shopLink: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+  },
+  shopLinkText: {
+    color: "#6D5DFB",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });
