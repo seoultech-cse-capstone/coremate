@@ -305,7 +305,7 @@ export default function FriendProfileScreen() {
                   <View style={styles.learningDivider} />
                   <LearningStat
                     label="Completed"
-                    value={String(learningHistory?.completedConceptCount ?? 0)}
+                    value={String(learningHistory?.passedConceptCount ?? 0)}
                   />
                 </View>
               ) : (

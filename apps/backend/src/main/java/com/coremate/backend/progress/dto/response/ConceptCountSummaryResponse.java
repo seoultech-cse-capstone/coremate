@@ -8,9 +8,9 @@ public record ConceptCountSummaryResponse(
         long totalConceptCount,
 
         @Schema(description = "풀었어요: 합격(PASS, 전 문제 정답)한 개념 문제집 세션이 있는 개념 수", example = "100")
-        long solvedConceptCount,
+        long passedConceptCount,
 
-        @Schema(description = "아직 못풀었어요: 전체 - 풀었어요", example = "400")
-        long unsolvedConceptCount
+        @Schema(description = "아직 못풀었어요: 전체 - 풀었어요(PASS 하지 못한 개념 수. 미풀이·진행중·불합격 포함)", example = "400")
+        long notPassedConceptCount
 ) {
 }
