@@ -4,6 +4,7 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { AppState } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -44,7 +45,9 @@ export default function RootLayout() {
     return null;
   }
 
+  // 알림 목록의 스와이프 삭제처럼 gesture-handler 제스처는 이 뷰 안에서만 인식된다.
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <PushRegistration />
@@ -148,5 +151,6 @@ export default function RootLayout() {
         </RoomFurnitureProvider>
       </AuthProvider>
     </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
