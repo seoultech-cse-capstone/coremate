@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { router, Tabs } from "expo-router";
 import type { BottomTabBarButtonProps } from "expo-router/build/react-navigation/bottom-tabs/types";
 import {
   BookOpenCheck,
@@ -7,7 +7,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react-native";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../constants/fonts";
@@ -36,17 +36,18 @@ function TabsNavigator() {
   const { status } = useAuth();
   const isMemberLocked = status !== "authenticated";
 
-  // 회원이 아니면(게스트든 로그아웃 상태든) 잠긴 탭(친구/오답노트/마이페이지)을 흐리게 표시하고 비활성화한다.
+  // 회원이 아니면(게스트든 로그아웃 상태든) 회원 전용 탭(친구/복습/마이페이지)을 눌렀을 때
+  // 탭을 바꾸지 않고 바로 로그인 화면으로 보낸다. 막아 두기만 하면 왜 안 눌리는지 알 수 없다(#239).
   const createTabBarButton = (isMemberOnly: boolean) => {
     return (props: BottomTabBarButtonProps) => {
-      const { ref: _ref, style, ...buttonProps } = props;
+      const { ref: _ref, onPress, ...buttonProps } = props;
       const locked = isMemberLocked && isMemberOnly;
 
       return (
         <Pressable
           {...buttonProps}
-          disabled={isLogWeakSelecting || locked}
-          style={[style, locked && styles.lockedTabButton]}
+          disabled={isLogWeakSelecting}
+          onPress={locked ? () => router.replace("/") : onPress}
         />
       );
     };
@@ -130,9 +131,3 @@ function TabsNavigator() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  lockedTabButton: {
-    opacity: 0.35,
-  },
-});
