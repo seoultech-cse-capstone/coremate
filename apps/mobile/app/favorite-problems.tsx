@@ -284,11 +284,13 @@ export default function FavoriteProblemsScreen() {
                     })
                   }
                 >
+                  {/* 가장 중요한 건 문제 본문이라 제목 자리에 크게 두고, 과목·개념·난이도는 작게 곁들인다(#243). */}
                   <View style={styles.cardHeader}>
-                    <View>
+                    <Text numberOfLines={1} style={styles.breadcrumb}>
                       <Text style={styles.subject}>{item.subjectName}</Text>
-                      <Text style={styles.concept}>{item.conceptName}</Text>
-                    </View>
+                      {"  ·  "}
+                      {item.conceptName}
+                    </Text>
 
                     <Pressable
                       accessibilityLabel="즐겨찾기 해제"
@@ -304,16 +306,21 @@ export default function FavoriteProblemsScreen() {
                     </Pressable>
                   </View>
 
-                  <Text style={styles.preview}>
-                    난이도 {item.difficultyLevel} ·{" "}
-                    {QUESTION_FORMAT_LABEL[item.questionFormat] ?? item.questionFormat}
-                  </Text>
-
                   {previewByQuestionId[item.questionId] ? (
-                    <Text numberOfLines={2} style={styles.questionPreview}>
+                    <Text numberOfLines={3} style={styles.questionText}>
                       {previewByQuestionId[item.questionId]}
                     </Text>
-                  ) : null}
+                  ) : (
+                    // 본문은 화면에 보이는 카드부터 따로 불러온다. 오기 전이나 실패했을 때도 눌러서 볼 수 있다.
+                    <Text style={styles.questionPlaceholder}>눌러서 문제 보기</Text>
+                  )}
+
+                  <View style={styles.tagRow}>
+                    <Text style={styles.tag}>난이도 {item.difficultyLevel}</Text>
+                    <Text style={styles.tag}>
+                      {QUESTION_FORMAT_LABEL[item.questionFormat] ?? item.questionFormat}
+                    </Text>
+                  </View>
 
                   {item.memo && (
                     <Text numberOfLines={1} style={styles.memoPreview}>
@@ -477,21 +484,19 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
+  breadcrumb: {
+    flex: 1,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 12,
+    fontWeight: "500",
+  },
   subject: {
     color: "#6D5DFB",
-    fontFamily: FONT.kufam,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  concept: {
-    marginTop: 4,
-    color: "#111827",
-    fontFamily: FONT.pretendard,
-    fontSize: 16,
     fontWeight: "700",
   },
   removeButton: {
@@ -502,24 +507,40 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#FEE2E2",
   },
-  preview: {
-    marginTop: 14,
-    color: "#334155",
-    fontFamily: FONT.pretendard,
-    fontSize: 14,
-    fontWeight: "500",
-    lineHeight: 21,
-  },
-  questionPreview: {
-    marginTop: 8,
+  questionText: {
+    marginTop: 6,
     color: "#111827",
     fontFamily: FONT.pretendard,
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 23,
+  },
+  questionPlaceholder: {
+    marginTop: 6,
+    color: "#94a3b8",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
     fontWeight: "500",
-    lineHeight: 19,
+    lineHeight: 23,
+  },
+  tagRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    gap: 6,
+  },
+  tag: {
+    overflow: "hidden",
+    borderRadius: 999,
+    backgroundColor: "#EEF2F7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 11,
+    fontWeight: "600",
   },
   memoPreview: {
-    marginTop: 8,
+    marginTop: 10,
     color: "#6D5DFB",
     fontFamily: FONT.pretendard,
     fontSize: 13,
