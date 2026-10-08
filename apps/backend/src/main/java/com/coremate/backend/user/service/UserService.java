@@ -2,6 +2,8 @@ package com.coremate.backend.user.service;
 
 import com.coremate.backend.attendance.entity.Attendance;
 import com.coremate.backend.attendance.repository.AttendanceRepository;
+import com.coremate.backend.auth.entity.SessionRevokeReason;
+import com.coremate.backend.auth.service.UserSessionService;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.dto.request.ChangePasswordRequest;
@@ -30,6 +32,7 @@ public class UserService {
     private final AttendanceRepository attendanceRepository;
     private final PasswordEncoder passwordEncoder;
     private final ProgressService progressService;
+    private final UserSessionService userSessionService;
 
     public MyProfileResponse getMyProfile(Long userId) {
         User user = findUser(userId);
@@ -78,8 +81,15 @@ public class UserService {
                 .build();
     }
 
+    /**
+     * 로그인 상태 비밀번호 변경. 성공하면 지금 기기만 남기고 다른 기기를 끊는다(#250).
+     *
+     * <p>비밀번호를 바꾸는 흔한 이유가 "누가 내 계정을 쓰는 것 같다"인데, 다른 기기 세션이 살아
+     * 있으면 바꿔도 그 기기는 계속 쓸 수 있다. 지금 기기는 방금 현재 비밀번호로 본인임을 확인했으니
+     * 남긴다. 전 기기를 끊는 비밀번호 재설정과 다른 점이다.
+     */
     @Transactional
-    public void changePassword(Long userId, ChangePasswordRequest request) {
+    public void changePassword(Long userId, String currentSessionId, ChangePasswordRequest request) {
         User user = findUser(userId);
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
@@ -87,6 +97,8 @@ public class UserService {
         }
 
         user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        // 같은 트랜잭션이라 비밀번호 저장이 실패하면 해지도 함께 롤백된다.
+        userSessionService.revokeOthers(userId, currentSessionId, SessionRevokeReason.PASSWORD_CHANGE);
     }
 
     /**

@@ -142,6 +142,34 @@ class UserSessionIntegrationTest {
     }
 
     @Test
+    void 다른_기기_해지는_현재_기기를_남기고_넘겨받은_사유로_남는다() {
+        String currentSessionId = register("device-phone").sessionId();
+        String otherSessionId = register("device-tablet").sessionId();
+
+        userSessionService.revokeOthers(USER_ID, currentSessionId, SessionRevokeReason.PASSWORD_CHANGE);
+
+        assertThat(userSessionService.resolveAuthFailure(currentSessionId)).isEmpty();
+        // 비밀번호 변경은 본인이 한 일이라 원격 해지 안내(SESSION_REVOKED_BY_USER) 없이 조용히 끊는다.
+        assertThat(userSessionService.resolveAuthFailure(otherSessionId))
+                .contains(ErrorCode.SESSION_EXPIRED);
+        assertThat(findBySessionId(otherSessionId).getRevokeReason())
+                .isEqualTo(SessionRevokeReason.PASSWORD_CHANGE);
+    }
+
+    @Test
+    void 현재_세션을_모르면_다른_기기_해지는_아무것도_끊지_않는다() {
+        register("device-phone");
+        register("device-tablet");
+
+        // 뺄 기기를 가릴 수 없는데 그대로 진행하면 지금 쓰는 기기까지 끊긴다.
+        userSessionService.revokeOthers(USER_ID, null, SessionRevokeReason.PASSWORD_CHANGE);
+        userSessionService.revokeOthers(USER_ID, "", SessionRevokeReason.PASSWORD_CHANGE);
+
+        assertThat(userSessionRepository.findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(USER_ID))
+                .hasSize(2);
+    }
+
+    @Test
     void 기기_식별자를_보내지_않으면_서버가_발급하고_기기마다_다른_행이_된다() {
         UserSessionService.SessionRegistration first = userSessionService.registerOnLogin(
                 USER_ID, null, "이름 없는 기기", "IOS", "18.2");

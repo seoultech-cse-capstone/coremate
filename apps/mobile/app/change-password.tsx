@@ -69,7 +69,9 @@ export default function ChangePasswordScreen() {
     return (
       <SettingsDetailLayout title="비밀번호 변경">
         <View style={detailStyles.card}>
-          <Text style={detailStyles.bodyText}>비밀번호가 변경되었습니다.</Text>
+          <Text style={detailStyles.bodyText}>
+            비밀번호가 변경되었습니다. 다른 기기에서는 로그아웃되었어요.
+          </Text>
           <Pressable style={detailStyles.primaryButton} onPress={() => router.back()}>
             <Text style={detailStyles.primaryButtonText}>설정으로 돌아가기</Text>
           </Pressable>
