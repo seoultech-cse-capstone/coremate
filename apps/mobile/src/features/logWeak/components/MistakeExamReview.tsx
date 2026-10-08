@@ -1,20 +1,11 @@
 import { ChevronLeft, ChevronRight, CircleCheck, CircleX } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FONT } from "../../../../constants/fonts";
 import type { SolveReviewItem } from "../../solve/types";
 import { sessionTypeLabel, type CompletedSessionType } from "../types";
-
-type ReviewQuestion = {
-  id: number;
-  question: string;
-  choices: string[];
-  answerIndex: number;
-  selectedIndex: number;
-  explanation: string;
-};
 
 type DisplayChoice = {
   key: string;
@@ -36,50 +27,10 @@ type MistakeExamReviewProps = {
   examType: string;
   sessionType?: CompletedSessionType;
   subject: string;
-  /** 실제 풀이 결과. 있으면 이걸 우선 보여주고, 없으면 아래 목데이터를 보여준다. */
+  /** 실제 풀이 결과. 비어 있으면 기록을 찾지 못했다는 안내만 보여준다(#242 — 예전엔 목데이터로 채웠다). */
   results?: SolveReviewItem[];
   onBack: () => void;
 };
-
-const questions: ReviewQuestion[] = [
-  {
-    id: 1,
-    question: "배열(Array)에 대한 설명으로 가장 알맞은 것은 무엇인가요?",
-    choices: [
-      "원소가 메모리에 연속적으로 저장된다.",
-      "원소 삽입과 삭제가 항상 O(1)이다.",
-      "각 원소는 서로 다른 자료형을 가진다.",
-      "인덱스로 원소에 접근할 수 없다.",
-    ],
-    answerIndex: 0,
-    selectedIndex: 1,
-    explanation:
-      "배열은 같은 자료형의 원소를 연속된 메모리 공간에 저장합니다. 따라서 인덱스를 이용한 접근은 빠르지만, 중간 삽입과 삭제에는 원소 이동이 필요할 수 있습니다.",
-  },
-  {
-    id: 2,
-    question: "크기가 n인 배열에서 특정 인덱스의 값을 읽는 시간 복잡도는?",
-    choices: ["O(log n)", "O(n)", "O(1)", "O(n log n)"],
-    answerIndex: 2,
-    selectedIndex: 2,
-    explanation:
-      "배열은 시작 주소와 인덱스를 이용해 원하는 위치를 바로 계산할 수 있으므로, 특정 원소를 읽는 데 O(1)이 걸립니다.",
-  },
-  {
-    id: 3,
-    question: "배열의 중간 위치에 새 원소를 삽입할 때 주로 발생하는 작업은?",
-    choices: [
-      "앞쪽 원소를 모두 삭제한다.",
-      "뒤쪽 원소를 한 칸씩 이동한다.",
-      "배열의 인덱스를 정렬한다.",
-      "모든 원소를 역순으로 바꾼다.",
-    ],
-    answerIndex: 1,
-    selectedIndex: 3,
-    explanation:
-      "중간 삽입을 위해서는 삽입 위치 뒤의 원소들을 한 칸씩 뒤로 이동해야 합니다. 이 때문에 최악의 경우 O(n)의 시간이 걸립니다.",
-  },
-];
 
 export function MistakeExamReview({
   category,
@@ -92,9 +43,11 @@ export function MistakeExamReview({
   const insets = useSafeAreaInsets();
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const displayQuestions: DisplayQuestion[] = useMemo(() => {
-    if (results && results.length > 0) {
-      return results.map((item) => ({
+  const scrollRef = useRef<ScrollView>(null);
+
+  const displayQuestions: DisplayQuestion[] = useMemo(
+    () =>
+      (results ?? []).map((item) => ({
         id: item.questionId,
         question: item.questionText,
         choices: item.choices.map((choice) => ({
@@ -105,33 +58,20 @@ export function MistakeExamReview({
         })),
         isCorrect: item.isCorrect,
         explanation: item.explanationText,
-      }));
-    }
-
-    return questions.map((mockQuestion) => ({
-      id: mockQuestion.id,
-      question: mockQuestion.question,
-      choices: mockQuestion.choices.map((text, index) => ({
-        // 서버 결과와 같은 A·B·C·D 라벨을 쓴다(목업 데이터에는 key 가 없어 인덱스로 만든다).
-        key: String.fromCharCode(65 + index),
-        text,
-        isAnswer: index === mockQuestion.answerIndex,
-        isSelected: index === mockQuestion.selectedIndex,
       })),
-      isCorrect: mockQuestion.answerIndex === mockQuestion.selectedIndex,
-      explanation: mockQuestion.explanation,
-    }));
-  }, [results]);
+    [results],
+  );
 
   const currentQuestion = displayQuestions[currentIndex];
-  const isCorrect = currentQuestion.isCorrect;
-  const resultText = useMemo(
-    () => (isCorrect ? "정답이에요" : "오답이에요"),
-    [isCorrect],
-  );
   const displayedExamType = sessionType
     ? sessionTypeLabel[sessionType]
     : examType;
+
+  // 이전/다음은 해설을 끝까지 읽은 아래쪽에서 누르는 경우가 많아, 새 문제는 맨 위부터 보여준다(#241).
+  const moveTo = (index: number) => {
+    setCurrentIndex(index);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
 
   return (
     <View style={styles.screen}>
@@ -154,138 +94,149 @@ export function MistakeExamReview({
       </View>
 
       <ScrollView
+        ref={scrollRef}
         bounces
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.examInfo}>
-          <Text style={styles.subjectText}>{subject}</Text>
-          <Text style={styles.infoDivider}>·</Text>
+          {subject ? (
+            <>
+              <Text style={styles.subjectText}>{subject}</Text>
+              <Text style={styles.infoDivider}>·</Text>
+            </>
+          ) : null}
           <Text style={styles.categoryText}>{category}</Text>
           <Text style={styles.examTypeText}>{displayedExamType}</Text>
         </View>
 
-        <View style={styles.progressRow}>
-          <Text style={styles.progressText}>
-            {currentIndex + 1} / {displayQuestions.length}
-          </Text>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressValue,
-                { width: `${((currentIndex + 1) / displayQuestions.length) * 100}%` },
-              ]}
-            />
-          </View>
-        </View>
-
-        <View style={styles.questionCard}>
-          <View style={styles.resultHeader}>
-            {isCorrect ? (
-              <CircleCheck color="#16a34a" size={22} strokeWidth={2.4} />
-            ) : (
-              <CircleX color="#ef4444" size={22} strokeWidth={2.4} />
-            )}
-            <Text style={[styles.resultText, isCorrect ? styles.correct : styles.wrong]}>
-              {resultText}
-            </Text>
-          </View>
-
-          <Text style={styles.question}>{currentQuestion.question}</Text>
-
-          <View style={styles.choiceList}>
-            {currentQuestion.choices.map((choice) => {
-              const isAnswer = choice.isAnswer;
-              const isSelected = choice.isSelected;
-
-              return (
+        {!currentQuestion ? (
+          <Text style={styles.emptyText}>풀이 기록을 찾지 못했어요.</Text>
+        ) : (
+          <>
+            <View style={styles.progressRow}>
+              <Text style={styles.progressText}>
+                {currentIndex + 1} / {displayQuestions.length}
+              </Text>
+              <View style={styles.progressTrack}>
                 <View
-                  key={choice.key}
                   style={[
-                    styles.choice,
-                    isAnswer && styles.answerChoice,
-                    isSelected && !isAnswer && styles.selectedWrongChoice,
+                    styles.progressValue,
+                    { width: `${((currentIndex + 1) / displayQuestions.length) * 100}%` },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={styles.navigationRow}>
+              <Pressable
+                accessibilityLabel="이전 문제"
+                disabled={currentIndex === 0}
+                style={[
+                  styles.navigationButton,
+                  currentIndex === 0 && styles.disabledButton,
+                ]}
+                onPress={() => moveTo(currentIndex - 1)}
+              >
+                <ChevronLeft color={currentIndex === 0 ? "#94a3b8" : "#4b5563"} size={20} />
+                <Text
+                  style={[
+                    styles.navigationText,
+                    currentIndex === 0 && styles.disabledNavigationText,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.choiceKey,
-                      isAnswer && styles.answerChoiceText,
-                      isSelected && !isAnswer && styles.wrongChoiceText,
-                    ]}
-                  >
-                    {choice.key}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.choiceText,
-                      isAnswer && styles.answerChoiceText,
-                      isSelected && !isAnswer && styles.wrongChoiceText,
-                    ]}
-                  >
-                    {choice.text}
-                  </Text>
-                  {isAnswer && (
-                    <CircleCheck color="#16a34a" size={20} strokeWidth={2.5} />
-                  )}
-                  {isSelected && !isAnswer && (
-                    <CircleX color="#ef4444" size={20} strokeWidth={2.5} />
-                  )}
-                </View>
-              );
-            })}
-          </View>
+                  이전
+                </Text>
+              </Pressable>
 
-          <View style={styles.explanation}>
-            <Text style={styles.explanationTitle}>해설</Text>
-            <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
-          </View>
-        </View>
+              <Pressable
+                accessibilityLabel="다음 문제"
+                disabled={currentIndex === displayQuestions.length - 1}
+                style={[
+                  styles.navigationButton,
+                  currentIndex === displayQuestions.length - 1 && styles.disabledButton,
+                ]}
+                onPress={() => moveTo(currentIndex + 1)}
+              >
+                <Text
+                  style={[
+                    styles.navigationText,
+                    currentIndex === displayQuestions.length - 1 && styles.disabledNavigationText,
+                  ]}
+                >
+                  다음
+                </Text>
+                <ChevronRight
+                  color={currentIndex === displayQuestions.length - 1 ? "#94a3b8" : "#4b5563"}
+                  size={20}
+                />
+              </Pressable>
+            </View>
 
-        <View style={styles.navigationRow}>
-          <Pressable
-            accessibilityLabel="이전 문제"
-            disabled={currentIndex === 0}
-            style={[
-              styles.navigationButton,
-              currentIndex === 0 && styles.disabledButton,
-            ]}
-            onPress={() => setCurrentIndex((index) => index - 1)}
-          >
-            <ChevronLeft color={currentIndex === 0 ? "#94a3b8" : "#4b5563"} size={20} />
-            <Text
-              style={[
-                styles.navigationText,
-                currentIndex === 0 && styles.disabledNavigationText,
-              ]}
-            >
-              이전
-            </Text>
-          </Pressable>
+            <View style={styles.questionCard}>
+              <View style={styles.resultHeader}>
+                {currentQuestion.isCorrect ? (
+                  <CircleCheck color="#16a34a" size={22} strokeWidth={2.4} />
+                ) : (
+                  <CircleX color="#ef4444" size={22} strokeWidth={2.4} />
+                )}
+                <Text style={[styles.resultText, currentQuestion.isCorrect ? styles.correct : styles.wrong]}>
+                  {currentQuestion.isCorrect ? "정답이에요" : "오답이에요"}
+                </Text>
+              </View>
 
-          <Pressable
-            accessibilityLabel="다음 문제"
-            disabled={currentIndex === displayQuestions.length - 1}
-            style={[
-              styles.navigationButton,
-              currentIndex === displayQuestions.length - 1 && styles.disabledButton,
-            ]}
-            onPress={() => setCurrentIndex((index) => index + 1)}
-          >
-            <Text
-              style={[
-                styles.navigationText,
-                currentIndex === displayQuestions.length - 1 && styles.disabledNavigationText,
-              ]}
-            >
-              다음
-            </Text>
-            <ChevronRight
-              color={currentIndex === displayQuestions.length - 1 ? "#94a3b8" : "#4b5563"}
-              size={20}
-            />
-          </Pressable>
-        </View>
+              <Text style={styles.question}>{currentQuestion.question}</Text>
+
+              <View style={styles.choiceList}>
+                {currentQuestion.choices.map((choice) => {
+                  const isAnswer = choice.isAnswer;
+                  const isSelected = choice.isSelected;
+
+                  return (
+                    <View
+                      key={choice.key}
+                      style={[
+                        styles.choice,
+                        isAnswer && styles.answerChoice,
+                        isSelected && !isAnswer && styles.selectedWrongChoice,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.choiceKey,
+                          isAnswer && styles.answerChoiceText,
+                          isSelected && !isAnswer && styles.wrongChoiceText,
+                        ]}
+                      >
+                        {choice.key}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.choiceText,
+                          isAnswer && styles.answerChoiceText,
+                          isSelected && !isAnswer && styles.wrongChoiceText,
+                        ]}
+                      >
+                        {choice.text}
+                      </Text>
+                      {isAnswer && (
+                        <CircleCheck color="#16a34a" size={20} strokeWidth={2.5} />
+                      )}
+                      {isSelected && !isAnswer && (
+                        <CircleX color="#ef4444" size={20} strokeWidth={2.5} />
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+
+              <View style={styles.explanation}>
+                <Text style={styles.explanationTitle}>해설</Text>
+                <Text style={styles.explanationText}>{currentQuestion.explanation}</Text>
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -353,6 +304,14 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 12,
     fontWeight: "600",
+  },
+  emptyText: {
+    marginTop: 48,
+    color: "#64748b",
+    fontFamily: FONT.pretendard,
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
   },
   progressRow: {
     flexDirection: "row",

@@ -91,7 +91,6 @@ export default function SolveResultRoute() {
         router.push({
           pathname: "/mistake-exam-review",
           params: {
-            subject: "Data Structure",
             category: resolvedTitle,
             sessionType: resolvedSessionType,
             ...(reviewItemsJson ? { reviewItemsJson } : {}),
