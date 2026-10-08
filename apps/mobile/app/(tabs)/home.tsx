@@ -163,14 +163,21 @@ export default function HomeScreen() {
                 )}
               </Pressable>
             </View>
+            {/* 글자를 채움 바 안에만 두면 진행률이 낮을 때 채움 폭이 좁아 잘린다(#238).
+                트랙에 어두운 글자를 깔고, 채움 바 안에는 같은 자리에 흰 글자를 두어 채운 부분만 희게 보이게 한다. */}
             <View style={styles.levelBarTrack}>
+              <Text numberOfLines={1} style={[styles.levelText, styles.levelTextOnTrack]}>
+                Lv.{level}
+              </Text>
               <LinearGradient
                 colors={["#6D5DFB", "#2EE6A6"]}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
                 style={[styles.levelBarFill, { width: `${levelProgress.percent}%` }]}
               >
-                <Text style={styles.levelText}>Lv.{level}</Text>
+                <Text numberOfLines={1} style={styles.levelText}>
+                  Lv.{level}
+                </Text>
               </LinearGradient>
             </View>
 
@@ -325,15 +332,22 @@ const styles = StyleSheet.create({
   },
   levelBarFill: {
     height: "100%",
-    justifyContent: "center",
     borderRadius: 12,
-    paddingLeft: 12,
+    overflow: "hidden",
   },
   levelText: {
+    position: "absolute",
+    top: 0,
+    left: 12,
+    width: 120,
     color: "#ffffff",
     fontFamily: FONT.kufam,
     fontSize: 12,
     fontWeight: "700",
+    lineHeight: 24,
+  },
+  levelTextOnTrack: {
+    color: "#475569",
   },
   primaryButton: {
     alignItems: "center",
