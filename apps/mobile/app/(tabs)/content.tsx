@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { router, useFocusEffect, useNavigation } from "expo-router";
 import { BlurView } from "expo-blur";
 import {
@@ -36,6 +37,12 @@ import {
   useSubjects,
 } from "../../src/features/content";
 import type { ChildCountKind, Concept, Subject } from "../../src/features/content";
+import {
+  completedProblemSetApi,
+  type CompletedProblemSetFilters,
+} from "../../src/features/logWeak/completedProblemSetApi";
+import type { CompletedProblemSetSummary } from "../../src/features/logWeak/types";
+import { completedProblemSetsQueryKey } from "../../src/features/logWeak/useCompletedProblemSets";
 import { usePassRates, useProblemSetProgress } from "../../src/features/progress";
 import type { ProgressScopeType } from "../../src/features/progress";
 import { useDailyRewardLimits } from "../../src/features/reward";
@@ -267,6 +274,7 @@ export default function ContentScreen() {
   const insets = useSafeAreaInsets();
   const { status, accessToken, user } = useAuth();
   const isGuest = status === "guest";
+  const queryClient = useQueryClient();
   const { language } = useLanguage();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [trail, setTrail] = useState<TrailItem[]>([{ depth: "subject" }]);
@@ -578,20 +586,57 @@ export default function ContentScreen() {
     });
   };
 
-  const openRecentReview = (item: ProblemSetItem) => {
+  const isOpeningReviewRef = useRef(false);
+
+  const openRecentReview = async (item: ProblemSetItem) => {
     // 해설/기록 확인은 회원 전용이라 게스트는 로그인 필요 안내로 보낸다.
     if (isGuest) {
       router.push("/login-required");
       return;
+    }
+    if (isOpeningReviewRef.current || !accessToken) {
+      return;
+    }
+
+    // 이 카드(과목·대분류·중분류) 범위의 완료 기록 중 같은 모의고사 종류의 가장 최근 회차를 연다.
+    // 예전엔 solveSessionId 없이 넘겨 해설 화면이 고정 목데이터를 보여줬다(#242).
+    const sessionType = sessionTypeByDepth[currentDepth];
+    const filters: CompletedProblemSetFilters =
+      currentDepth === "subject"
+        ? { subjectId: item.id }
+        : currentDepth === "category1"
+          ? { categoryLv1Id: item.id }
+          : { categoryLv2Id: item.id };
+
+    isOpeningReviewRef.current = true;
+    let latestSessionId: number | null = null;
+    try {
+      const sessions = await queryClient.fetchQuery({
+        queryKey: completedProblemSetsQueryKey(filters),
+        queryFn: () => completedProblemSetApi.list(accessToken, filters),
+      });
+      const latest = sessions
+        .filter((session) => session.sessionType === sessionType)
+        .reduce<CompletedProblemSetSummary | null>(
+          (newest, session) =>
+            newest === null || session.completedAt > newest.completedAt ? session : newest,
+          null,
+        );
+      latestSessionId = latest?.solveSessionId ?? null;
+    } catch (error) {
+      // 기록 조회에 실패하면 해설 화면이 "풀이 기록을 찾지 못했어요"를 보여준다.
+      console.error("[content] 최근 풀이 조회 실패", error);
+    } finally {
+      isOpeningReviewRef.current = false;
     }
 
     suppressNextResetRef.current = true;
     router.push({
       pathname: "/mistake-exam-review",
       params: {
-        subject: "Data Structure",
         category: item.title,
-        sessionType: sessionTypeByDepth[currentDepth],
+        sessionType,
+        ...(latestSessionId !== null ? { solveSessionId: String(latestSessionId) } : {}),
       },
     });
   };
