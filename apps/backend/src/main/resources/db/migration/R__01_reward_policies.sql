@@ -51,13 +51,14 @@ VALUES
      '챕터 모의고사(20문항) 완료 XP. 하루 7개까지(최대 210 XP)', TRUE, NOW(), NOW()),
     ('SUBJECT_MOCK_XP', 'XP', 0, 50, 5, NULL, FALSE, TRUE, 'PER_SESSION',
      '과목 모의고사(30문항) 완료 XP. 하루 5개까지(최대 250 XP)', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
-    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
-    min_correct_rate = VALUES(min_correct_rate),
-    first_reward_only = VALUES(first_reward_only), scope_daily_once = VALUES(scope_daily_once),
-    reward_scope = VALUES(reward_scope),
-    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+    reward_kind = new.reward_kind, coin_amount = new.coin_amount,
+    xp_amount = new.xp_amount, daily_limit = new.daily_limit,
+    min_correct_rate = new.min_correct_rate,
+    first_reward_only = new.first_reward_only, scope_daily_once = new.scope_daily_once,
+    reward_scope = new.reward_scope,
+    description = new.description, is_active = new.is_active, updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
 -- 코인 보상 - 최초 통과 (정답률 기준 + 범위별 최초 1회 + 일일 한도)
@@ -76,13 +77,14 @@ VALUES
      '챕터 모의고사 최초 통과 코인. 정답률 70% 이상 + 해당 챕터 최초 1회. 하루 7회까지(대분류/중분류 합산). 중복 판정 범위는 회차 유형에 따라 대분류 또는 중분류', TRUE, NOW(), NOW()),
     ('SUBJECT_MOCK_FIRST_PASS_COIN', 'COIN', 100, 0, 5, 60.00, TRUE, FALSE, 'PER_SUBJECT',
      '과목 모의고사 최초 통과 코인. 정답률 60% 이상 + 해당 과목 최초 1회. 하루 5회까지', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
-    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
-    min_correct_rate = VALUES(min_correct_rate),
-    first_reward_only = VALUES(first_reward_only), scope_daily_once = VALUES(scope_daily_once),
-    reward_scope = VALUES(reward_scope),
-    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+    reward_kind = new.reward_kind, coin_amount = new.coin_amount,
+    xp_amount = new.xp_amount, daily_limit = new.daily_limit,
+    min_correct_rate = new.min_correct_rate,
+    first_reward_only = new.first_reward_only, scope_daily_once = new.scope_daily_once,
+    reward_scope = new.reward_scope,
+    description = new.description, is_active = new.is_active, updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
 -- 코인 보상 - 재응시 (정답률 기준 + 일일 한도. 범위별 중복 판정 없음)
@@ -117,13 +119,14 @@ VALUES
      '챕터 모의고사 재응시 코인. 정답률 70% 이상 + 해당 챕터 최초 보상을 이미 받은 경우. 하루 7회까지(최초 통과 한도와 별도)', TRUE, NOW(), NOW()),
     ('SUBJECT_MOCK_RETRY_COIN', 'COIN', 10, 0, 5, 60.00, FALSE, TRUE, 'PER_SESSION',
      '과목 모의고사 재응시 코인. 정답률 60% 이상 + 해당 과목 최초 보상을 이미 받은 경우. 하루 5회까지(최초 통과 한도와 별도)', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
-    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
-    min_correct_rate = VALUES(min_correct_rate),
-    first_reward_only = VALUES(first_reward_only), scope_daily_once = VALUES(scope_daily_once),
-    reward_scope = VALUES(reward_scope),
-    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+    reward_kind = new.reward_kind, coin_amount = new.coin_amount,
+    xp_amount = new.xp_amount, daily_limit = new.daily_limit,
+    min_correct_rate = new.min_correct_rate,
+    first_reward_only = new.first_reward_only, scope_daily_once = new.scope_daily_once,
+    reward_scope = new.reward_scope,
+    description = new.description, is_active = new.is_active, updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
 -- 오늘의 CS 퀴즈 / 출석 (정답률 무관, 하루 1회)
@@ -136,13 +139,14 @@ VALUES
      '오늘의 CS 퀴즈 완료 보상. 정답률 무관, 하루 1회', TRUE, NOW(), NOW()),
     ('ATTENDANCE_REWARD', 'MIXED', 5, 10, 1, NULL, TRUE, FALSE, 'PER_DAY',
      '출석 보상. 하루 1회', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
-    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
-    min_correct_rate = VALUES(min_correct_rate),
-    first_reward_only = VALUES(first_reward_only), scope_daily_once = VALUES(scope_daily_once),
-    reward_scope = VALUES(reward_scope),
-    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+    reward_kind = new.reward_kind, coin_amount = new.coin_amount,
+    xp_amount = new.xp_amount, daily_limit = new.daily_limit,
+    min_correct_rate = new.min_correct_rate,
+    first_reward_only = new.first_reward_only, scope_daily_once = new.scope_daily_once,
+    reward_scope = new.reward_scope,
+    description = new.description, is_active = new.is_active, updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
 -- 레벨업 보상
@@ -167,13 +171,14 @@ VALUES
      '40레벨 달성 보상', TRUE, NOW(), NOW()),
     ('LEVEL_UP_50', 'COIN', 1000, 0, NULL, NULL, TRUE, FALSE, 'PER_LEVEL',
      '50레벨 달성 보상(레벨 상한)', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
-    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
-    min_correct_rate = VALUES(min_correct_rate),
-    first_reward_only = VALUES(first_reward_only), scope_daily_once = VALUES(scope_daily_once),
-    reward_scope = VALUES(reward_scope),
-    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+    reward_kind = new.reward_kind, coin_amount = new.coin_amount,
+    xp_amount = new.xp_amount, daily_limit = new.daily_limit,
+    min_correct_rate = new.min_correct_rate,
+    first_reward_only = new.first_reward_only, scope_daily_once = new.scope_daily_once,
+    reward_scope = new.reward_scope,
+    description = new.description, is_active = new.is_active, updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
 -- 신규 가입 / 광고 / 프리미엄
@@ -192,10 +197,11 @@ VALUES
      '프리미엄 구독자 일일 코인. 하루 1회', TRUE, NOW(), NOW()),
     ('PREMIUM_SIGNUP_BONUS', 'COIN', 500, 0, NULL, NULL, TRUE, FALSE, 'PER_USER',
      '프리미엄 최초 가입 보너스. 계정당 1회', TRUE, NOW(), NOW())
+AS new
 ON DUPLICATE KEY UPDATE
-    reward_kind = VALUES(reward_kind), coin_amount = VALUES(coin_amount),
-    xp_amount = VALUES(xp_amount), daily_limit = VALUES(daily_limit),
-    min_correct_rate = VALUES(min_correct_rate),
-    first_reward_only = VALUES(first_reward_only), scope_daily_once = VALUES(scope_daily_once),
-    reward_scope = VALUES(reward_scope),
-    description = VALUES(description), is_active = VALUES(is_active), updated_at = NOW();
+    reward_kind = new.reward_kind, coin_amount = new.coin_amount,
+    xp_amount = new.xp_amount, daily_limit = new.daily_limit,
+    min_correct_rate = new.min_correct_rate,
+    first_reward_only = new.first_reward_only, scope_daily_once = new.scope_daily_once,
+    reward_scope = new.reward_scope,
+    description = new.description, is_active = new.is_active, updated_at = NOW();
