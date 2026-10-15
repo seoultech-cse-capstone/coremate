@@ -8,13 +8,6 @@ import type {
   WeaknessAnalysisReportSummary,
 } from "./types";
 
-/**
- * 분석표 생성 응답을 기다릴 시간. 백엔드는 AI 응답을 최대 120초(`weakness.analysis.ai-timeout-sec`)
- * 기다리므로, 앱이 그보다 먼저 끊으면 서버는 계속 분석해 코인까지 쓰는데 화면에는 실패로만
- * 보인다. 백엔드가 포기하는 시점 뒤에 두려고 120초에 여유를 더했다.
- */
-const CREATE_REPORT_TIMEOUT_MS = 150_000;
-
 export type EligibleSolveSessionFilters = {
   subjectId?: number;
   categoryLv1Id?: number;
@@ -62,7 +55,8 @@ export const weaknessApi = {
       .then((res) => res.data);
   },
 
-  // 동기 호출: AI 해석까지 끝난 뒤 완성된 분석표를 응답으로 받는다(시간이 걸릴 수 있음).
+  // 비동기 생성(#323): 서버는 코인만 차감하고 즉시 GENERATING 상태의 분석표를 202 로 돌려준다.
+  // 실제 AI 분석은 백그라운드에서 진행되고, 완료 시 FCM 알림이 온다(상세 조회 폴링으로도 확인 가능).
   // 코인이 차감되는 요청이라 서버가 Idempotency-Key 헤더를 필수로 요구한다. 헤더가 없으면
   // IDEMPOTENCY_KEY_REQUIRED 로 거절당해 생성 자체가 안 된다.
   createReport(
@@ -77,7 +71,6 @@ export const weaknessApi = {
         {
           accessToken,
           headers: { "Idempotency-Key": idempotencyKey },
-          timeoutMs: CREATE_REPORT_TIMEOUT_MS,
         },
       )
       .then((res) => res.data);

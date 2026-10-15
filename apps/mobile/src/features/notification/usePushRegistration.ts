@@ -17,11 +17,23 @@ const TARGET_ROUTES: Record<NotificationTargetType, string | null> = {
   DAILY_QUIZ: "/(tabs)/home",
   MYPAGE: "/(tabs)/mypage",
   SETTING: "/device-management",
+  WEAKNESS_REPORT: "/weakness-report",
 };
 
 function openTarget(data: Record<string, unknown> | undefined) {
   const targetType = data?.targetType as NotificationTargetType | undefined;
   if (!targetType) {
+    return;
+  }
+  // 약점분석 완료 알림은 target_id(리포트 ID)로 해당 분석표 상세를 바로 연다.
+  if (targetType === "WEAKNESS_REPORT") {
+    const reportId = data?.targetId;
+    if (reportId !== undefined && reportId !== null) {
+      router.push({
+        pathname: "/weakness-report",
+        params: { reportId: String(reportId) },
+      } as never);
+    }
     return;
   }
   const route = TARGET_ROUTES[targetType];
@@ -102,8 +114,13 @@ export function usePushRegistration() {
   // 앱이 켜져 있는 동안 알림이 오면 배지와 목록을 새로 읽는다.
   // 이게 없으면 화면에 들어올 때만 갱신돼, 앱을 켜 둔 채로 받은 알림이 배지에 반영되지 않는다.
   useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(() => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      // 약점분석 완료 알림이 앱이 켜진 채 오면, 보고 있던 목록·상세가 즉시 완료로 바뀌도록 갱신한다.
+      const data = notification.request.content.data as Record<string, unknown>;
+      if (data?.targetType === "WEAKNESS_REPORT") {
+        queryClient.invalidateQueries({ queryKey: ["weakness"] });
+      }
     });
     return () => subscription.remove();
   }, [queryClient]);

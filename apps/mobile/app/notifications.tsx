@@ -47,6 +47,7 @@ const TARGET_ROUTES: Record<string, string | null> = {
   DAILY_QUIZ: "/(tabs)/home",
   MYPAGE: "/(tabs)/mypage",
   SETTING: "/device-management",
+  WEAKNESS_REPORT: "/weakness-report",
 };
 
 /** 알림 종류별 아이콘. 목록에 없는 종류가 새로 오면 종 아이콘으로 보여 준다. */
@@ -87,6 +88,16 @@ export default function NotificationsScreen() {
   const openNotification = (notification: AppNotification) => {
     if (!notification.isRead) {
       markRead.mutate(notification.notificationId);
+    }
+    // 약점분석 완료 알림은 target_id(리포트 ID)로 해당 분석표 상세를 바로 연다.
+    if (notification.targetType === "WEAKNESS_REPORT") {
+      if (notification.targetId !== null) {
+        router.push({
+          pathname: "/weakness-report",
+          params: { reportId: String(notification.targetId) },
+        } as never);
+      }
+      return;
     }
     const route = TARGET_ROUTES[notification.targetType];
     if (route) {

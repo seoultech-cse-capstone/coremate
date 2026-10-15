@@ -231,6 +231,18 @@ export default function WeaknessReportScreen() {
               {getApiErrorMessage(error, "분석표를 불러오지 못했어요.")}
             </Text>
           </View>
+        ) : report.status === "GENERATING" ? (
+          // 백그라운드 생성이 끝나면 폴링(useWeaknessReportDetail)·FCM 으로 자동 전환된다.
+          <View style={styles.stateArea}>
+            <ActivityIndicator color={BRAND_PURPLE} size="large" />
+            <Text style={[styles.stateText, { marginTop: 16 }]}>
+              분석 중이에요. 완료되면 알림으로 알려드릴게요.
+            </Text>
+          </View>
+        ) : report.status === "FAILED" ? (
+          <View style={styles.stateArea}>
+            <Text style={styles.stateText}>분석에 실패했어요. 코인은 환불됐어요.</Text>
+          </View>
         ) : (
           <ScrollView
             contentContainerStyle={styles.content}
