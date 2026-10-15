@@ -1045,14 +1045,16 @@ function EligibleSessionCard({
 
       <View style={styles.resultRow}>
         <View>
-          <Text style={styles.resultLabel}>Wrong</Text>
-          <Text style={[styles.resultValue, styles.wrongResultValue]}>
-            {item.wrongCount}/{item.totalQuestionCount}
+          {/* "내 풀이" 화면(ExamHistoryCard)과 같은 지표·라벨(Correct n/N)을 써야
+              같은 회차가 반전된 것처럼 보이지 않는다(#272). */}
+          <Text style={styles.resultLabel}>Correct</Text>
+          <Text style={styles.resultValue}>
+            {item.totalQuestionCount - item.wrongCount}/{item.totalQuestionCount}
           </Text>
           {/* 분석 근거는 오답만이 아니라 오래 걸림·힌트까지 셋이다. 고를 때 셋 다 보여야
               어느 회차가 분석할 거리가 많은지 판단할 수 있다(SCR-WEAK-02). */}
           <Text style={styles.signalText}>
-            오래 걸림 {item.longTimeCount} · 힌트 사용 {item.hintUsedCount}
+            오답 {item.wrongCount} · 오래 걸림 {item.longTimeCount} · 힌트 사용 {item.hintUsedCount}
           </Text>
           <Text style={styles.scopePathText}>{scopePath.join("  >  ")}</Text>
         </View>
@@ -1397,10 +1399,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT.kufam,
     fontSize: 15,
     fontWeight: "600",
-  },
-  // 오답 수는 많을수록 나쁜 값이라 정답 수와 같은 초록을 쓰면 안 된다.
-  wrongResultValue: {
-    color: "#ef4444",
   },
   signalText: {
     marginTop: 6,
