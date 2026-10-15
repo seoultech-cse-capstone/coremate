@@ -219,9 +219,21 @@ public class WeaknessAnalysisService {
         });
     }
 
-    // ②AI 호출(트랜잭션 밖) + ③저장/보상 tx. 전용 풀에서 실행되며, 비동기라 호출자에게 rethrow 하지 않고
-    // 실패는 보상(코인 환불·FAILED·멱등키 해제) 후 로그로만 남긴다. 성공 시 완료 알림 이벤트를 발행한다.
+    // 전용 풀에서 실행되는 백그라운드 작업의 바깥 안전망. generate() 가 던지는 모든 예외(저장 실패 보상
+    // 자체가 또 실패한 경우 등)를 여기서 반드시 남긴다. 풀 스레드에서 예외가 조용히 삼켜지면 리포트가
+    // GENERATING 에 영구히 멈추고(코인 미환불) 앱이 무한 폴링하기 때문이다.
     private void completeReport(Long userId, PreparedReport prepared, String idempotencyKey) {
+        try {
+            generate(userId, prepared, idempotencyKey);
+        } catch (RuntimeException ex) {
+            log.error("약점분석 백그라운드 작업이 보상까지 실패 — 리포트가 GENERATING 에 남았을 수 있어 "
+                    + "수동 확인 필요 (userId={}, reportId={})", userId, prepared.reportId(), ex);
+        }
+    }
+
+    // ②AI 호출(트랜잭션 밖) + ③저장/보상 tx. 비동기라 호출자에게 rethrow 하지 않고 실패는 보상
+    // (코인 환불·FAILED·멱등키 해제) 후 로그로만 남긴다. 성공 시 완료 알림 이벤트를 발행한다.
+    private void generate(Long userId, PreparedReport prepared, String idempotencyKey) {
         // ② AI 호출 (트랜잭션 밖 — 이 구간에는 DB 커넥션을 쥐지 않는다)
         long startedAt = System.currentTimeMillis();
         AiWeaknessAnalysisResponse aiResponse;
@@ -238,7 +250,20 @@ public class WeaknessAnalysisService {
         }
         int latencyMs = (int) (System.currentTimeMillis() - startedAt);
 
-        // ③-성공 저장 tx: 교차검증 + 개념/근거 저장 → COMPLETED → 완료 알림 이벤트 발행
+        // ③-성공 저장 tx. AI 는 성공했지만 저장이 실패하면(DB 오류·제약 위반·findById empty 등) 리포트가
+        // GENERATING 에 멈추고 코인도 차감된 채 남으므로, 반드시 보상(환불·FAILED·멱등키 해제)으로 돌린다.
+        try {
+            persistResult(userId, prepared, aiResponse, latencyMs);
+        } catch (RuntimeException ex) {
+            // AI 호출 자체는 성공이므로 FAILED AI 로그(latencyMs)는 남기지 않는다(성공률 지표 왜곡 방지).
+            markFailedAndRefund(userId, prepared, idempotencyKey, null, "분석 결과 저장 실패");
+            log.error("약점분석 결과 저장 실패 (userId={}, reportId={})", userId, prepared.reportId(), ex);
+        }
+    }
+
+    // ③-성공 저장 tx: 교차검증 + 개념/근거 저장 → COMPLETED → 완료 알림 이벤트 발행.
+    private void persistResult(Long userId, PreparedReport prepared,
+            AiWeaknessAnalysisResponse aiResponse, int latencyMs) {
         transactionTemplate.executeWithoutResult(status -> {
             WeaknessAnalysisReport report = reportRepository.findById(prepared.reportId())
                     .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED));

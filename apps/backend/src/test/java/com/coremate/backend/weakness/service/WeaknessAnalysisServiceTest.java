@@ -210,6 +210,42 @@ class WeaknessAnalysisServiceTest {
     }
 
     /**
+     * 비동기(#323): AI 는 성공했지만 결과 저장 tx 가 실패하면(DB 오류 등) 리포트가 GENERATING 에
+     * 멈추고 코인도 차감된 채 남으면 안 된다. AI 실패와 동일하게 보상(환불·FAILED·멱등키 해제)해야 한다.
+     */
+    @Test
+    void saveFailureAfterAiSuccessRefundsCoinUnregistersKeyAndMarksFailed() {
+        when(props.getCoinCost()).thenReturn(100);
+        when(featureAccessPricingService.priceCoinOf(
+                FeatureAccessPricingService.WEAKNESS_ANALYSIS_CREATE, false, 100)).thenReturn(80);
+        when(selectionValidator.validateAndLoad(anyLong(), any()))
+                .thenReturn(List.of(mock(SolveSession.class)));
+
+        WeaknessEvidenceLogResponse wrong = evidence(9501L, "WRONG", "B");
+        ConceptCandidate candidate = new ConceptCandidate(9301L, "완전 이진 트리", "한 줄 정의",
+                5, 2, 1, 0, 40, new BigDecimal("0.800"), new BigDecimal("0.200"),
+                WeaknessType.CONCEPT_CONFUSION, List.of(wrong));
+        when(scoringService.score(any()))
+                .thenReturn(new WeaknessScoringResult(List.of(candidate), 10, 2, 1, 0, true));
+        when(reportRepository.findByRequestFingerprintAndStatus(anyString(), any())).thenReturn(Optional.empty());
+        when(diagnosticProfileService.loadQuestionProfiles(any())).thenReturn(Map.of(
+                9501L, profileView("RECALL", Map.of("B", "CPT_M01"))));
+
+        // AI 는 성공하지만, 결과를 저장하는 중 개념 저장이 실패한다(DB 오류 등).
+        when(aiClient.analyze(any())).thenReturn(new AiWeaknessAnalysisResponse("요약", List.of(), null));
+        when(conceptRepository.save(any())).thenThrow(new RuntimeException("db down"));
+
+        // 비동기라 예외는 요청자에게 전파되지 않는다(이미 202 반환). 보상만 일어난다.
+        service.createReport(1L, request(), "key-1");
+
+        // 코인은 차감됐다가(준비 tx) 환불된다(보상 tx).
+        verify(rewardService).spendCoin(eq(1L), eq(80), eq(CurrencyReason.WEAKNESS_ANALYSIS_CREATE), any(), any());
+        verify(rewardService).earnCoin(eq(1L), eq(80), eq(CurrencyReason.REFUND), any(), any());
+        // 같은 키로 재시도할 수 있도록 멱등키를 해제한다.
+        verify(idempotencyGuard).unregister(1L, "key-1");
+    }
+
+    /**
      * 진단 프로필이 AI 입력에 실제로 실리는지 검증한다(C1 배선 회귀 방지).
      * 같은 오개념 코드가 2회 나오면 repeated_misconceptions 로 집계돼야 한다.
      */
