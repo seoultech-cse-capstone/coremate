@@ -23,14 +23,16 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 소셜 로그인 진입점. provider 토큰을 검증해 사용자를 link-or-create 한 뒤,
  * 세션 등록·토큰 발급은 {@link AuthService#login} 과 동일한 흐름을 따른다(응답도 동일).
+ *
+ * <p>provider 와의 OAuth HTTP 왕복은 트랜잭션 밖에서 하고, DB 작업(link-or-create·세션·토큰)만
+ * 트랜잭션으로 묶는다. 외부 지연 동안 DB 커넥션을 쥐지 않기 위함이다(#321).
  */
 @Service
-@Transactional
 public class OAuthLoginService {
 
     private final Map<SocialProvider, OAuthClient> clients;
@@ -39,13 +41,15 @@ public class OAuthLoginService {
     private final JwtProvider jwtProvider;
     private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate transactionTemplate;
 
     public OAuthLoginService(List<OAuthClient> clients,
                              UserRepository userRepository,
                              UserSocialAccountRepository socialAccountRepository,
                              JwtProvider jwtProvider,
                              UserSessionService userSessionService,
-                             ApplicationEventPublisher eventPublisher) {
+                             ApplicationEventPublisher eventPublisher,
+                             TransactionTemplate transactionTemplate) {
         this.clients = clients.stream()
                 .collect(Collectors.toMap(OAuthClient::provider, Function.identity()));
         this.userRepository = userRepository;
@@ -53,6 +57,7 @@ public class OAuthLoginService {
         this.jwtProvider = jwtProvider;
         this.userSessionService = userSessionService;
         this.eventPublisher = eventPublisher;
+        this.transactionTemplate = transactionTemplate;
     }
 
     public LoginResponse login(SocialProvider provider, OAuthLoginRequest request) {
@@ -61,7 +66,14 @@ public class OAuthLoginService {
             throw new CoreMateException(ErrorCode.UNSUPPORTED_OAUTH_PROVIDER);
         }
 
+        // 외부 OAuth HTTP 왕복(토큰 교환+userinfo)은 트랜잭션 밖에서 — 이 구간에는 DB 커넥션을 쥐지 않는다.
         OAuthUserInfo userInfo = client.fetch(request);
+
+        // link-or-create·세션 등록·토큰 발급(모두 DB 작업)만 한 트랜잭션으로 묶는다.
+        return transactionTemplate.execute(status -> completeLogin(provider, userInfo, request));
+    }
+
+    private LoginResponse completeLogin(SocialProvider provider, OAuthUserInfo userInfo, OAuthLoginRequest request) {
         User user = linkOrCreate(provider, userInfo);
 
         if (user.getStatus() != UserStatus.ACTIVE) {

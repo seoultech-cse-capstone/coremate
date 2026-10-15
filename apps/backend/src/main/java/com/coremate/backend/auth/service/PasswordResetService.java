@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class PasswordResetService {
 
     private static final String CODE_PREFIX = "pw-reset:code:";
@@ -116,7 +115,11 @@ public class PasswordResetService {
 
     /**
      * 재설정 토큰으로 새 비밀번호를 저장하고, 기존 세션(refresh token)을 무효화한다.
+     *
+     * <p>이 흐름에만 DB 쓰기(비밀번호 변경·세션 폐기)가 있어 트랜잭션으로 묶는다. 인증번호 발송/검증은
+     * SMTP·Redis 뿐이라 트랜잭션을 두지 않아, 메일 왕복 동안 DB 커넥션을 쥐지 않는다(#321).
      */
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         String tokenKey = TOKEN_PREFIX + request.getResetToken();
         String email = redisTemplate.opsForValue().get(tokenKey);
