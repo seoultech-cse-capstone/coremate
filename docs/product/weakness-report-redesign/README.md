@@ -6,7 +6,7 @@ SCR-WEAK-05 화면을 고치면서 팀 논의에 쓴 HTML 3개다. 브라우저�
 |---|---|
 | `weakness-report-redesign.html` | 제안서. 왜 고치는지(본문 6,544자 중 진단·팁이 385자)와 조사로 드러난 결함들 |
 | `weakness-report-mockups.html` | 개편 후 화면 목업 8장 |
-| `weakness-report-compare.html` | 지금 화면 ↔ 제안 화면 7쌍 비교. 09/17 회의록에도 첨부돼 있다 |
+| `weakness-report-compare.html` | 개편 전 화면 ↔ 지금 화면 6쌍 비교. 양쪽 모두 실제 앱 캡처다(10/16 교체). 09/17 회의록에도 첨부돼 있다 |
 
 목업의 문구와 숫자는 로컬 DB의 실제 분석표(#18 알고리즘, #13 자료구조) 값이고,
 AI가 쓴 문장은 뜻을 두고 말투만 해요체로 바꿨다.
