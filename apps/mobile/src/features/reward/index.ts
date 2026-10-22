@@ -10,6 +10,7 @@ export type {
   CurrencyLog,
   DailyRewardLimit,
   RewardLog,
+  RewardPolicy,
   RewardSummary,
   XpLog,
 } from "./types";

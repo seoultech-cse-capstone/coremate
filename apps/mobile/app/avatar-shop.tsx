@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
+import { AdRewardCard } from "../src/features/ads";
 import { useAuth, useRequireMember } from "../src/features/auth";
 import { useMyCurrency } from "../src/features/currency";
 import {
@@ -54,7 +55,7 @@ function formatProbability(probability: string): string {
 
 export default function AvatarShopScreen() {
   useRequireMember();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const currencyQuery = useMyCurrency(accessToken);
   const productsQuery = useShopProducts(accessToken);
   const purchaseMutation = usePurchaseMutation(accessToken);
@@ -285,6 +286,8 @@ export default function AvatarShopScreen() {
                 </Pressable>
               );
             })}
+
+            <AdRewardCard accessToken={accessToken} userId={user?.userId ?? null} />
           </ScrollView>
         )}
       </SafeAreaView>

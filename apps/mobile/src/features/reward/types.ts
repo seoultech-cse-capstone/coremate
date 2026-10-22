@@ -9,6 +9,21 @@ export type DailyRewardLimit = {
   updatedAt: string;
 };
 
+/** GET /api/rewards/policies 항목. RewardPolicyResponse와 1:1 대응 */
+export type RewardPolicy = {
+  rewardPolicyId: number;
+  rewardType: string;
+  rewardKind: string;
+  coinAmount: number;
+  xpAmount: number;
+  dailyLimit: number | null;
+  minCorrectRate: number | null;
+  firstRewardOnly: boolean;
+  scopeDailyOnce: boolean;
+  rewardScope: string | null;
+  description: string | null;
+};
+
 /** GET /api/rewards/summary · GET /api/xp/summary 공통 응답. */
 export type RewardSummary = {
   userId: number;
