@@ -67,7 +67,9 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/content/**",
-                                "/api/v1/solve/questions/*/hint"
+                                "/api/v1/solve/questions/*/hint",
+                                // 광고 시청 완료 콜백. 구글이 토큰 없이 부르고, 서비스가 서명으로 출처를 확인한다.
+                                "/api/rewards/ads/admob-ssv"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

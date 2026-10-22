@@ -127,7 +127,9 @@ public enum ErrorCode {
     REWARD_POLICY_NOT_FOUND(HttpStatus.NOT_FOUND, "보상 정책을 찾을 수 없습니다"),
     INSUFFICIENT_COIN(HttpStatus.BAD_REQUEST, "보유 코인이 부족합니다"),
     INVALID_REWARD_AMOUNT(HttpStatus.BAD_REQUEST, "보상 수량이 올바르지 않습니다"),
-    DAILY_REWARD_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "일일 보상 한도를 초과했습니다");
+    DAILY_REWARD_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "일일 보상 한도를 초과했습니다"),
+    // 광고 시청 완료 콜백의 서명이 구글 공개키로 확인되지 않았다. 구글이 아닌 곳에서 온 요청이다.
+    INVALID_AD_REWARD_SIGNATURE(HttpStatus.BAD_REQUEST, "광고 보상 확인 서명이 올바르지 않습니다");
 
     private final HttpStatus status;
     private final String message;

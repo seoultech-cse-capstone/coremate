@@ -53,6 +53,12 @@ oauth:
     # 프론트 GoogleSignin 의 webClientId 와 같은 값이어야 하며, 없으면 구글 로그인만 실패한다.
     client-id: ${GOOGLE_CLIENT_ID:}
 
+admob:
+  # 광고 시청 완료 콜백(서버 측 확인, SSV)으로 코인을 줄 보상형 광고 단위 ID. 쉼표로 구분한다.
+  # 공개값이라 시크릿은 아니다(앱에도 그대로 들어간다). "ca-app-pub-…/1234567890" 처럼 통째로 적어도
+  # 되고, 콜백에 실려 오는 뒷부분 숫자만 비교한다. 비어 있으면 어떤 콜백에도 코인을 주지 않는다.
+  rewarded-ad-unit-ids: ${ADMOB_REWARDED_AD_UNIT_IDS:}
+
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiry-sec: 3600      # 1시간
