@@ -10,11 +10,18 @@ export type NotificationType =
   | "FRIEND_REQUEST_RECEIVED"
   | "FRIEND_REQUEST_ACCEPTED"
   | "LEARNING_REMINDER"
+  | "WEAKNESS_REPORT_READY"
   | "LEVEL_UP"
   | "NEW_DEVICE_LOGIN";
 
 /** 알림을 눌렀을 때 이동할 화면 종류. NONE이면 앱만 열고 홈에 머문다. */
-export type NotificationTargetType = "NONE" | "FRIEND" | "DAILY_QUIZ" | "MYPAGE" | "SETTING";
+export type NotificationTargetType =
+  | "NONE"
+  | "FRIEND"
+  | "DAILY_QUIZ"
+  | "MYPAGE"
+  | "SETTING"
+  | "WEAKNESS_REPORT";
 
 export type AppNotification = {
   notificationId: number;

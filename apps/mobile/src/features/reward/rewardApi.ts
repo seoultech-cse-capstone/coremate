@@ -3,6 +3,7 @@ import type {
   CurrencyLog,
   DailyRewardLimit,
   RewardLog,
+  RewardPolicy,
   RewardSummary,
   XpLog,
 } from "./types";
@@ -17,6 +18,11 @@ export const rewardApi = {
     return httpClient.get<DailyRewardLimit[]>(`/api/rewards/daily-limits${query}`, {
       accessToken,
     });
+  },
+
+  /** 활성 보상 정책. 지급량·하루 한도를 화면에 그대로 보여 줄 때 쓴다(값을 앱에 박아 두지 않는다). */
+  getPolicies(accessToken: string): Promise<RewardPolicy[]> {
+    return httpClient.get<RewardPolicy[]>("/api/rewards/policies", { accessToken });
   },
 
   /** XP·레벨·코인 요약. /api/xp/summary 도 같은 DTO를 주므로 하나만 쓴다. */

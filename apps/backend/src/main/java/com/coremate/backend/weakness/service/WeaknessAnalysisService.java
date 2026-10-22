@@ -11,6 +11,7 @@ import com.coremate.backend.content.repository.ConceptRepository;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.global.idempotency.IdempotencyGuard;
+import com.coremate.backend.notification.service.NotificationMessages;
 import com.coremate.backend.paid.service.FeatureAccessPricingService;
 import com.coremate.backend.reward.entity.type.CurrencyReason;
 import com.coremate.backend.reward.service.RewardService;
@@ -67,6 +68,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.task.TaskRejectedException;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -77,7 +81,10 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <p>생성: 검증 → 결정론 스코어링 → 근거부족 시 INSUFFICIENT_EVIDENCE 종료 → request_fingerprint 멱등
  * → 코인 차감 → AI 서버 호출 → 백엔드/AI 유형 교차검증 → 저장(report/sessions/concepts/evidence/ai_call_log).
- * 전 과정을 한 트랜잭션으로 묶어 AI 실패 시 코인 차감까지 롤백한다.
+ *
+ * <p>비동기(#323): ① 준비 tx 를 커밋해 리포트를 GENERATING 으로 만들고 즉시 반환(202), ②AI 호출 + ③저장은
+ * 전용 풀에서 수행한다. 트랜잭션을 쪼갠 뒤라 "AI 실패 시 자동 롤백"이 불가능하므로, 실패는 명시적 보상
+ * (코인 환불 · FAILED · 멱등키 해제)으로 대체한다. 완료 시 FCM 완료 알림 이벤트를 발행한다.
  */
 @Slf4j
 @Service
@@ -110,6 +117,9 @@ public class WeaknessAnalysisService {
     private final SolveSessionRepository weaknessSolveSessionRepository;
     private final IdempotencyGuard idempotencyGuard;
     private final TransactionTemplate transactionTemplate;
+    private final ApplicationEventPublisher eventPublisher;
+    // 빈 이름과 필드명을 맞춰 전용 풀을 주입받는다(스프링 부트 기본 applicationTaskExecutor 와 구분).
+    private final ThreadPoolTaskExecutor weaknessAnalysisExecutor;
 
     // ----------------------------------------------------------------------- //
     // 생성
@@ -117,26 +127,36 @@ public class WeaknessAnalysisService {
     private static final String CREATE_OPERATION = "WEAKNESS_REPORT_CREATE";
 
     // 컨트롤러 진입점. 멱등키로 동시/재시도 요청의 중복(비싼 LLM 호출·코인 차감·리포트)을 막는다(#168).
+    // 비동기(#323): ① 준비 tx 로 리포트를 GENERATING 으로 만들고 즉시 상세를 반환한다. 멱등 재사용이면
+    // 완료본을 그대로 돌려주고, 아니면 ②AI+③저장을 전용 풀에 제출한다. 완료/실패는 폴링·FCM 으로 전달된다.
     public WeaknessAnalysisReportDetailResponse createReport(
             Long userId, CreateWeaknessAnalysisReportRequest request, String idempotencyKey) {
-        return generateReport(userId, request, idempotencyKey);
+        PreparedReport prepared = prepare(userId, request, idempotencyKey);
+        if (prepared.reused() != null) {
+            return prepared.reused();
+        }
+        // ②AI 호출 + ③저장을 요청 스레드 밖에서 수행한다(요청 스레드·DB 커넥션 모두 미점유).
+        // 큐까지 포화돼 제출이 거절되면, 준비 tx 에서 이미 차감한 코인·멱등키를 보상하고 에러로 돌린다.
+        try {
+            weaknessAnalysisExecutor.execute(() -> completeReport(userId, prepared, idempotencyKey));
+        } catch (TaskRejectedException ex) {
+            markFailedAndRefund(userId, prepared, idempotencyKey, null, "분석 작업 큐 포화");
+            log.error("약점분석 작업 제출 거부 (userId={}, reportId={})", userId, prepared.reportId(), ex);
+            throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
+        }
+        return prepared.generatingDetail();
     }
 
     // 멱등키 없이 생성(내부·테스트용).
     public WeaknessAnalysisReportDetailResponse createReport(Long userId, CreateWeaknessAnalysisReportRequest request) {
-        return generateReport(userId, request, null);
+        return createReport(userId, request, null);
     }
 
-    // 생성 오케스트레이션. 비싼 AI 호출(실측 27~36초, 타임아웃 최대 120초)을 트랜잭션 "밖"에서
-    // 수행해 그동안 DB 커넥션을 붙잡지 않도록 트랜잭션을 세 단계로 쪼갠다(#320):
-    //   ① 준비 tx: 검증·스코어링·멱등 → 리포트(GENERATING)·세션 저장 → 코인 차감 → 커밋
-    //   ② AI 호출: 트랜잭션 밖 (커넥션 미점유)
-    //   ③ 저장 tx: 성공 시 개념·근거 저장 후 COMPLETED / 실패 시 FAILED + 코인 환불 + 멱등키 해제
-    // 한 트랜잭션이던 기존 설계의 "AI 실패 시 자동 롤백(코인 원복)"은 ③의 명시적 보상으로 대체한다.
-    private WeaknessAnalysisReportDetailResponse generateReport(
+    // ① 준비 tx (짧게 커밋): 검증·스코어링·멱등 → 리포트(GENERATING)·세션 저장 → 코인 차감.
+    // 완료된 동일 분석표가 있으면 재사용본을 담아 돌려주고(코인·AI 없음), 아니면 ②③에 넘길 재료를 담는다.
+    private PreparedReport prepare(
             Long userId, CreateWeaknessAnalysisReportRequest request, String idempotencyKey) {
-        // ① 준비 tx (짧게 커밋)
-        PreparedReport prepared = transactionTemplate.execute(status -> {
+        return transactionTemplate.execute(status -> {
             if (idempotencyKey != null) {
                 idempotencyGuard.register(userId, idempotencyKey, CREATE_OPERATION);
             }
@@ -185,20 +205,35 @@ public class WeaknessAnalysisService {
             rewardService.spendCoin(userId, coinCost, CurrencyReason.WEAKNESS_ANALYSIS_CREATE,
                     REFERENCE_TYPE, report.getAnalysisReportId());
 
-            // 선택 회차는 지금(tx 안에서) 응답 DTO 로 변환해 둔다. 다음 단계는 다른 트랜잭션이라
+            // 선택 회차는 지금(tx 안에서) 응답 DTO 로 변환해 둔다. 다음 단계는 다른 트랜잭션·다른 스레드라
             // 엔티티가 detached 되어 지연 로딩을 할 수 없기 때문이다.
             List<EligibleSolveSessionResponse> selectedSessions = sessions.stream()
                     .map(this::toSelectedSession)
                     .toList();
             AiRequestBundle bundle = buildAiRequest(subject, scoring);
+            // 요청 스레드로 바로 돌려줄 GENERATING 상세(개념은 아직 없음). 아직 tx 안이라 엔티티 접근이 안전하다.
+            WeaknessAnalysisReportDetailResponse generatingDetail =
+                    buildDetailResponse(report, selectedSessions, List.of());
             return PreparedReport.proceed(report.getAnalysisReportId(), coinCost, fingerprint,
-                    scoring, bundle, selectedSessions);
+                    scoring, bundle, selectedSessions, generatingDetail);
         });
+    }
 
-        if (prepared.reused() != null) {
-            return prepared.reused();
+    // 전용 풀에서 실행되는 백그라운드 작업의 바깥 안전망. generate() 가 던지는 모든 예외(저장 실패 보상
+    // 자체가 또 실패한 경우 등)를 여기서 반드시 남긴다. 풀 스레드에서 예외가 조용히 삼켜지면 리포트가
+    // GENERATING 에 영구히 멈추고(코인 미환불) 앱이 무한 폴링하기 때문이다.
+    private void completeReport(Long userId, PreparedReport prepared, String idempotencyKey) {
+        try {
+            generate(userId, prepared, idempotencyKey);
+        } catch (RuntimeException ex) {
+            log.error("약점분석 백그라운드 작업이 보상까지 실패 — 리포트가 GENERATING 에 남았을 수 있어 "
+                    + "수동 확인 필요 (userId={}, reportId={})", userId, prepared.reportId(), ex);
         }
+    }
 
+    // ②AI 호출(트랜잭션 밖) + ③저장/보상 tx. 비동기라 호출자에게 rethrow 하지 않고 실패는 보상
+    // (코인 환불·FAILED·멱등키 해제) 후 로그로만 남긴다. 성공 시 완료 알림 이벤트를 발행한다.
+    private void generate(Long userId, PreparedReport prepared, String idempotencyKey) {
         // ② AI 호출 (트랜잭션 밖 — 이 구간에는 DB 커넥션을 쥐지 않는다)
         long startedAt = System.currentTimeMillis();
         AiWeaknessAnalysisResponse aiResponse;
@@ -206,28 +241,30 @@ public class WeaknessAnalysisService {
             aiResponse = aiClient.analyze(prepared.bundle().request());
         } catch (RuntimeException ex) {
             int latencyMs = (int) (System.currentTimeMillis() - startedAt);
-            // ③-실패 보상 tx: FAILED 마킹 + 코인 환불 + 멱등키 해제(같은 키로 재시도 허용)
-            transactionTemplate.executeWithoutResult(status -> {
-                WeaknessAnalysisReport report = reportRepository.findById(prepared.reportId())
-                        .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED));
-                report.markFailed("AI 호출 실패");
-                rewardService.earnCoin(userId, prepared.coinCost(), CurrencyReason.REFUND,
-                        REFERENCE_TYPE, prepared.reportId());
-                saveAiCallLog(prepared.reportId(), prepared.fingerprint(), latencyMs, "FAILED", null);
-                if (idempotencyKey != null) {
-                    idempotencyGuard.unregister(userId, idempotencyKey);
-                }
-            });
+            markFailedAndRefund(userId, prepared, idempotencyKey, latencyMs, "AI 호출 실패");
             // 사용자에겐 동일한 메시지가 나가므로, 원인(타임아웃·서버다운·스키마 불일치 등)은
             // 여기서 남기지 않으면 사후에 구분할 방법이 없다.
             log.error("약점분석 AI 호출 실패 (userId={}, reportId={}, candidates={}, latencyMs={})",
                     userId, prepared.reportId(), prepared.scoring().candidates().size(), latencyMs, ex);
-            throw new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED);
+            return;
         }
         int latencyMs = (int) (System.currentTimeMillis() - startedAt);
 
-        // ③-성공 저장 tx: 교차검증 + 개념/근거 저장 → COMPLETED
-        return transactionTemplate.execute(status -> {
+        // ③-성공 저장 tx. AI 는 성공했지만 저장이 실패하면(DB 오류·제약 위반·findById empty 등) 리포트가
+        // GENERATING 에 멈추고 코인도 차감된 채 남으므로, 반드시 보상(환불·FAILED·멱등키 해제)으로 돌린다.
+        try {
+            persistResult(userId, prepared, aiResponse, latencyMs);
+        } catch (RuntimeException ex) {
+            // AI 호출 자체는 성공이므로 FAILED AI 로그(latencyMs)는 남기지 않는다(성공률 지표 왜곡 방지).
+            markFailedAndRefund(userId, prepared, idempotencyKey, null, "분석 결과 저장 실패");
+            log.error("약점분석 결과 저장 실패 (userId={}, reportId={})", userId, prepared.reportId(), ex);
+        }
+    }
+
+    // ③-성공 저장 tx: 교차검증 + 개념/근거 저장 → COMPLETED → 완료 알림 이벤트 발행.
+    private void persistResult(Long userId, PreparedReport prepared,
+            AiWeaknessAnalysisResponse aiResponse, int latencyMs) {
+        transactionTemplate.executeWithoutResult(status -> {
             WeaknessAnalysisReport report = reportRepository.findById(prepared.reportId())
                     .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED));
             saveAiCallLog(report.getAnalysisReportId(), prepared.fingerprint(), latencyMs, "SUCCESS",
@@ -236,9 +273,6 @@ public class WeaknessAnalysisService {
             WeaknessScoringResult scoring = prepared.scoring();
             AiRequestBundle bundle = prepared.bundle();
             Map<Long, AiWeaknessAnalysisResponse.ConceptAnalysis> aiByConcept = indexAiByConcept(aiResponse);
-            Map<Long, List<RelatedConceptResponse>> relatedByConceptId = loadRelatedConcepts(
-                    scoring.candidates().stream().map(ConceptCandidate::conceptId).toList());
-            List<WeaknessConceptResponse> conceptResponses = new ArrayList<>();
             int sortOrder = 0;
             for (ConceptCandidate candidate : scoring.candidates()) {
                 AiWeaknessAnalysisResponse.ConceptAnalysis ai = aiByConcept.get(candidate.conceptId());
@@ -275,32 +309,55 @@ public class WeaknessAnalysisService {
                         bundle.evidenceRefsByConceptId().get(candidate.conceptId()),
                         ai != null ? ai.evidenceRefs() : null);
                 saveEvidenceLogs(report.getAnalysisReportId(), concept.getAnalysisConceptId(), evidence);
-                conceptResponses.add(toConceptResponse(concept, candidate, ai, cross, evidence,
-                        relatedByConceptId.getOrDefault(candidate.conceptId(), List.of())));
             }
 
             report.markCompleted(aiResponse.overview(), null, props.getAiModelLabel(), props.getPromptVersion(),
                     props.getSchemaVersion(), props.getScoringRuleVersion(), props.getDiagnosticProfileVersion());
 
-            return buildDetailResponse(report, prepared.selectedSessions(), conceptResponses);
+            // 저장 tx 가 커밋된 뒤 FCM 완료 알림이 발송된다(NotificationEventListener, AFTER_COMMIT).
+            eventPublisher.publishEvent(
+                    NotificationMessages.weaknessReportReady(userId, report.getAnalysisReportId()));
+        });
+    }
+
+    // AI 실패/제출 거부 시 보상: 리포트 FAILED + 코인 환불 + 멱등키 해제(같은 키로 재시도 허용).
+    // aiLatencyMs 가 있으면 AI 호출 로그(FAILED)도 남긴다. 트랜잭션 분할 전의 "자동 롤백"을 대체한다.
+    private void markFailedAndRefund(Long userId, PreparedReport prepared, String idempotencyKey,
+            Integer aiLatencyMs, String reason) {
+        transactionTemplate.executeWithoutResult(status -> {
+            WeaknessAnalysisReport report = reportRepository.findById(prepared.reportId())
+                    .orElseThrow(() -> new CoreMateException(ErrorCode.WEAKNESS_ANALYSIS_FAILED));
+            report.markFailed(reason);
+            rewardService.earnCoin(userId, prepared.coinCost(), CurrencyReason.REFUND,
+                    REFERENCE_TYPE, prepared.reportId());
+            if (aiLatencyMs != null) {
+                saveAiCallLog(prepared.reportId(), prepared.fingerprint(), aiLatencyMs, "FAILED", null);
+            }
+            if (idempotencyKey != null) {
+                idempotencyGuard.unregister(userId, idempotencyKey);
+            }
         });
     }
 
     // 준비 tx 가 다음 단계로 넘기는 정보. reused 가 있으면 멱등 재사용이라 AI 를 호출하지 않는다.
+    // generatingDetail 은 요청 스레드가 즉시 반환할 GENERATING 상세다.
     private record PreparedReport(
             Long reportId, int coinCost, String fingerprint,
             WeaknessScoringResult scoring, AiRequestBundle bundle,
             List<EligibleSolveSessionResponse> selectedSessions,
+            WeaknessAnalysisReportDetailResponse generatingDetail,
             WeaknessAnalysisReportDetailResponse reused) {
 
         static PreparedReport reuse(WeaknessAnalysisReportDetailResponse detail) {
-            return new PreparedReport(null, 0, null, null, null, null, detail);
+            return new PreparedReport(null, 0, null, null, null, null, null, detail);
         }
 
         static PreparedReport proceed(Long reportId, int coinCost, String fingerprint,
                 WeaknessScoringResult scoring, AiRequestBundle bundle,
-                List<EligibleSolveSessionResponse> selectedSessions) {
-            return new PreparedReport(reportId, coinCost, fingerprint, scoring, bundle, selectedSessions, null);
+                List<EligibleSolveSessionResponse> selectedSessions,
+                WeaknessAnalysisReportDetailResponse generatingDetail) {
+            return new PreparedReport(reportId, coinCost, fingerprint, scoring, bundle,
+                    selectedSessions, generatingDetail, null);
         }
     }
 
@@ -548,41 +605,6 @@ public class WeaknessAnalysisService {
     // ----------------------------------------------------------------------- //
     // 응답 매핑
     // ----------------------------------------------------------------------- //
-    private WeaknessConceptResponse toConceptResponse(WeaknessAnalysisConcept concept, ConceptCandidate candidate,
-            AiWeaknessAnalysisResponse.ConceptAnalysis ai, CrossResult cross,
-            List<WeaknessEvidenceLogResponse> evidence, List<RelatedConceptResponse> relatedConcepts) {
-        String evidenceSummary = String.format("오답 %d개, 오래 걸린 문제 %d개, 힌트 사용 %d개",
-                candidate.wrongCount(), candidate.longTimeCount(), candidate.hintUsedCount());
-        DiagnosticProfileService.ConceptProfileView profile =
-                diagnosticProfileService.loadConceptProfile(candidate.conceptId()).orElse(null);
-        EnrichedEvidence enriched = enrichEvidence(evidence);
-        return new WeaknessConceptResponse(
-                concept.getAnalysisConceptId(),
-                candidate.conceptId(),
-                candidate.conceptName(),
-                candidate.weaknessScore(),
-                candidate.evidenceStrength(),
-                cross.finalType() != null ? cross.finalType().name() : null,
-                cross.finalTypeSource().name(),
-                ai != null ? ai.secondarySignals().stream().map(Enum::name).toList() : List.of(),
-                ai != null && ai.causeCode() != null ? ai.causeCode().name() : null,
-                cross.analysisStatus().name(),
-                ai != null ? ai.confusedRelation() : null,
-                ai != null ? ai.diagnosis() : null,
-                ai != null ? ai.likelyCause() : null,
-                candidate.questionCount(),
-                candidate.wrongCount(),
-                candidate.longTimeCount(),
-                candidate.hintUsedCount(),
-                enriched.repeated(),
-                relatedConcepts,
-                evidenceSummary,
-                detailedExplanation(profile, candidate.conceptCore()),
-                ai != null ? ai.conceptTip() : null,
-                profile != null ? profile.toResponse() : null,
-                enriched.logs());
-    }
-
     /**
      * 근거 문제에 "그 선지를 고른 이유"와 오개념 제목을 붙이고, 반복된 오개념을 함께 센다.
      * 둘 다 검수된 콘텐츠(문항 진단 프로필·common_mistake)라 AI를 새로 부르지 않는다.

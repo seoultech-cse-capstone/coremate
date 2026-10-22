@@ -89,6 +89,18 @@ public final class NotificationMessages {
         );
     }
 
+    // 백그라운드 분석이 끝나면 보낸다(#323). 누르면 해당 분석표 상세로 이동하도록 target_id 에 리포트 ID 를 싣는다.
+    public static NotificationCommand weaknessReportReady(Long userId, Long reportId) {
+        return NotificationCommand.of(
+                userId,
+                NotificationType.WEAKNESS_REPORT_READY,
+                "약점 분석표가 완성됐어요",
+                "지금 바로 확인해 보세요",
+                NotificationTargetType.WEAKNESS_REPORT,
+                reportId
+        );
+    }
+
     public static NotificationCommand newDeviceLogin(Long userId, String deviceName) {
         return NotificationCommand.of(
                 userId,

@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
@@ -12,17 +12,9 @@ import { createIdempotencyKey } from "../src/shared/utils/idempotency";
 
 const BRAND_PURPLE = "#6D5DFB";
 
-// 실제로 몇 단계를 거치는지 사용자가 알 방법이 없어(동기 호출 1번), 대기 시간 동안
-// "만들어지고 있다"는 느낌을 주기 위해 순서대로 보여주는 문구. 실제 처리 단계와는
-// 무관하다.
-const GENERATING_MESSAGES = [
-  "선택한 문제집의 풀이 기록을 모으고 있어요…",
-  "틀린 문제, 오래 걸린 문제, 힌트 사용을 살펴보고 있어요…",
-  "AI가 약점 개념을 진단하고 있어요…",
-  "분석 결과를 정리하고 있어요…",
-  "거의 다 됐어요. 조금만 기다려주세요…",
-];
-
+// 생성은 비동기(#323)다. 이 화면은 "요청 접수"만 담당한다: 서버에 생성을 걸고(202, 금방 돌아온다)
+// 곧바로 복습 탭 목록으로 돌아간다. 실제 분석은 백그라운드에서 진행되고, 완료되면 FCM/폴링으로
+// 목록이 '분석 중' → '완료'로 바뀐다. 사용자는 기다리지 않고 다른 행동을 할 수 있다.
 export default function WeaknessGeneratingScreen() {
   useRequireMember();
   const { accessToken } = useAuth();
@@ -34,30 +26,12 @@ export default function WeaknessGeneratingScreen() {
     categoryLv2Id?: string;
     conceptId?: string;
   }>();
-  const [messageIndex, setMessageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const hasStartedRef = useRef(false);
   // 이 화면 한 번 = 사용자가 생성을 한 번 확정한 것. 토큰 재발급으로 요청이 재전송돼도
   // 같은 키를 써야 코인이 두 번 빠지지 않는다.
   const idempotencyKeyRef = useRef(createIdempotencyKey());
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setMessageIndex((index) => (index + 1) % GENERATING_MESSAGES.length);
-    }, 2200);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  // 생성 요청이 진행되는 동안에는 뒤로가기로 빠져나가지 못하게 막는다
-  // (실패 화면에서는 이 화면 자체가 다른 return을 타서 뒤로가기가 다시 풀린다).
-  useEffect(() => {
-    if (error) {
-      return;
-    }
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => true);
-    return () => subscription.remove();
-  }, [error]);
 
   useEffect(() => {
     if (hasStartedRef.current || !accessToken) {
@@ -68,7 +42,7 @@ export default function WeaknessGeneratingScreen() {
     (async () => {
       try {
         const solveSessionIds: number[] = JSON.parse(params.solveSessionIds ?? "[]");
-        const report = await weaknessApi.createReport(
+        await weaknessApi.createReport(
           {
             solveSessionIds,
             analysisScopeType: params.analysisScopeType,
@@ -82,22 +56,18 @@ export default function WeaknessGeneratingScreen() {
           idempotencyKeyRef.current,
         );
 
-        // 분석표 목록·통계와 코인 잔액은 이 요청으로 서버에서 바뀌었다. 무효화하지 않으면
-        // 복습 탭이 생성 전 목록을 그대로 들고 있어 "만들었는데 안 보인다"가 된다.
+        // 분석표 목록·통계와 코인 잔액은 이 요청으로 서버에서 바뀌었다(생성 중 분석표 추가 + 코인 차감).
+        // 무효화하지 않으면 복습 탭이 요청 전 목록을 그대로 들고 있어 '분석 중' 카드가 안 보인다.
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["weakness", "reports"] }),
           queryClient.invalidateQueries({ queryKey: ["currency", "me"] }),
         ]);
 
-        // 결과 화면에서 뒤로 가면 결제 확인 화면이 되살아나므로, 생성에 쓰인 화면들을
-        // 스택에서 걷어내고 결과만 남긴다(뒤로 = 복습 탭).
+        // 요청·결제 확인 화면을 스택에서 걷어내고 복습 탭 목록으로 돌아간다(뒤로 가도 결제 화면이 되살아나지 않게).
         if (router.canDismiss()) {
           router.dismissAll();
         }
-        router.push({
-          pathname: "/weakness-report",
-          params: { reportId: report.analysisReportId.toString() },
-        });
+        router.replace("/(tabs)/log-weak");
       } catch (err) {
         // 근거 부족(WEAKNESS_INSUFFICIENT_EVIDENCE) 같은 정상 분기도 400 으로 오므로
         // console.error 를 쓰지 않는다. 개발 빌드에서 화면을 덮는 에러 오버레이가 뜬다.
@@ -127,8 +97,10 @@ export default function WeaknessGeneratingScreen() {
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
         <View style={styles.centerArea}>
           <ActivityIndicator color={BRAND_PURPLE} size="large" />
-          <Text style={styles.title}>약점 분석표를 만들고 있어요</Text>
-          <Text style={styles.message}>{GENERATING_MESSAGES[messageIndex]}</Text>
+          <Text style={styles.title}>분석을 요청하고 있어요</Text>
+          <Text style={styles.message}>
+            분석은 백그라운드에서 진행돼요. 완료되면 알림으로 알려드릴게요.
+          </Text>
         </View>
       </SafeAreaView>
     </View>
