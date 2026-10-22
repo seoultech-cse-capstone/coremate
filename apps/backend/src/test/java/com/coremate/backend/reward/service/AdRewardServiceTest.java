@@ -121,6 +121,21 @@ class AdRewardServiceTest {
     }
 
     @Test
+    @DisplayName("콜백의 ad_unit 이 「ca-app-pub-…/숫자」 통째로 와도 같은 광고 단위로 보고 지급한다")
+    void acceptsFullAdUnitIdInCallback() throws Exception {
+        when(rewardService.grantPolicyReward(USER_ID, RewardType.AD_REWARD, RewardSource.AD_REWARD,
+                AD_REWARD_ID, null, null, null))
+                .thenReturn(RewardLog.granted(USER_ID, 1L, RewardType.AD_REWARD, RewardSource.AD_REWARD,
+                        AD_REWARD_ID, null, null, null, 0, 20, null, null));
+
+        String query = signed(googleKeyPair, unsignedQuery(CONFIGURED_AD_UNIT, "tx-10", "42"));
+        adRewardService.handleAdMobCallback(query, CONFIGURED_AD_UNIT, "tx-10", "42");
+
+        verify(rewardService).grantPolicyReward(USER_ID, RewardType.AD_REWARD, RewardSource.AD_REWARD,
+                AD_REWARD_ID, null, null, null);
+    }
+
+    @Test
     @DisplayName("한도 초과로 지급되지 않으면 기록은 FAILED·0코인으로 남는다")
     void keepsFailedWhenRewardSkipped() throws Exception {
         when(rewardService.grantPolicyReward(USER_ID, RewardType.AD_REWARD, RewardSource.AD_REWARD,

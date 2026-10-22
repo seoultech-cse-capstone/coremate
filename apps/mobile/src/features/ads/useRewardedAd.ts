@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TurboModuleRegistry } from "react-native";
+import { Platform, TurboModuleRegistry } from "react-native";
 import type { RewardedAd } from "react-native-google-mobile-ads";
 
 /**
@@ -15,9 +15,13 @@ import type { RewardedAd } from "react-native-google-mobile-ads";
  */
 export type RewardedAdState = "idle" | "loading" | "ready" | "showing" | "error" | "unavailable";
 
-// 우리 AdMob 보상형 광고 단위 ID. 아직 없어서 비워 두고, 그동안은 구글 공용 테스트 광고 단위를 쓴다.
-// 공용 테스트 단위로는 구글이 서버 측 확인 콜백을 보내지 않아서 광고를 다 봐도 코인은 들어오지 않는다.
-const REWARDED_AD_UNIT_ID: string | null = null;
+// 우리 AdMob 보상형 광고 단위 「상점_광고보상」. 공개값이라 그대로 둔다(서버 admob.rewarded-ad-unit-ids 와 같은 값).
+// 구글 공용 테스트 단위로는 서버 측 확인 콜백이 오지 않아 개발 중에도 이 값을 쓴다. 그래서 개발에 쓰는 폰은
+// AdMob 테스트 기기로 등록해 둬야 한다. 등록하지 않은 폰에서 실제 광고를 누르면 계정이 정지될 수 있다.
+const REWARDED_AD_UNIT_ID = Platform.select({
+  ios: "ca-app-pub-1897328042001393/7246621462",
+  default: "ca-app-pub-1897328042001393/9301105018",
+});
 
 // SDK 초기화는 앱이 켜져 있는 동안 한 번이면 된다.
 let sdkInitialization: Promise<unknown> | null = null;
@@ -66,7 +70,7 @@ export function useRewardedAd(
         return;
       }
 
-      const ad = ads.RewardedAd.createForAdRequest(REWARDED_AD_UNIT_ID ?? ads.TestIds.REWARDED, {
+      const ad = ads.RewardedAd.createForAdRequest(REWARDED_AD_UNIT_ID, {
         serverSideVerificationOptions: { userId: String(userId) },
       });
       let earned = false;

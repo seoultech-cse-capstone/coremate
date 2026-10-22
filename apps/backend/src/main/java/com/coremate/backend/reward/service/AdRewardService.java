@@ -58,11 +58,10 @@ public class AdRewardService {
         this.currencyLogRepository = currencyLogRepository;
         this.userRepository = userRepository;
         this.rewardService = rewardService;
-        // 콜백의 ad_unit 은 "ca-app-pub-…/1234567890" 의 뒷부분 숫자만 온다. 설정은 어느 쪽으로 적어도 되게 맞춘다.
         this.rewardedAdUnitIds = rewardedAdUnitIds.stream()
                 .map(String::trim)
                 .filter(id -> !id.isEmpty())
-                .map(id -> id.substring(id.lastIndexOf('/') + 1))
+                .map(AdRewardService::adUnitNumber)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
@@ -73,7 +72,7 @@ public class AdRewardService {
     public void handleAdMobCallback(String rawQueryString, String adUnit, String transactionId, String userIdParam) {
         verifySignature(rawQueryString);
 
-        if (adUnit == null || !rewardedAdUnitIds.contains(adUnit)) {
+        if (adUnit == null || !rewardedAdUnitIds.contains(adUnitNumber(adUnit))) {
             log.warn("우리 보상형 광고 단위가 아닌 콜백이라 지급하지 않는다. adUnit={} transactionId={}",
                     adUnit, transactionId);
             return;
@@ -117,6 +116,12 @@ public class AdRewardService {
             log.warn("광고 보상 콜백의 서명을 확인하지 못했다. {}", e.getMessage());
             throw new CoreMateException(ErrorCode.INVALID_AD_REWARD_SIGNATURE);
         }
+    }
+
+    // 광고 단위 ID 「ca-app-pub-…/1234567890」의 뒷부분 숫자. 구글 문서 예시상 콜백의 ad_unit 은 이 숫자만 오지만,
+    // 설정과 콜백 어느 쪽이 통째로 와도 같은 광고 단위로 보도록 양쪽을 이 값으로 맞춰 비교한다.
+    private static String adUnitNumber(String adUnitId) {
+        return adUnitId.substring(adUnitId.lastIndexOf('/') + 1);
     }
 
     private Long parseUserId(String userIdParam) {
