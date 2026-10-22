@@ -39,6 +39,9 @@ dependencies {
 
 	implementation 'com.google.firebase:firebase-admin:9.4.3'
 
+	// AdMob 보상형 광고 서버 측 확인(SSV) 콜백의 서명 검증. 구글 공개키 내려받기·캐시까지 해 준다.
+	implementation 'com.google.crypto.tink:apps-rewardedads:1.15.0'
+
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
