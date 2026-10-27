@@ -93,6 +93,8 @@ export default function RootLayout() {
           name="language-settings"
           options={{ headerShown: false }}
         />
+        <Stack.Screen name="bug-report" options={{ headerShown: false }} />
+        <Stack.Screen name="inquiry" options={{ headerShown: false }} />
         <Stack.Screen name="terms-policies" options={{ headerShown: false }} />
         <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
         <Stack.Screen

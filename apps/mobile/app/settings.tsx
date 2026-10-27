@@ -1,12 +1,14 @@
 import { router } from "expo-router";
 import {
   Bell,
+  Bug,
   ChevronLeft,
   ChevronRight,
   FileText,
   Globe,
   KeyRound,
   LogOut,
+  MessageCircleQuestion,
   Shield,
   Smartphone,
   UserCog,
@@ -38,6 +40,8 @@ type SettingRoute =
   | "/friend-settings"
   | "/terms-policies"
   | "/privacy-policy"
+  | "/bug-report"
+  | "/inquiry"
   | "/delete-account";
 
 type SettingItem = {
@@ -79,6 +83,13 @@ const settingSections: SettingSection[] = [
       { label: "언어 설정", Icon: Globe, action: "comingSoon" },
       { label: "약관 및 정책", Icon: FileText, route: "/terms-policies" },
       { label: "개인정보 처리방침", Icon: Shield, route: "/privacy-policy" },
+    ],
+  },
+  {
+    title: "고객지원",
+    items: [
+      { label: "버그 신고하기", Icon: Bug, route: "/bug-report" },
+      { label: "문의하기", Icon: MessageCircleQuestion, route: "/inquiry" },
     ],
   },
   {
