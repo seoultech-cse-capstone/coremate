@@ -46,6 +46,19 @@ public class SupportService {
         return BugReportResponse.from(bugReport);
     }
 
+    public List<InquiryResponse> getMyInquiries(Long userId) {
+        return inquiryRepository.findByUserUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(InquiryResponse::from)
+                .toList();
+    }
+
+    // 타인의 문의 존재 여부를 노출하지 않도록, 소유자가 아니면 NOT_FOUND로 응답한다.
+    public InquiryResponse getMyInquiry(Long userId, Long inquiryId) {
+        return inquiryRepository.findByInquiryIdAndUserUserId(inquiryId, userId)
+                .map(InquiryResponse::from)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.INQUIRY_NOT_FOUND));
+    }
+
     // --- 관리자 ---
 
     public List<InquiryResponse> getInquiries(InquiryStatus status) {

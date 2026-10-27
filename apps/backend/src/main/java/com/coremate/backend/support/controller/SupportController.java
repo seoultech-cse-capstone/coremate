@@ -12,8 +12,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,5 +49,22 @@ public class SupportController {
     ) {
         BugReportResponse response = supportService.createBugReport(userDetails.getUserId(), request);
         return ApiResponse.success("버그 신고가 접수되었습니다.", response);
+    }
+
+    @Operation(summary = "내 문의 목록 조회", description = "로그인한 사용자가 등록한 문의를 최신순으로 반환한다.")
+    @GetMapping("/inquiries")
+    public ApiResponse<List<InquiryResponse>> getMyInquiries(
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        return ApiResponse.success(supportService.getMyInquiries(userDetails.getUserId()));
+    }
+
+    @Operation(summary = "내 문의 상세 조회", description = "본인이 등록한 문의만 조회할 수 있다.")
+    @GetMapping("/inquiries/{inquiryId}")
+    public ApiResponse<InquiryResponse> getMyInquiry(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long inquiryId
+    ) {
+        return ApiResponse.success(supportService.getMyInquiry(userDetails.getUserId(), inquiryId));
     }
 }
