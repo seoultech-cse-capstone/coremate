@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FileText,
   Globe,
+  Inbox,
   KeyRound,
   LogOut,
   MessageCircleQuestion,
@@ -42,6 +43,7 @@ type SettingRoute =
   | "/privacy-policy"
   | "/bug-report"
   | "/inquiry"
+  | "/my-inquiries"
   | "/delete-account";
 
 type SettingItem = {
@@ -90,6 +92,7 @@ const settingSections: SettingSection[] = [
     items: [
       { label: "버그 신고하기", Icon: Bug, route: "/bug-report" },
       { label: "문의하기", Icon: MessageCircleQuestion, route: "/inquiry" },
+      { label: "내 문의 내역", Icon: Inbox, route: "/my-inquiries" },
     ],
   },
   {

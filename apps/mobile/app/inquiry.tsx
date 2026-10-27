@@ -64,13 +64,20 @@ export default function InquiryScreen() {
       <SettingsDetailLayout title="문의하기">
         <View style={detailStyles.card}>
           <Text style={detailStyles.bodyText}>
-            문의가 접수되었습니다. 확인 후 순차적으로 답변드리겠습니다.
+            문의가 접수되었습니다. 확인 후 순차적으로 답변드리겠습니다. 답변은 내
+            문의 내역에서 확인할 수 있습니다.
           </Text>
           <Pressable
             style={detailStyles.primaryButton}
+            onPress={() => router.replace("/my-inquiries")}
+          >
+            <Text style={detailStyles.primaryButtonText}>내 문의 내역 보기</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
             onPress={() => router.back()}
           >
-            <Text style={detailStyles.primaryButtonText}>설정으로 돌아가기</Text>
+            <Text style={styles.secondaryButtonText}>설정으로 돌아가기</Text>
           </Pressable>
         </View>
       </SettingsDetailLayout>
@@ -186,5 +193,16 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  secondaryButton: {
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  secondaryButtonText: {
+    color: "#64748b",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
