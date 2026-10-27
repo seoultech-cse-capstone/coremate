@@ -7,6 +7,22 @@ export type InquiryCategory =
   | "REVIEW"
   | "MYPAGE";
 
+export type InquiryStatus = "PENDING" | "ANSWERED";
+
+/** GET /api/v1/support/inquiries 항목. 백엔드 InquiryResponse와 1:1 대응. */
+export type Inquiry = {
+  inquiryId: number;
+  userId: number;
+  nickname: string;
+  category: InquiryCategory;
+  title: string;
+  body: string;
+  status: InquiryStatus;
+  answer: string | null;
+  answeredAt: string | null;
+  createdAt: string;
+};
+
 type ApiResponse<T> = { success: boolean; message: string; data: T };
 
 /**
@@ -33,5 +49,24 @@ export const supportApi = {
       { body },
       { accessToken },
     );
+  },
+
+  async getMyInquiries(accessToken: string): Promise<Inquiry[]> {
+    const response = await httpClient.get<ApiResponse<Inquiry[]>>(
+      "/api/v1/support/inquiries",
+      { accessToken },
+    );
+    return response.data;
+  },
+
+  async getMyInquiry(
+    inquiryId: number,
+    accessToken: string,
+  ): Promise<Inquiry> {
+    const response = await httpClient.get<ApiResponse<Inquiry>>(
+      `/api/v1/support/inquiries/${inquiryId}`,
+      { accessToken },
+    );
+    return response.data;
   },
 };
