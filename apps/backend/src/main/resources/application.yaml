@@ -52,9 +52,8 @@ oauth:
     # 구글 로그인 idToken 의 aud(수신자) 검증에 쓰는 웹 클라이언트 ID. 공개값이라 시크릿은 아니다.
     # 프론트 GoogleSignin 의 webClientId 와 같은 값이어야 하며, 없으면 구글 로그인만 실패한다.
     client-id: ${GOOGLE_CLIENT_ID:}
-    # 아이폰 앱의 구글 로그인(iOS 클라이언트) ID. 아이폰에서 받은 idToken 은 aud 가 이 값일 수 있어 함께 허용한다.
-    # 앱에도 그대로 들어가는 공개값이라 기본값으로 둔다(앱 .env 의 EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID 와 같은 값).
-    ios-client-id: ${GOOGLE_IOS_CLIENT_ID:566760156194-h7d9lemja31ovdgla6cu05rrlahri2dp.apps.googleusercontent.com}
+    # 아이폰 앱의 구글 로그인(iOS 클라이언트) ID. 아이폰에서 받은 idToken 은 aud 가 이 값일 수 있어 함께 허용한다. 공개값.
+    ios-client-id: ${GOOGLE_IOS_CLIENT_ID:}
   apple:
     # 아이폰 앱 번들 ID. Apple identity token 의 aud 검증과, 토큰 교환·해지 요청의 client_id 로 쓴다. 공개값.
     client-id: ${APPLE_CLIENT_ID:com.coremate.app}
