@@ -27,11 +27,16 @@ public class KakaoOAuthClient implements OAuthClient {
 
     @Override
     public OAuthUserInfo fetch(OAuthLoginRequest request) {
+        String accessToken = request.getAccessToken();
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new CoreMateException(ErrorCode.INVALID_OAUTH_TOKEN);
+        }
+
         KakaoUserResponse response;
         try {
             response = restClient.get()
                     .uri(USER_INFO_URI)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + request.getAccessToken())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
                     .body(KakaoUserResponse.class);
         } catch (RestClientException e) {

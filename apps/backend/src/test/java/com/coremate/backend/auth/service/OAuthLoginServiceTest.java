@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +24,7 @@ import com.coremate.backend.user.repository.UserSocialAccountRepository;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
@@ -93,5 +95,75 @@ class OAuthLoginServiceTest {
         verify(kakaoClient).fetch(request);
         verify(transactionTemplate).execute(any());
         verify(userSessionService).attachRefreshToken(any(), any(), any());
+    }
+
+    @Test
+    void Apple_로_처음_가입하면_탈퇴용_refresh_token_을_연결에_저장한다() {
+        Fixture fixture = new Fixture(SocialProvider.APPLE);
+        OAuthUserInfo userInfo = new OAuthUserInfo("apple-sub", "abc@privaterelay.appleid.com", true, null,
+                "apple-refresh");
+        when(fixture.client.fetch(fixture.request)).thenReturn(userInfo);
+        when(fixture.socialAccountRepository.findByProviderAndProviderId(SocialProvider.APPLE, "apple-sub"))
+                .thenReturn(Optional.empty());
+        when(fixture.userRepository.findByEmail("abc@privaterelay.appleid.com")).thenReturn(Optional.empty());
+        when(fixture.userRepository.save(any(User.class))).thenReturn(fixture.user);
+
+        fixture.service.login(SocialProvider.APPLE, fixture.request);
+
+        ArgumentCaptor<UserSocialAccount> saved = ArgumentCaptor.forClass(UserSocialAccount.class);
+        verify(fixture.socialAccountRepository).save(saved.capture());
+        assertThat(saved.getValue().getProvider()).isEqualTo(SocialProvider.APPLE);
+        assertThat(saved.getValue().getRefreshToken()).isEqualTo("apple-refresh");
+    }
+
+    @Test
+    void Apple_로_다시_로그인하면_refresh_token_을_새것으로_바꾸고_없으면_그대로_둔다() {
+        Fixture fixture = new Fixture(SocialProvider.APPLE);
+        UserSocialAccount link = mock(UserSocialAccount.class);
+        when(link.getUserId()).thenReturn(1L);
+        when(fixture.socialAccountRepository.findByProviderAndProviderId(SocialProvider.APPLE, "apple-sub"))
+                .thenReturn(Optional.of(link));
+        when(fixture.client.fetch(fixture.request))
+                .thenReturn(new OAuthUserInfo("apple-sub", null, false, null, "new-refresh"))
+                .thenReturn(new OAuthUserInfo("apple-sub", null, false, null, null));
+
+        fixture.service.login(SocialProvider.APPLE, fixture.request);
+        verify(link).updateRefreshToken("new-refresh");
+
+        // 교환에 실패한 로그인(refresh token 없음)은 저장해 둔 값을 지우지 않는다.
+        fixture.service.login(SocialProvider.APPLE, fixture.request);
+        verify(link, never()).updateRefreshToken(null);
+    }
+
+    // 세션·토큰 발급까지 통과하도록 묶어 둔 목. 트랜잭션 콜백은 그 자리에서 실행한다.
+    private static final class Fixture {
+
+        final OAuthClient client = mock(OAuthClient.class);
+        final UserRepository userRepository = mock(UserRepository.class);
+        final UserSocialAccountRepository socialAccountRepository = mock(UserSocialAccountRepository.class);
+        final OAuthLoginRequest request = OAuthLoginRequest.builder().idToken("identity-token").build();
+        final User user = mock(User.class);
+        final OAuthLoginService service;
+
+        Fixture(SocialProvider provider) {
+            JwtProvider jwtProvider = mock(JwtProvider.class);
+            UserSessionService userSessionService = mock(UserSessionService.class);
+            TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
+
+            when(client.provider()).thenReturn(provider);
+            when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+                TransactionCallback<?> callback = invocation.getArgument(0);
+                return callback.doInTransaction(mock(TransactionStatus.class));
+            });
+            when(user.getStatus()).thenReturn(UserStatus.ACTIVE);
+            when(user.getUserId()).thenReturn(1L);
+            when(user.getRole()).thenReturn(UserRole.USER);
+            lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+            when(userSessionService.registerOnLogin(anyLong(), any(), any(), any(), any()))
+                    .thenReturn(new UserSessionService.SessionRegistration("device-1", "session-1"));
+
+            service = new OAuthLoginService(List.of(client), userRepository, socialAccountRepository,
+                    jwtProvider, userSessionService, mock(ApplicationEventPublisher.class), transactionTemplate);
+        }
     }
 }

@@ -107,7 +107,10 @@ public class OAuthLoginService {
         Optional<UserSocialAccount> existingLink =
                 socialAccountRepository.findByProviderAndProviderId(provider, userInfo.providerId());
         if (existingLink.isPresent()) {
-            // 재방문: 이미 연결된 사용자로 로그인.
+            // 재방문: 이미 연결된 사용자로 로그인. Apple 은 로그인할 때마다 새 refresh token 을 받으니 바꿔 둔다.
+            if (userInfo.providerRefreshToken() != null) {
+                existingLink.get().updateRefreshToken(userInfo.providerRefreshToken());
+            }
             return userRepository.findById(existingLink.get().getUserId())
                     .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
         }
@@ -117,6 +120,7 @@ public class OAuthLoginService {
                 .userId(user.getUserId())
                 .provider(provider)
                 .providerId(userInfo.providerId())
+                .refreshToken(userInfo.providerRefreshToken())
                 .build());
         return user;
     }
