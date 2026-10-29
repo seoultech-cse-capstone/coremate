@@ -2,7 +2,7 @@
   "expo": {
     "name": "CoreMate",
     "slug": "coremate",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/splash-icon.png",
     "scheme": "coremate",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.coremate.app",
-      "versionCode": 10,
+      "versionCode": 11,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0760FD",

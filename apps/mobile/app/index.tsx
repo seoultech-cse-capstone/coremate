@@ -1,9 +1,9 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { Mail, MessageCircle } from "lucide-react-native";
-import { useEffect } from "react";
-import { Alert, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Check, ChevronRight, Mail, MessageCircle } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Image, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -54,12 +54,28 @@ function NaverLogo({ size = 16 }: { size?: number }) {
   );
 }
 
+// 소셜 로그인은 가입과 로그인이 같은 버튼이라 누를 때마다 가입 동의를 먼저 받는다.
+// 이메일 가입(register.tsx)의 필수 동의와 같은 세 가지다.
+const SOCIAL_CONSENT_ITEMS: {
+  id: string;
+  label: string;
+  href?: "/terms-policies" | "/privacy-policy";
+}[] = [
+  { id: "age", label: "만 14세 이상입니다" },
+  { id: "terms", label: "서비스 이용약관 동의", href: "/terms-policies" },
+  { id: "privacy", label: "개인정보 수집 및 이용 동의", href: "/privacy-policy" },
+];
+
 export default function StartScreen() {
   const { continueAsGuest, status } = useAuth();
   const kakaoLogin = useKakaoLoginMutation();
   const naverLogin = useNaverLoginMutation();
   const googleLogin = useGoogleLoginMutation();
   const appleLogin = useAppleLoginMutation();
+  const [pendingLogin, setPendingLogin] = useState<(() => void) | null>(null);
+  const [checkedConsentIds, setCheckedConsentIds] = useState<string[]>([]);
+  // iOS 는 동의 창이 다 닫힌 뒤에 로그인 창을 띄워야 한다(닫히는 중에 띄우면 무시된다).
+  const loginAfterConsent = useRef<(() => void) | null>(null);
 
   // 세션이 복원되어 이미 로그인된 상태라면 시작화면을 보여주지 않고 바로 홈으로 보낸다.
   // 카카오 로그인 성공도 status 를 authenticated 로 바꾸므로 이 효과가 홈으로 보낸다.
@@ -125,6 +141,44 @@ export default function StartScreen() {
     router.replace("/(tabs)/content");
   };
 
+  const allConsentChecked = SOCIAL_CONSENT_ITEMS.every((item) =>
+    checkedConsentIds.includes(item.id),
+  );
+
+  const askConsent = (login: () => void) => {
+    setPendingLogin(() => login);
+  };
+
+  const toggleAllConsent = () => {
+    setCheckedConsentIds(allConsentChecked ? [] : SOCIAL_CONSENT_ITEMS.map((item) => item.id));
+  };
+
+  const toggleConsentItem = (id: string) => {
+    setCheckedConsentIds((current) =>
+      current.includes(id) ? current.filter((i) => i !== id) : [...current, id],
+    );
+  };
+
+  // 약관을 보고 돌아오면 같은 로그인 버튼을 다시 누른다. 체크한 항목은 그대로 남는다.
+  const openConsentDetail = (href: "/terms-policies" | "/privacy-policy") => {
+    setPendingLogin(null);
+    router.push(href);
+  };
+
+  const runLoginAfterConsent = () => {
+    const login = loginAfterConsent.current;
+    loginAfterConsent.current = null;
+    login?.();
+  };
+
+  const confirmConsent = () => {
+    loginAfterConsent.current = pendingLogin;
+    setPendingLogin(null);
+    if (Platform.OS !== "ios") {
+      runLoginAfterConsent();
+    }
+  };
+
   if (status === "loading" || status === "authenticated") {
     return <LoadingScreen />;
   }
@@ -146,7 +200,7 @@ export default function StartScreen() {
         <View style={styles.buttons}>
           <Pressable
             style={styles.kakaoButton}
-            onPress={handleKakaoLogin}
+            onPress={() => askConsent(handleKakaoLogin)}
             disabled={kakaoLogin.isPending}
           >
             <MessageCircle color="#191919" size={20} strokeWidth={2.3} />
@@ -157,7 +211,7 @@ export default function StartScreen() {
 
           <Pressable
             style={styles.naverButton}
-            onPress={handleNaverLogin}
+            onPress={() => askConsent(handleNaverLogin)}
             disabled={naverLogin.isPending}
           >
             <NaverLogo size={16} />
@@ -168,7 +222,7 @@ export default function StartScreen() {
 
           <Pressable
             style={styles.googleButton}
-            onPress={handleGoogleLogin}
+            onPress={() => askConsent(handleGoogleLogin)}
             disabled={googleLogin.isPending}
           >
             <GoogleLogo size={20} />
@@ -184,7 +238,7 @@ export default function StartScreen() {
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
               cornerRadius={16}
               style={styles.appleButton}
-              onPress={handleAppleLogin}
+              onPress={() => askConsent(handleAppleLogin)}
             />
           ) : null}
 
@@ -205,6 +259,64 @@ export default function StartScreen() {
           </Text>
         </View>
       </SafeAreaView>
+
+      <Modal
+        visible={pendingLogin !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPendingLogin(null)}
+        onDismiss={runLoginAfterConsent}
+      >
+        <View style={styles.sheetBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPendingLogin(null)} />
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>시작하기 전에 동의해 주세요</Text>
+
+            <Pressable style={styles.sheetAllRow} onPress={toggleAllConsent}>
+              <Check
+                color={allConsentChecked ? "#6D5DFB" : "#cbd5e1"}
+                size={22}
+                strokeWidth={3}
+              />
+              <Text style={styles.sheetAllText}>전체 동의</Text>
+            </Pressable>
+
+            <View style={styles.sheetDivider} />
+
+            {SOCIAL_CONSENT_ITEMS.map((item) => {
+              const checked = checkedConsentIds.includes(item.id);
+              return (
+                <View key={item.id} style={styles.sheetRow}>
+                  <Pressable
+                    style={styles.sheetRowMain}
+                    onPress={() => toggleConsentItem(item.id)}
+                  >
+                    <Check color={checked ? "#6D5DFB" : "#cbd5e1"} size={20} strokeWidth={3} />
+                    <Text style={styles.sheetRowText}>{item.label} (필수)</Text>
+                  </Pressable>
+                  {item.href ? (
+                    <Pressable
+                      accessibilityLabel={`${item.label} 자세히 보기`}
+                      hitSlop={8}
+                      onPress={() => item.href && openConsentDetail(item.href)}
+                    >
+                      <ChevronRight color="#9ca3af" size={20} strokeWidth={2.2} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              );
+            })}
+
+            <Pressable
+              style={[styles.sheetButton, !allConsentChecked && styles.sheetButtonDisabled]}
+              disabled={!allConsentChecked}
+              onPress={confirmConsent}
+            >
+              <Text style={styles.sheetButtonText}>동의하고 계속하기</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -321,5 +433,77 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     textAlign: "center",
+  },
+  sheetBackdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 40,
+  },
+  sheetTitle: {
+    marginBottom: 20,
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 19,
+    fontWeight: "800",
+  },
+  sheetAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 4,
+  },
+  sheetAllText: {
+    color: "#111827",
+    fontFamily: FONT.pretendard,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  sheetDivider: {
+    height: 1,
+    marginVertical: 14,
+    backgroundColor: "#e5e7eb",
+  },
+  sheetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  sheetRowMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  sheetRowText: {
+    flex: 1,
+    color: "#1f2937",
+    fontFamily: FONT.pretendard,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  sheetButton: {
+    alignItems: "center",
+    marginTop: 20,
+    borderRadius: 16,
+    backgroundColor: "#6D5DFB",
+    paddingVertical: 16,
+  },
+  sheetButtonDisabled: {
+    opacity: 0.4,
+  },
+  sheetButtonText: {
+    color: "#ffffff",
+    fontFamily: FONT.pretendard,
+    fontSize: 16,
+    fontWeight: "800",
   },
 });
