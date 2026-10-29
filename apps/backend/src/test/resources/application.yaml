@@ -60,3 +60,9 @@ password-reset:
   resend-cooldown-sec: 60
   code-length: 6
   max-verify-attempts: 5
+
+# SecurityConfig 가 @Value 로 직접 읽는 관리자 웹 CORS 허용 출처. 기본값이 없어 이 값이 없으면
+# securityConfig -> authService 순으로 빈 생성이 무너져 @SpringBootTest 컨텍스트가 뜨지 않는다.
+# main 과 같은 로컬 값을 쓴다.
+admin-web:
+  allowed-origins: http://localhost:3000
