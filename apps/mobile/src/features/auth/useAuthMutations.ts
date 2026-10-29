@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { getDeviceInfo } from "../device/deviceInfo";
 import { deviceStorage } from "../device/deviceStorage";
 import { unregisterPushToken } from "../notification/notificationApi";
+import { signInWithApple } from "./appleAuth";
 import { authApi } from "./authApi";
 import { useAuth } from "./AuthContext";
 import { signInWithGoogle } from "./googleAuth";
@@ -133,6 +134,41 @@ export function useGoogleLoginMutation() {
       return authApi.oauthLogin("google", {
         accessToken,
         idToken,
+        ...(deviceId ? { deviceId } : {}),
+        deviceName: deviceInfo.deviceName,
+        platform: deviceInfo.platform,
+        osVersion: deviceInfo.osVersion,
+      });
+    },
+    onSuccess: async (res) => {
+      if (res.deviceId) {
+        await deviceStorage.save(res.deviceId);
+      }
+      await signIn({
+        accessToken: res.accessToken,
+        refreshToken: res.refreshToken,
+        user: { userId: res.userId, nickname: res.nickname },
+      });
+    },
+  });
+}
+
+/**
+ * Apple 로그인(아이폰 전용) → identity token 과 authorization code 를 백엔드로 넘겨 세션 발급.
+ * 이름은 Apple 이 처음 로그인할 때만 주므로 있을 때만 보낸다.
+ * 성공 처리(세션 저장·상태 전환)는 다른 소셜 로그인과 동일하다.
+ */
+export function useAppleLoginMutation() {
+  const { signIn } = useAuth();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { identityToken, authorizationCode, name } = await signInWithApple();
+      const [deviceId, deviceInfo] = [await deviceStorage.get(), getDeviceInfo()];
+      return authApi.oauthLogin("apple", {
+        idToken: identityToken,
+        ...(authorizationCode ? { authorizationCode } : {}),
+        ...(name ? { name } : {}),
         ...(deviceId ? { deviceId } : {}),
         deviceName: deviceInfo.deviceName,
         platform: deviceInfo.platform,

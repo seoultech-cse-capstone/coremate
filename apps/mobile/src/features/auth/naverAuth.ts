@@ -21,8 +21,10 @@ export async function signInWithNaver(): Promise<string> {
       appName: "CoreMate",
       consumerKey,
       consumerSecret,
-      // iOS 앱-투-앱 로그인 후 되돌아올 URL scheme. app.json 의 scheme 과 일치시킨다.
-      serviceUrlSchemeIOS: "coremate",
+      // iOS 에서 네이버 로그인 뒤 되돌아올 URL scheme. app.config.js 의 네이버 플러그인 urlScheme·네이버
+      // 개발자센터 iOS 설정과 같아야 한다. 앱 딥링크 scheme(coremate)과 같으면 네이버 처리기가 딥링크를
+      // 가로채므로 따로 둔다.
+      serviceUrlSchemeIOS: "corematenaver",
     });
     initialized = true;
   }
