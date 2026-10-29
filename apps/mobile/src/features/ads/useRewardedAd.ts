@@ -13,7 +13,7 @@ import type { RewardedAd } from "react-native-google-mobile-ads";
  * 네이티브 모듈이 없는 Expo Go 에서는 import 하지 않고 "unavailable" 로 끝난다. import 해 버리면 모듈을
  * 읽는 순간 오류가 나는데, Metro 가 이걸 try/catch 보다 먼저 치명적 오류로 띄워 전체 화면 오류가 뜬다.
  */
-export type RewardedAdState = "idle" | "loading" | "ready" | "showing" | "error" | "unavailable";
+export type RewardedAdState = "idle" | "loading" | "ready" | "showing" | "error" | "no-fill" | "unavailable";
 
 // 우리 AdMob 보상형 광고 단위 「상점_광고보상」. 공개값이라 그대로 둔다(서버 admob.rewarded-ad-unit-ids 와 같은 값).
 // 구글 공용 테스트 단위로는 서버 측 확인 콜백이 오지 않아 개발 중에도 이 값을 쓴다. 그래서 개발에 쓰는 폰은
@@ -86,7 +86,11 @@ export function useRewardedAd(
           setState("loading");
           ad.load();
         }),
-        ad.addAdEventListener(ads.AdEventType.ERROR, () => setState("error")),
+        ad.addAdEventListener(ads.AdEventType.ERROR, (error) =>
+          // 보여 줄 광고가 없다는 응답(no-fill)은 다시 시도해도 그대로라 일반 실패와 나눈다.
+          // 새 앱·스토어 미연결 앱은 AdMob 이 광고를 제한해 계속 이렇게 온다.
+          setState(String((error as { code?: string }).code ?? "").endsWith("no-fill") ? "no-fill" : "error"),
+        ),
       ];
       adRef.current = ad;
       ad.load();

@@ -7,6 +7,7 @@ import {
   detailStyles,
   SettingsDetailLayout,
 } from "../src/features/settings/components/SettingsDetailLayout";
+import { useMyProfile } from "../src/features/user";
 import { getApiErrorCode, getApiErrorMessage } from "../src/shared/utils/apiError";
 
 export default function DeleteAccountScreen() {
@@ -15,8 +16,11 @@ export default function DeleteAccountScreen() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { data: profile } = useMyProfile(accessToken);
 
-  const canSubmit = password.length > 0 && !isSubmitting;
+  // 소셜 로그인으로만 가입한 계정은 비밀번호가 없어 묻지 않는다. 프로필을 아직 못 받았으면 묻는 쪽으로 둔다.
+  const needsPassword = profile?.hasPassword !== false;
+  const canSubmit = (!needsPassword || password.length > 0) && !isSubmitting;
 
   const submitWithdraw = async () => {
     if (!canSubmit || !accessToken) {
@@ -25,7 +29,7 @@ export default function DeleteAccountScreen() {
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      await authApi.withdraw({ password }, accessToken);
+      await authApi.withdraw(needsPassword ? { password } : {}, accessToken);
       await signOut();
       router.replace("/");
     } catch (error) {
@@ -57,18 +61,26 @@ export default function DeleteAccountScreen() {
           회원탈퇴 시 계정 정보와 서비스 이용 권한이 비활성화됩니다. 학습 기록, 즐겨찾기, 보상 정보 처리 방식은 운영 정책에 따라 진행됩니다.
         </Text>
 
-        <Text style={[detailStyles.label, { marginTop: 16 }]}>비밀번호 확인</Text>
-        <TextInput
-          placeholder="현재 비밀번호를 입력하세요"
-          placeholderTextColor="#94a3b8"
-          secureTextEntry
-          style={detailStyles.field}
-          value={password}
-          onChangeText={(text) => {
-            setPassword(text);
-            setErrorMessage(null);
-          }}
-        />
+        {needsPassword ? (
+          <>
+            <Text style={[detailStyles.label, { marginTop: 16 }]}>비밀번호 확인</Text>
+            <TextInput
+              placeholder="현재 비밀번호를 입력하세요"
+              placeholderTextColor="#94a3b8"
+              secureTextEntry
+              style={detailStyles.field}
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrorMessage(null);
+              }}
+            />
+          </>
+        ) : (
+          <Text style={[detailStyles.bodyText, { marginTop: 16 }]}>
+            소셜 로그인으로 가입한 계정이라 비밀번호 확인 없이 탈퇴합니다.
+          </Text>
+        )}
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
         <Pressable

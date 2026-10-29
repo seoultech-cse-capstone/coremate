@@ -80,6 +80,12 @@ export function AdRewardCard({ accessToken, userId }: Props) {
           { tone: "warning" as const, text: "광고를 끝까지 보지 않아 코인을 받지 못했어요." }
         : null;
 
+  // 보여 줄 광고가 없으면(no-fill) 카드를 숨긴다. 누를 수 없는 카드가 고장 난 기능처럼 보이기 때문이다.
+  // 방금 본 광고의 지급 안내가 떠 있으면 그 안내가 먼저라 숨기지 않는다.
+  if (ad.state === "no-fill" && notice === null && !confirming) {
+    return null;
+  }
+
   const exhausted = status.remainingCount === 0;
   const busy = confirming || ad.state === "loading" || ad.state === "showing";
   const pressable = !exhausted && !confirming && (ad.state === "ready" || ad.state === "error");
@@ -92,9 +98,11 @@ export function AdRewardCard({ accessToken, userId }: Props) {
         ? `광고 보고 ${status.coinAmount}코인 받기`
         : ad.state === "error"
           ? "광고를 불러오지 못했어요 · 다시 시도"
-          : ad.state === "unavailable"
-            ? "이 빌드에서는 광고를 볼 수 없어요"
-            : "광고 불러오는 중";
+          : ad.state === "no-fill"
+            ? "지금은 볼 수 있는 광고가 없어요"
+            : ad.state === "unavailable"
+              ? "이 빌드에서는 광고를 볼 수 없어요"
+              : "광고 불러오는 중";
 
   return (
     <Pressable
