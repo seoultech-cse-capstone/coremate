@@ -45,6 +45,15 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
   );
 }
 
+// 네이버 로그인 버튼 가이드의 흰색 N 로고. 글자 "N"은 공식 로고와 모양이 달라 검수에서 걸릴 수 있다.
+function NaverLogo({ size = 16 }: { size?: number }) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size}>
+      <Path fill="#FFFFFF" d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845Z" />
+    </Svg>
+  );
+}
+
 export default function StartScreen() {
   const { continueAsGuest, status } = useAuth();
   const kakaoLogin = useKakaoLoginMutation();
@@ -151,7 +160,7 @@ export default function StartScreen() {
             onPress={handleNaverLogin}
             disabled={naverLogin.isPending}
           >
-            <Text style={styles.naverMark}>N</Text>
+            <NaverLogo size={16} />
             <Text style={styles.naverButtonText}>
               {naverLogin.isPending ? "로그인 중..." : "네이버 로그인"}
             </Text>
@@ -243,12 +252,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#03C75A",
     paddingVertical: 16,
-  },
-  naverMark: {
-    color: "#ffffff",
-    fontFamily: FONT.pretendard,
-    fontSize: 18,
-    fontWeight: "900",
   },
   naverButtonText: {
     color: "#ffffff",
