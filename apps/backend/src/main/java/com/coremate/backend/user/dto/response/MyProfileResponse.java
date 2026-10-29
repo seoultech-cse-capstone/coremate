@@ -61,4 +61,7 @@ public class MyProfileResponse {
 
     @Schema(example = "true", description = "친구에게 학습 기록(과목별 스탯·Learning History) 공개 여부")
     private Boolean learningPublic;
+
+    @Schema(example = "true", description = "비밀번호가 있는 계정인지. 소셜 로그인으로만 가입했으면 false 라 탈퇴할 때 비밀번호를 묻지 않는다.")
+    private Boolean hasPassword;
 }

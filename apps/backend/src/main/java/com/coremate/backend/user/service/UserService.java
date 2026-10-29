@@ -150,6 +150,7 @@ public class UserService {
                 .attendanceCount(attendanceRepository.countByUser_UserId(userId))
                 .lastAttendanceDate(lastAttendanceDate)
                 .learningPublic(user.isLearningPublic())
+                .hasPassword(user.getPasswordHash() != null)
                 .build();
     }
 }

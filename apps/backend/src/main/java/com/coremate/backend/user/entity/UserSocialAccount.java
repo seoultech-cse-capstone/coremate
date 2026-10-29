@@ -48,14 +48,23 @@ public class UserSocialAccount {
     @Column(name = "provider_id", nullable = false, length = 255)
     private String providerId;
 
+    // 탈퇴할 때 provider 연결을 끊는 데 쓰는 refresh token. 지금은 Apple 만 저장한다(AppleTokenClient).
+    @Column(name = "refresh_token", length = 512)
+    private String refreshToken;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    public UserSocialAccount(Long userId, SocialProvider provider, String providerId) {
+    public UserSocialAccount(Long userId, SocialProvider provider, String providerId, String refreshToken) {
         this.userId = userId;
         this.provider = provider;
         this.providerId = providerId;
+        this.refreshToken = refreshToken;
+    }
+
+    public void updateRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
     }
 }
