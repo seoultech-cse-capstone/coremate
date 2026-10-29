@@ -20,6 +20,9 @@ public class MyProfileResponse {
     @Schema(example = "user@example.com")
     private String email;
 
+    @Schema(example = "홍길동", description = "가입할 때 받은 이름. 소셜 로그인에서 이름을 받지 못했으면 null")
+    private String name;
+
     @Schema(example = "coremate")
     private String nickname;
 
