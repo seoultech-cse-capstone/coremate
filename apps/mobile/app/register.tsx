@@ -99,10 +99,17 @@ type ConsentItem = {
   id: string;
   label: string;
   required: boolean;
-  href: "/terms-policies" | "/privacy-policy" | "/marketing-consent";
+  /** 자세히 보기 화면. 없으면 오른쪽 화살표를 그리지 않는다. */
+  href?: "/terms-policies" | "/privacy-policy" | "/marketing-consent";
 };
 
 const CONSENT_ITEMS: ConsentItem[] = [
+  // 만 14세 미만은 법정대리인 동의가 있어야 개인정보를 받을 수 있어 가입을 받지 않는다(처리방침 제6조).
+  {
+    id: "age",
+    label: "만 14세 이상입니다",
+    required: true,
+  },
   {
     id: "terms",
     label: "서비스 이용약관 동의",
@@ -571,17 +578,19 @@ export default function RegisterScreen() {
                               </Text>
                             </Pressable>
 
-                            <Pressable
-                              accessibilityLabel={`${item.label} 자세히 보기`}
-                              hitSlop={8}
-                              onPress={() => router.push(item.href)}
-                            >
-                              <ChevronRight
-                                color="#9ca3af"
-                                size={20}
-                                strokeWidth={2.2}
-                              />
-                            </Pressable>
+                            {item.href ? (
+                              <Pressable
+                                accessibilityLabel={`${item.label} 자세히 보기`}
+                                hitSlop={8}
+                                onPress={() => item.href && router.push(item.href)}
+                              >
+                                <ChevronRight
+                                  color="#9ca3af"
+                                  size={20}
+                                  strokeWidth={2.2}
+                                />
+                              </Pressable>
+                            ) : null}
                           </View>
                         );
                       })}
