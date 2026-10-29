@@ -1,7 +1,6 @@
 package com.coremate.backend.auth.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,12 +14,20 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OAuthLoginRequest {
 
-    @Schema(description = "provider가 앱에 발급한 access token", example = "provider-access-token")
-    @NotBlank
+    // apple 은 앱에 access token 을 주지 않아 provider 마다 필수 여부가 달라서, 비었는지는 각 OAuthClient 가 본다.
+    @Schema(description = "provider가 앱에 발급한 access token. kakao·naver·google 은 필수, apple 은 보내지 않는다.",
+            example = "provider-access-token")
     private String accessToken;
 
-    @Schema(description = "google 로그인일 때만 사용하는 id token (선택)")
+    @Schema(description = "google·apple 로그인에서 쓰는 id token. apple 은 필수(identityToken).")
     private String idToken;
+
+    @Schema(description = "apple 로그인일 때만 쓰는 authorization code. 탈퇴할 때 Apple 연결을 끊는 데 필요하다.")
+    private String authorizationCode;
+
+    @Schema(description = "apple 로그인일 때만 쓰는 이름. Apple 은 처음 로그인할 때만 앱에 이름을 준다.", example = "홍길동")
+    @Size(max = 50)
+    private String name;
 
     // 아래 기기 정보는 LoginRequest 와 동일하게 전부 선택 항목이다.
     @Schema(description = "앱이 보관 중인 기기 식별자. 없으면 서버가 발급해 응답으로 돌려준다.",

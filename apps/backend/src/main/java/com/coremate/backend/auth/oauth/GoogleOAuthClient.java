@@ -4,6 +4,9 @@ import com.coremate.backend.auth.dto.request.OAuthLoginRequest;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.user.entity.SocialProvider;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -12,8 +15,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * 구글 idToken 을 검증해 사용자 정보를 조회한다.
- * 카카오/네이버와 달리 앱이 준 idToken(JWT)을 구글 tokeninfo 로 검증하고, aud 가 우리 웹 클라이언트 ID 와
- * 일치하는지 확인해 다른 앱용으로 발급된 토큰의 재사용을 막는다. client-id 는 공개값이라 서버 시크릿은 아니다.
+ * 카카오/네이버와 달리 앱이 준 idToken(JWT)을 구글 tokeninfo 로 검증하고, aud 가 우리 클라이언트 ID 중 하나와
+ * 일치하는지 확인해 다른 앱용으로 발급된 토큰의 재사용을 막는다. 안드로이드는 웹 클라이언트 ID, 아이폰은 iOS 클라이언트
+ * ID 가 aud 로 올 수 있어 둘 다 허용한다. client ID 는 공개값이라 서버 시크릿은 아니다.
  */
 @Component
 public class GoogleOAuthClient implements OAuthClient {
@@ -21,10 +25,13 @@ public class GoogleOAuthClient implements OAuthClient {
     private static final String TOKEN_INFO_URI = "https://oauth2.googleapis.com/tokeninfo";
 
     private final RestClient restClient = RestClient.create();
-    private final String clientId;
+    private final Set<String> clientIds;
 
-    public GoogleOAuthClient(@Value("${oauth.google.client-id:}") String clientId) {
-        this.clientId = clientId;
+    public GoogleOAuthClient(@Value("${oauth.google.client-id:}") String clientId,
+                             @Value("${oauth.google.ios-client-id:}") String iosClientId) {
+        this.clientIds = Stream.of(clientId, iosClientId)
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
@@ -56,8 +63,8 @@ public class GoogleOAuthClient implements OAuthClient {
         if (info == null || info.sub() == null) {
             throw new CoreMateException(ErrorCode.INVALID_OAUTH_TOKEN);
         }
-        // aud 가 우리 앱(웹 클라이언트 ID)용으로 발급된 토큰인지 확인한다. 설정이 비었거나 불일치면 거부.
-        if (clientId.isBlank() || !clientId.equals(info.aud())) {
+        // aud 가 우리 앱용으로 발급된 토큰인지 확인한다. 설정이 비었거나 불일치면 거부.
+        if (info.aud() == null || !clientIds.contains(info.aud())) {
             throw new CoreMateException(ErrorCode.INVALID_OAUTH_TOKEN);
         }
 

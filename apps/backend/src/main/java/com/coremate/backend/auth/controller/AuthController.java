@@ -132,7 +132,8 @@ public class AuthController {
         passwordResetService.resetPassword(request);
     }
 
-    @Operation(summary = "회원 탈퇴", description = "본인 확인(비밀번호) 후 계정을 탈퇴 처리하고 세션을 무효화한다.")
+    @Operation(summary = "회원 탈퇴", description = "본인 확인(비밀번호) 후 계정을 탈퇴 처리하고 세션을 무효화한다. "
+            + "소셜 로그인으로만 가입해 비밀번호가 없는 계정은 확인 없이 탈퇴하고, Apple 로 로그인한 계정은 Apple 연결도 끊는다.")
     @PostMapping("/withdraw")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void withdraw(@AuthenticationPrincipal CustomUserDetails userDetails,

@@ -8,15 +8,20 @@ import com.coremate.backend.auth.dto.response.LoginResponse;
 import com.coremate.backend.auth.dto.response.SignupResponse;
 import com.coremate.backend.auth.entity.SessionRevokeReason;
 import com.coremate.backend.auth.entity.UserSession;
+import com.coremate.backend.auth.event.UserWithdrawnEvent;
 import com.coremate.backend.global.exception.CoreMateException;
 import com.coremate.backend.global.exception.ErrorCode;
 import com.coremate.backend.reward.event.UserSignedUpEvent;
 import com.coremate.backend.global.security.JwtProvider;
+import com.coremate.backend.user.entity.SocialProvider;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.entity.UserRole;
+import com.coremate.backend.user.entity.UserSocialAccount;
 import com.coremate.backend.user.entity.UserStatus;
 import com.coremate.backend.user.repository.UserRepository;
+import com.coremate.backend.user.repository.UserSocialAccountRepository;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -31,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final UserSocialAccountRepository socialAccountRepository;
     private final JwtProvider jwtProvider;
     private final PasswordEncoder passwordEncoder;
     private final UserSessionService userSessionService;
@@ -122,12 +128,24 @@ public class AuthService {
             throw new CoreMateException(ErrorCode.ALREADY_WITHDRAWN);
         }
 
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+        // 소셜 로그인으로만 가입한 계정은 비밀번호가 없어 확인을 건너뛴다.
+        if (user.getPasswordHash() != null
+                && (password == null || !passwordEncoder.matches(password, user.getPasswordHash()))) {
             throw new CoreMateException(ErrorCode.INVALID_PASSWORD);
         }
 
+        // 소셜 연결을 지워야 같은 소셜 계정으로 다시 가입할 수 있다(이메일·닉네임을 익명화하는 것과 같은 이유).
+        // Apple 은 탈퇴하면 Apple 쪽 연결도 끊어야 해서, 지우기 전에 refresh token 을 담아 커밋 뒤에 해지한다.
+        List<UserSocialAccount> links = socialAccountRepository.findByUserId(userId);
+        List<String> appleRefreshTokens = links.stream()
+                .filter(link -> link.getProvider() == SocialProvider.APPLE && link.getRefreshToken() != null)
+                .map(UserSocialAccount::getRefreshToken)
+                .toList();
+        socialAccountRepository.deleteAll(links);
+
         user.withdraw();
         userSessionService.revokeAllAndAnonymize(userId);
+        eventPublisher.publishEvent(new UserWithdrawnEvent(userId, appleRefreshTokens));
     }
 
     public AuthTokenResponse reissue(ReissueTokenRequest request) {
