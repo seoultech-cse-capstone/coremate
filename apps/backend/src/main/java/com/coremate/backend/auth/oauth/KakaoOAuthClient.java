@@ -53,7 +53,15 @@ public class KakaoOAuthClient implements OAuthClient {
         boolean emailVerified = account != null
                 && Boolean.TRUE.equals(account.is_email_valid())
                 && Boolean.TRUE.equals(account.is_email_verified());
-        String name = account != null && account.profile() != null ? account.profile().nickname() : null;
+        // 비즈앱 실명(name) 동의항목을 우선 사용하고, 없으면 닉네임으로 대체한다.
+        String name = null;
+        if (account != null) {
+            if (account.name() != null) {
+                name = account.name();
+            } else if (account.profile() != null) {
+                name = account.profile().nickname();
+            }
+        }
 
         return new OAuthUserInfo(String.valueOf(response.id()), email, emailVerified, name);
     }
@@ -63,7 +71,7 @@ public class KakaoOAuthClient implements OAuthClient {
     private record KakaoUserResponse(Long id, KakaoAccount kakao_account) {
     }
 
-    private record KakaoAccount(String email, Boolean is_email_valid, Boolean is_email_verified,
+    private record KakaoAccount(String name, String email, Boolean is_email_valid, Boolean is_email_verified,
                                 KakaoProfile profile) {
     }
 
