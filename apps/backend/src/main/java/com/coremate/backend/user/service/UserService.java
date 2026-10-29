@@ -136,6 +136,7 @@ public class UserService {
         return MyProfileResponse.builder()
                 .userId(userId)
                 .email(user.getEmail())
+                .name(user.getName())
                 .nickname(user.getNickname())
                 .role(user.getRole().name())
                 .level(user.getLevel())

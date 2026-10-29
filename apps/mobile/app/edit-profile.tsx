@@ -71,8 +71,35 @@ export default function EditProfileScreen() {
     );
   }
 
+  const profile = profileQuery.data;
+
   return (
     <SettingsDetailLayout title="회원정보 수정">
+      {/* 가입할 때 받은 값(소셜 로그인이면 그 서비스가 준 값)이라 바꿀 수 없다. 받지 못한 값은 줄을 뺀다. */}
+      {profile?.email || profile?.name ? (
+        <>
+          <Text style={detailStyles.sectionTitle}>계정 정보</Text>
+          <View style={detailStyles.card}>
+            {profile.email ? (
+              <>
+                <Text style={detailStyles.label}>이메일</Text>
+                <View style={detailStyles.field}>
+                  <Text style={detailStyles.fieldText}>{profile.email}</Text>
+                </View>
+              </>
+            ) : null}
+            {profile.name ? (
+              <>
+                <Text style={[detailStyles.label, profile.email ? { marginTop: 16 } : null]}>이름</Text>
+                <View style={detailStyles.field}>
+                  <Text style={detailStyles.fieldText}>{profile.name}</Text>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
       <Text style={detailStyles.sectionTitle}>프로필 정보</Text>
       <View style={detailStyles.card}>
         {profileQuery.isLoading ? (

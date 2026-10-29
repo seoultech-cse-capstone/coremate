@@ -2,6 +2,8 @@
 export type MyProfile = {
   userId: number;
   email: string;
+  /** 가입할 때 받은 이름. 소셜 로그인에서 받지 못했으면 null. 이 필드가 생기기 전 서버에는 없다 */
+  name?: string | null;
   nickname: string;
   role: string;
   level: number;
