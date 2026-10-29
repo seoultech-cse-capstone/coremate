@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/splash-icon.png",
-      "bundleIdentifier": "com.coremate.app"
+      "bundleIdentifier": "com.coremate.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "com.coremate.app",
@@ -49,6 +50,7 @@
       "expo-image",
       "expo-status-bar",
       "expo-web-browser",
+      "expo-apple-authentication",
       [
         "react-native-google-mobile-ads",
         {

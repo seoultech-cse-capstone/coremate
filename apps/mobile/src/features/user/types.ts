@@ -20,6 +20,8 @@ export type MyProfile = {
   lastAttendanceDate: string | null;
   /** 친구에게 학습 기록(과목별 스탯·Learning History) 공개 여부. 이 필드가 생기기 전 서버에는 없다(= 공개) */
   learningPublic?: boolean;
+  /** 비밀번호가 있는 계정인지. 소셜 로그인으로만 가입했으면 false. 이 필드가 생기기 전 서버에는 없다 */
+  hasPassword?: boolean;
 };
 
 /** PUT /api/users/me 요청. UpdateUserProfileRequest와 1:1 대응 */

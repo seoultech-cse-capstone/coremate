@@ -8,6 +8,7 @@ export {
   useKakaoLoginMutation,
   useNaverLoginMutation,
   useGoogleLoginMutation,
+  useAppleLoginMutation,
   useSignupMutation,
   useLogoutMutation,
   useSendSignupCodeMutation,

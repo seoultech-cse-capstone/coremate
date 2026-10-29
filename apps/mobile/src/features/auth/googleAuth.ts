@@ -3,6 +3,7 @@
  *
  * webClientId 로 발급받은 idToken 의 aud 를 백엔드가 검증하므로 이 값이 반드시 필요하다.
  * 키는 앱에 심겨야 하므로 .env(EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID)에서만 주입하고 git 에 커밋하지 않는다.
+ * iOS 는 iOS 클라이언트 ID(EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID)도 있어야 구글 SDK 가 뜬다.
  * 사용자가 취소하면 응답 type 이 "success" 가 아니므로 메시지에 "cancel" 을 담아 reject 한다
  * (카카오/네이버와 동일하게 호출부에서 조용히 무시).
  *
@@ -12,6 +13,7 @@
  * 앱이 바로 죽는다.
  */
 const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
+const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
 let configured = false;
 
@@ -19,7 +21,7 @@ export async function signInWithGoogle(): Promise<{ idToken: string; accessToken
   const { GoogleSignin } = await import("@react-native-google-signin/google-signin");
 
   if (!configured) {
-    GoogleSignin.configure({ webClientId });
+    GoogleSignin.configure({ webClientId, ...(iosClientId ? { iosClientId } : {}) });
     configured = true;
   }
 

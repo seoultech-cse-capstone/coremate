@@ -19,12 +19,15 @@ export type SignupRequest = {
   phoneNumber: string;
 };
 
-export type OAuthProvider = "kakao" | "google" | "naver";
+export type OAuthProvider = "kakao" | "google" | "naver" | "apple";
 
 export type OAuthLoginRequest = {
   // provider SDK 가 앱에 준 토큰. 기기 정보는 mutation 이 채워 넣는다.
-  accessToken: string;
+  // Apple 은 access token 이 없어 idToken(identity token)·authorizationCode·name 만 보낸다.
+  accessToken?: string;
   idToken?: string;
+  authorizationCode?: string;
+  name?: string;
   deviceId?: string;
   deviceName?: string;
   platform?: string;
@@ -36,7 +39,8 @@ export type ReissueRequest = {
 };
 
 export type WithdrawRequest = {
-  password: string;
+  // 소셜 로그인으로만 가입한 계정(내 프로필 hasPassword=false)은 보내지 않는다.
+  password?: string;
 };
 
 export type FindEmailRequest = {

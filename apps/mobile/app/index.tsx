@@ -1,8 +1,9 @@
+import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Mail, MessageCircle } from "lucide-react-native";
 import { useEffect } from "react";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
@@ -12,6 +13,7 @@ import {
   useKakaoLoginMutation,
   useNaverLoginMutation,
   useGoogleLoginMutation,
+  useAppleLoginMutation,
 } from "../src/features/auth";
 import { LoadingScreen } from "../src/shared/components/LoadingScreen";
 
@@ -48,6 +50,7 @@ export default function StartScreen() {
   const kakaoLogin = useKakaoLoginMutation();
   const naverLogin = useNaverLoginMutation();
   const googleLogin = useGoogleLoginMutation();
+  const appleLogin = useAppleLoginMutation();
 
   // 세션이 복원되어 이미 로그인된 상태라면 시작화면을 보여주지 않고 바로 홈으로 보낸다.
   // 카카오 로그인 성공도 status 를 authenticated 로 바꾸므로 이 효과가 홈으로 보낸다.
@@ -83,6 +86,21 @@ export default function StartScreen() {
 
   const handleGoogleLogin = () => {
     googleLogin.mutate(undefined, {
+      onError: (error) => {
+        // 사용자가 로그인 창을 닫은 경우는 조용히 무시한다.
+        if (String(error).toLowerCase().includes("cancel")) {
+          return;
+        }
+
+      },
+    });
+  };
+
+  const handleAppleLogin = () => {
+    if (appleLogin.isPending) {
+      return;
+    }
+    appleLogin.mutate(undefined, {
       onError: (error) => {
         // 사용자가 로그인 창을 닫은 경우는 조용히 무시한다.
         if (String(error).toLowerCase().includes("cancel")) {
@@ -149,6 +167,17 @@ export default function StartScreen() {
               {googleLogin.isPending ? "로그인 중..." : "구글 로그인"}
             </Text>
           </Pressable>
+
+          {/* App Store 심사 지침 4.8: 소셜 로그인이 있으면 Apple 로그인을 같은 크기로 함께 둔다(아이폰만). */}
+          {Platform.OS === "ios" ? (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={16}
+              style={styles.appleButton}
+              onPress={handleAppleLogin}
+            />
+          ) : null}
 
           <Pressable
             style={styles.emailButton}
@@ -226,6 +255,10 @@ const styles = StyleSheet.create({
     fontFamily: FONT.pretendard,
     fontSize: 16,
     fontWeight: "800",
+  },
+  appleButton: {
+    width: "100%",
+    height: 52,
   },
   googleButton: {
     flexDirection: "row",
