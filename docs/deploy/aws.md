@@ -54,6 +54,7 @@ ECS 가 태스크를 띄울 때 `/coremate/dev/...` 값을 꺼내 환경변수�
 | `/coremate/dev/backend/google-client-id` | `GOOGLE_CLIENT_ID` | 공개값(앱 webClientId 와 같음) |
 | `/coremate/dev/backend/mail-username` / `mail-password` | `MAIL_USERNAME` / `MAIL_PASSWORD` | 인증 메일 발신용 Gmail 과 앱 비밀번호 |
 | `/coremate/dev/backend/firebase-credentials-json` | `FIREBASE_CREDENTIALS_JSON` | FCM 서비스 계정 JSON 전체 |
+| `/coremate/dev/backend/apple-private-key` | `APPLE_PRIVATE_KEY` | Sign in with Apple 키(.p8) 파일 내용 전체, SecureString. 팀 ID·키 ID 는 공개값이라 태스크 정의 `environment` 의 `APPLE_TEAM_ID`·`APPLE_KEY_ID`. 키를 읽지 못하면 서버가 뜨지 않는다 |
 | `/coremate/dev/ai/openai-api-key` | `OPENAI_API_KEY` (ai-server) | |
 
 ⚠️ Firebase·메일·OpenAI 값이 틀려도 서버는 **기동한다**(해당 기능만 조용히 실패). 값을 바꿨다면 아래 로그에서 확인할 것.

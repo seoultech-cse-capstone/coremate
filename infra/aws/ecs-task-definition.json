@@ -24,7 +24,9 @@
         { "name": "SPRING_DATA_REDIS_HOST", "value": "localhost" },
         { "name": "WEAKNESS_ANALYSIS_AI_SERVER_BASE_URL", "value": "http://localhost:8000" },
         { "name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=50" },
-        { "name": "ADMIN_WEB_ALLOWED_ORIGINS", "value": "https://coremate-admin.vercel.app" }
+        { "name": "ADMIN_WEB_ALLOWED_ORIGINS", "value": "https://coremate-admin.vercel.app" },
+        { "name": "APPLE_TEAM_ID", "value": "C9KYK3BW3F" },
+        { "name": "APPLE_KEY_ID", "value": "N89FVV7R6T" }
       ],
       "secrets": [
         { "name": "SPRING_DATASOURCE_URL", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/db/url" },
@@ -33,7 +35,8 @@
         { "name": "GOOGLE_CLIENT_ID", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/google-client-id" },
         { "name": "MAIL_USERNAME", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-username" },
         { "name": "MAIL_PASSWORD", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-password" },
-        { "name": "FIREBASE_CREDENTIALS_JSON", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/firebase-credentials-json" }
+        { "name": "FIREBASE_CREDENTIALS_JSON", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/firebase-credentials-json" },
+        { "name": "APPLE_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apple-private-key" }
       ],
       "dependsOn": [
         { "containerName": "redis", "condition": "START" },
