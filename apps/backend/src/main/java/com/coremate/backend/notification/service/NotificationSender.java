@@ -4,6 +4,7 @@ import com.coremate.backend.notification.entity.DeviceToken;
 import com.coremate.backend.notification.entity.Notification;
 import com.coremate.backend.notification.entity.NotificationSendLog;
 import com.coremate.backend.notification.entity.UserNotificationSetting;
+import com.coremate.backend.notification.entity.type.DevicePlatform;
 import com.coremate.backend.notification.entity.type.NotificationCategory;
 import com.coremate.backend.notification.entity.type.SendFailReason;
 import com.coremate.backend.notification.repository.DeviceTokenRepository;
@@ -91,10 +92,12 @@ public class NotificationSender {
             DeviceToken token, Notification notification, NotificationCommand command, Map<String, String> data) {
         PushSendResult result;
         try {
-            result = pushSender.send(token.getToken(), command.title(), command.body(), data);
+            result = pushSender.send(token.getPlatform(), token.getToken(), command.title(), command.body(), data);
         } catch (Exception e) {
             log.error("푸시 전송 중 오류. deviceTokenId={}", token.getDeviceTokenId(), e);
-            result = PushSendResult.failure(SendFailReason.FCM_ERROR);
+            result = PushSendResult.failure(token.getPlatform() == DevicePlatform.IOS
+                    ? SendFailReason.APNS_ERROR
+                    : SendFailReason.FCM_ERROR);
         }
 
         if (result.successful()) {

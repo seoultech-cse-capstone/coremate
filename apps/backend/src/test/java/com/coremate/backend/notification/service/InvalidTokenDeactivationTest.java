@@ -3,6 +3,7 @@ package com.coremate.backend.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
 import com.coremate.backend.notification.dto.request.RegisterDeviceTokenRequest;
@@ -50,7 +51,7 @@ class InvalidTokenDeactivationTest {
     void tokenIsDeactivatedWhenFcmReportsItInvalid() {
         User user = createUser("fcm1@example.com", "fcm1");
         registerToken(user, "dead-token");
-        given(pushSender.send(anyString(), anyString(), anyString(), any()))
+        given(pushSender.send(any(), anyString(), anyString(), anyString(), any()))
                 .willReturn(PushSendResult.failure(SendFailReason.TOKEN_EXPIRED));
 
         notificationSender.send(NotificationCommand.of(
@@ -66,7 +67,7 @@ class InvalidTokenDeactivationTest {
     void tokenSurvivesTransientFcmError() {
         User user = createUser("fcm2@example.com", "fcm2");
         registerToken(user, "live-token");
-        given(pushSender.send(anyString(), anyString(), anyString(), any()))
+        given(pushSender.send(any(), anyString(), anyString(), anyString(), any()))
                 .willReturn(PushSendResult.failure(SendFailReason.FCM_ERROR));
 
         notificationSender.send(NotificationCommand.of(
@@ -81,7 +82,7 @@ class InvalidTokenDeactivationTest {
     void senderKeepsWorkingWhenPushThrows() {
         User user = createUser("fcm3@example.com", "fcm3");
         registerToken(user, "boom-token");
-        given(pushSender.send(anyString(), anyString(), anyString(), any()))
+        given(pushSender.send(any(), anyString(), anyString(), anyString(), any()))
                 .willThrow(new RuntimeException("FCM down"));
 
         notificationSender.send(NotificationCommand.of(
@@ -92,10 +93,29 @@ class InvalidTokenDeactivationTest {
         assertThat(lastLog(user).getFailReason()).isEqualTo(SendFailReason.FCM_ERROR);
     }
 
+    @Test
+    void iosTokenGoesToSenderWithItsPlatformAndFailureIsRecordedAsApns() {
+        User user = createUser("apns1@example.com", "apns1");
+        registerToken(user, "ab12cd34", DevicePlatform.IOS);
+        given(pushSender.send(eq(DevicePlatform.IOS), eq("ab12cd34"), anyString(), anyString(), any()))
+                .willThrow(new RuntimeException("APNs down"));
+
+        notificationSender.send(NotificationCommand.of(
+                user.getUserId(), NotificationType.FRIEND_POKE, "알림", "콕 찔렀어요"));
+
+        // 아이폰 토큰은 플랫폼과 함께 넘어가야 APNs 로 간다. 실패도 FCM 이 아니라 APNs 실패로 남는다.
+        assertThat(lastLog(user).getFailReason()).isEqualTo(SendFailReason.APNS_ERROR);
+        assertThat(deviceTokenRepository.findByUser_UserIdAndActiveTrue(user.getUserId())).hasSize(1);
+    }
+
     private void registerToken(User user, String token) {
+        registerToken(user, token, DevicePlatform.ANDROID);
+    }
+
+    private void registerToken(User user, String token, DevicePlatform platform) {
         notificationService.registerDeviceToken(user.getUserId(), RegisterDeviceTokenRequest.builder()
                 .token(token)
-                .platform(DevicePlatform.ANDROID)
+                .platform(platform)
                 .deviceId("device-" + user.getUserId())
                 .build());
     }

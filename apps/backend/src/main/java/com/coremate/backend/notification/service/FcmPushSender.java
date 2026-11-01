@@ -1,5 +1,6 @@
 package com.coremate.backend.notification.service;
 
+import com.coremate.backend.notification.entity.type.DevicePlatform;
 import com.coremate.backend.notification.entity.type.SendFailReason;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.AndroidNotification;
@@ -12,7 +13,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-// FCM HTTP v1 으로 실제 푸시를 보낸다.
+// FCM HTTP v1 으로 실제 푸시를 보낸다. 안드로이드 토큰만 온다(아이폰은 ApnsPushSender).
 @Slf4j
 @RequiredArgsConstructor
 public class FcmPushSender implements PushSender {
@@ -24,7 +25,8 @@ public class FcmPushSender implements PushSender {
     private final FirebaseMessaging firebaseMessaging;
 
     @Override
-    public PushSendResult send(String token, String title, String body, Map<String, String> data) {
+    public PushSendResult send(
+            DevicePlatform platform, String token, String title, String body, Map<String, String> data) {
         Message message = Message.builder()
                 .setToken(token)
                 .setNotification(Notification.builder().setTitle(title).setBody(body).build())
