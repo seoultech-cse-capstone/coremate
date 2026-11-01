@@ -1,0 +1,79 @@
+<!-- CoreMate 로고 심볼(C·얼굴·체크·반짝이) 벡터본. splash-icon.png(363px)를 따라 다시 그렸다.
+     app-icon.png 는 이 그림을 2.7배로 키워 흰 1024×1024 가운데에 놓은 것이다(글자 없음 — 아이폰 아이콘 모서리에 잘리지 않게). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 363 363" width="363" height="363">
+  <defs>
+    <linearGradient id="ring" gradientUnits="userSpaceOnUse" x1="110" y1="40" x2="250" y2="275">
+      <stop offset="0" stop-color="#B13DF8"/>
+      <stop offset="0.5" stop-color="#5E4BF2"/>
+      <stop offset="1" stop-color="#1784F6"/>
+    </linearGradient>
+    <linearGradient id="hair" gradientUnits="userSpaceOnUse" x1="140" y1="95" x2="230" y2="180">
+      <stop offset="0" stop-color="#7B46F5"/>
+      <stop offset="1" stop-color="#3B34E8"/>
+    </linearGradient>
+    <linearGradient id="check" gradientUnits="userSpaceOnUse" x1="262" y1="200" x2="312" y2="165">
+      <stop offset="0" stop-color="#2FE07E"/>
+      <stop offset="1" stop-color="#1FD3A8"/>
+    </linearGradient>
+    <linearGradient id="star1" gradientUnits="userSpaceOnUse" x1="283" y1="22" x2="283" y2="70">
+      <stop offset="0" stop-color="#3FD0FA"/>
+      <stop offset="1" stop-color="#1E8EF2"/>
+    </linearGradient>
+    <linearGradient id="star2" gradientUnits="userSpaceOnUse" x1="311" y1="60" x2="311" y2="84">
+      <stop offset="0" stop-color="#7A45F4"/>
+      <stop offset="1" stop-color="#5530E6"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#3B2BB8" flood-opacity="0.18"/>
+    </filter>
+    <radialGradient id="skin" cx="0.45" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#ECEAF2"/>
+    </radialGradient>
+  </defs>
+
+  <!-- circuit traces -->
+  <g fill="none" stroke-width="5.5" stroke-linecap="round">
+    <path d="M51 130 H80" stroke="#9A3EF2"/>
+    <circle cx="43" cy="130" r="8" stroke="#9A3EF2" fill="#fff"/>
+    <path d="M43 163 H76" stroke="#7349F1"/>
+    <circle cx="35" cy="163" r="8" stroke="#7349F1" fill="#fff"/>
+    <path d="M53 196 H82" stroke="#4E5DF3"/>
+    <circle cx="45" cy="196" r="8" stroke="#4E5DF3" fill="#fff"/>
+  </g>
+
+  <!-- C ring: center (192,155), radii 120/77, opening ±42° on the right, ends with small rounded corners -->
+  <path filter="url(#soft)" fill="url(#ring)" d="M 274.2 67.6 A 120 120 0 1 0 274.2 242.4 Q 281.2 235.3 273.7 228.6 L 256.7 213.2 Q 249.2 206.5 242.1 213.5 A 77 77 0 1 1 242.1 96.5 Q 249.2 103.5 256.7 96.8 L 273.7 81.4 Q 281.2 74.7 274.2 67.6 Z"/>
+
+  <!-- ears -->
+  <circle cx="132" cy="182" r="6" fill="#DCD8EA"/>
+  <circle cx="237" cy="182" r="6" fill="#DCD8EA"/>
+  <!-- face -->
+  <circle cx="184.5" cy="172" r="50" fill="url(#skin)"/>
+  <!-- hair -->
+  <path fill="url(#hair)" d="
+    M 129 176
+    C 118 150 122 114 150 100
+    C 166 91 198 88 215 99
+    C 224 99 231 106 229 113
+    C 248 121 256 150 246 176
+    C 244 179 240 179 239 176
+    C 238 166 233 158 224 154
+    C 208 149 187 151 171 140
+    C 167 151 154 161 143 168
+    C 139 171 137 174 136 176
+    C 134 179 130 179 129 176
+    Z"/>
+  <!-- eyes -->
+  <ellipse cx="164.5" cy="178" rx="6.5" ry="8" fill="#141414"/>
+  <ellipse cx="204.5" cy="178" rx="6.5" ry="8" fill="#141414"/>
+  <!-- smile -->
+  <path d="M 174 194 Q 184.5 204 195 194" fill="none" stroke="#141414" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- check -->
+  <path d="M 263 184 L 280 201 L 311 166" fill="none" stroke="url(#check)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- sparkles -->
+  <path fill="url(#star1)" d="M 283 22 Q 286 42 305 45 Q 286 48 283 70 Q 280 48 261 45 Q 280 42 283 22 Z"/>
+  <path fill="url(#star2)" d="M 311 60 Q 312.5 70 323 72 Q 312.5 74 311 85 Q 309.5 74 299 72 Q 309.5 70 311 60 Z"/>
+</svg>

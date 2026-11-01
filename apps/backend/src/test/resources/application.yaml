@@ -37,6 +37,12 @@ firebase:
   credentials-path:
   credentials-json:
 
+# 아이폰 푸시도 같은 이유로 키를 비워 로그 전송기를 고르게 한다.
+apns:
+  team-id:
+  key-id:
+  private-key:
+
 jwt:
   secret: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
   access-token-expiry-sec: 3600
