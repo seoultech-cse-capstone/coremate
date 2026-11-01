@@ -21,10 +21,17 @@ module.exports = ({ config }) => {
             },
           ]
         : "@react-native-google-signin/google-signin",
+      // 네이버 로그인 창을 취소했을 때 오는 coremate://thirdPartyLoginResult 도 네이버 SDK 로 넘긴다.
+      // 네이버 플러그인이 넣은 줄을 기준으로 고치므로 그 플러그인보다 앞에 둔다(파일 상단 주석 참고).
+      "./plugins/withNaverLoginResultUrl",
       // 네이버 로그인 iOS 설정(URL scheme·앱 실행 허용 목록·AppDelegate). naverAuth.ts 의
       // serviceUrlSchemeIOS·네이버 개발자센터 iOS 설정과 같은 값이어야 한다.
       ["@react-native-seoul/naver-login", { urlScheme: "corematenaver" }],
       // 카카오 SDK 는 별도 Maven 저장소에서 받는다(Android 빌드용).
+      // iOS 27 SDK(Xcode 27)로 빌드한 앱은 UIScene 생명주기를 쓰지 않으면 iOS 27 에서 실행하자마자 종료된다.
+      // enableSceneSupport 가 AppDelegate 의 창 생성을 Expo 의 씬 델리게이트로 옮긴다(expo 57.0.23 이상 필요,
+      // SDK 58 부터는 템플릿 기본값이라 이 줄은 지워도 된다). URL 열기는 씬 델리게이트가 AppDelegate 로 다시
+      // 넘겨 주므로 카카오·네이버 로그인 처리(AppDelegate 의 open url)는 그대로 동작한다.
       [
         "expo-build-properties",
         {
@@ -32,6 +39,9 @@ module.exports = ({ config }) => {
             extraMavenRepos: [
               "https://devrepo.kakao.com/nexus/content/groups/public/",
             ],
+          },
+          ios: {
+            enableSceneSupport: true,
           },
         },
       ],
