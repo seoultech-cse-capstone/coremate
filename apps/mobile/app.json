@@ -8,9 +8,9 @@
     "scheme": "coremate",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/splash-icon.png",
+      "icon": "./assets/images/app-icon.png",
       "bundleIdentifier": "com.coremate.app",
-      "buildNumber": "1",
+      "buildNumber": "2",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
