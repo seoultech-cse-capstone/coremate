@@ -26,7 +26,8 @@
         { "name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=50" },
         { "name": "ADMIN_WEB_ALLOWED_ORIGINS", "value": "https://coremate-admin.vercel.app" },
         { "name": "APPLE_TEAM_ID", "value": "C9KYK3BW3F" },
-        { "name": "APPLE_KEY_ID", "value": "N89FVV7R6T" }
+        { "name": "APPLE_KEY_ID", "value": "N89FVV7R6T" },
+        { "name": "APNS_KEY_ID", "value": "W4PVC8Q4RM" }
       ],
       "secrets": [
         { "name": "SPRING_DATASOURCE_URL", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/db/url" },
@@ -36,7 +37,8 @@
         { "name": "MAIL_USERNAME", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-username" },
         { "name": "MAIL_PASSWORD", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-password" },
         { "name": "FIREBASE_CREDENTIALS_JSON", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/firebase-credentials-json" },
-        { "name": "APPLE_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apple-private-key" }
+        { "name": "APPLE_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apple-private-key" },
+        { "name": "APNS_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apns-private-key" }
       ],
       "dependsOn": [
         { "containerName": "redis", "condition": "START" },
