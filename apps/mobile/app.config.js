@@ -21,6 +21,9 @@ module.exports = ({ config }) => {
             },
           ]
         : "@react-native-google-signin/google-signin",
+      // 네이버 로그인 창을 취소했을 때 오는 coremate://thirdPartyLoginResult 도 네이버 SDK 로 넘긴다.
+      // 네이버 플러그인이 넣은 줄을 기준으로 고치므로 그 플러그인보다 앞에 둔다(파일 상단 주석 참고).
+      "./plugins/withNaverLoginResultUrl",
       // 네이버 로그인 iOS 설정(URL scheme·앱 실행 허용 목록·AppDelegate). naverAuth.ts 의
       // serviceUrlSchemeIOS·네이버 개발자센터 iOS 설정과 같은 값이어야 한다.
       ["@react-native-seoul/naver-login", { urlScheme: "corematenaver" }],
