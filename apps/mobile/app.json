@@ -2,7 +2,7 @@
   "expo": {
     "name": "CoreMate",
     "slug": "coremate",
-    "version": "1.6.1",
+    "version": "1.6.2",
     "orientation": "portrait",
     "icon": "./assets/images/splash-icon.png",
     "scheme": "coremate",
@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/images/app-icon.png",
       "bundleIdentifier": "com.coremate.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.coremate.app",
-      "versionCode": 12,
+      "versionCode": 13,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0760FD",
