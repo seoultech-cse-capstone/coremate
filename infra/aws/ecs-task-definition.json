@@ -38,7 +38,8 @@
         { "name": "MAIL_PASSWORD", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/mail-password" },
         { "name": "FIREBASE_CREDENTIALS_JSON", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/firebase-credentials-json" },
         { "name": "APPLE_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apple-private-key" },
-        { "name": "APNS_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apns-private-key" }
+        { "name": "APNS_PRIVATE_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/apns-private-key" },
+        { "name": "KAKAO_ADMIN_KEY", "valueFrom": "arn:aws:ssm:ap-northeast-2:334478199632:parameter/coremate/dev/backend/kakao-admin-key" }
       ],
       "dependsOn": [
         { "containerName": "redis", "condition": "START" },
