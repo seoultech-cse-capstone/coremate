@@ -4,6 +4,9 @@ import com.coremate.backend.auth.entity.UserSession;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface UserSessionRepository extends JpaRepository<UserSession, Long> {
 
@@ -17,4 +20,9 @@ public interface UserSessionRepository extends JpaRepository<UserSession, Long> 
     List<UserSession> findByUserIdAndRevokedAtIsNullOrderByLastSeenAtDesc(Long userId);
 
     List<UserSession> findByUserId(Long userId);
+
+    // 회원 탈퇴. 기기 목록에 남는 기기 정보까지 지운다. 세션 행이 없으면 남은 토큰은 SESSION_EXPIRED 로 막힌다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from UserSession s where s.userId = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

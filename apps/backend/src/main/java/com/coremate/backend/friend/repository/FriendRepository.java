@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -54,4 +55,9 @@ public interface FriendRepository extends JpaRepository<Friend, Long> {
             @Param("userHighId") Long userHighId,
             @Param("status") FriendStatus status
     );
+
+    // 회원 탈퇴. 친구 관계·친구 요청·차단은 한 행에 두 회원이 함께 있어, 어느 쪽이든 이 회원이면 지운다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from Friend f where f.requester.userId = :userId or f.receiver.userId = :userId")
+    int deleteAllInvolving(@Param("userId") Long userId);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   answerInquiry,
@@ -9,16 +9,21 @@ import {
   getToken,
   listBugReports,
   listInquiries,
+  searchUsers,
   updateBugReportStatus,
+  withdrawUser,
 } from "@/lib/api";
 import {
   CATEGORY_LABEL,
+  PROVIDER_LABEL,
+  USER_STATUS_LABEL,
+  type AdminUser,
   type BugReport,
   type Inquiry,
   type InquiryStatus,
 } from "@/lib/types";
 
-type Tab = "inquiries" | "bugs";
+type Tab = "inquiries" | "bugs" | "users";
 
 function formatDate(iso: string): string {
   return iso.replace("T", " ").slice(0, 16);
@@ -69,9 +74,21 @@ export default function DashboardPage() {
         >
           버그 신고
         </button>
+        <button
+          className={`tab ${tab === "users" ? "active" : ""}`}
+          onClick={() => setTab("users")}
+        >
+          회원 탈퇴
+        </button>
       </div>
 
-      {tab === "inquiries" ? <InquiriesPanel /> : <BugReportsPanel />}
+      {tab === "inquiries" ? (
+        <InquiriesPanel />
+      ) : tab === "bugs" ? (
+        <BugReportsPanel />
+      ) : (
+        <UsersPanel />
+      )}
     </div>
   );
 }
@@ -263,6 +280,108 @@ function BugReportsPanel() {
           </div>
         </div>
       ))}
+    </>
+  );
+}
+
+// 앱을 쓸 수 없는 회원이 메일로 보낸 계정 삭제 요청을 처리한다(계정 삭제 안내 페이지의 메일 요청 경로).
+// 앱에서 탈퇴할 때와 같은 범위로 지워진다.
+function UsersPanel() {
+  const [keyword, setKeyword] = useState("");
+  const [items, setItems] = useState<AdminUser[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const search = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!keyword.trim()) return;
+    setLoading(true);
+    setError(null);
+    setNotice(null);
+    try {
+      setItems(await searchUsers(keyword.trim()));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "찾지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const withdraw = async (user: AdminUser) => {
+    const confirmed = window.confirm(
+      `${user.nickname} (#${user.userId}) 회원을 탈퇴 처리할까요? 되돌릴 수 없습니다.`,
+    );
+    if (!confirmed) return;
+    setBusyId(user.userId);
+    setError(null);
+    try {
+      await withdrawUser(user.userId);
+      setItems((prev) => prev?.filter((u) => u.userId !== user.userId) ?? null);
+      setNotice(
+        `${user.nickname} (#${user.userId}) 회원을 탈퇴 처리했습니다. 요청한 분께 결과를 메일로 알려 주세요.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "탈퇴 처리에 실패했습니다.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <>
+      <form className="search-row" onSubmit={search}>
+        <input
+          placeholder="가입 이메일 또는 닉네임"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+        />
+        <button className="btn small" disabled={loading || !keyword.trim()}>
+          찾기
+        </button>
+      </form>
+      <p className="meta search-help">
+        메일로 온 계정 삭제 요청을 처리합니다. 보낸 주소가 가입 이메일과 같은지
+        먼저 확인하세요.
+      </p>
+
+      {notice ? <p className="notice">{notice}</p> : null}
+      {error ? <p className="error">{error}</p> : null}
+      {loading ? (
+        <p className="empty">찾는 중…</p>
+      ) : items === null ? null : items.length === 0 ? (
+        <p className="empty">일치하는 회원이 없습니다.</p>
+      ) : (
+        items.map((user) => (
+          <div className="card" key={user.userId}>
+            <div className="card-head">
+              <span className="badge">{USER_STATUS_LABEL[user.status]}</span>
+              <span className="card-title">{user.nickname}</span>
+              <span className="meta">#{user.userId}</span>
+            </div>
+            <p className="meta">
+              {user.email ?? "이메일 없음"} · 가입 방법{" "}
+              {user.socialProviders.length === 0
+                ? "이메일"
+                : user.socialProviders.map((p) => PROVIDER_LABEL[p]).join(", ")}{" "}
+              · 가입 {formatDate(user.createdAt)}
+              {user.lastLoginAt
+                ? ` · 마지막 로그인 ${formatDate(user.lastLoginAt)}`
+                : ""}
+            </p>
+            <div className="row-actions">
+              <button
+                className="btn small danger"
+                disabled={busyId === user.userId || user.status === "WITHDRAWN"}
+                onClick={() => withdraw(user)}
+              >
+                {busyId === user.userId ? "처리 중…" : "탈퇴 처리"}
+              </button>
+            </div>
+          </div>
+        ))
+      )}
     </>
   );
 }
