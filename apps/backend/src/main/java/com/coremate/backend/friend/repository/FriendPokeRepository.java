@@ -3,6 +3,9 @@ package com.coremate.backend.friend.repository;
 import com.coremate.backend.friend.entity.FriendPoke;
 import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface FriendPokeRepository extends JpaRepository<FriendPoke, Long> {
 
@@ -13,4 +16,9 @@ public interface FriendPokeRepository extends JpaRepository<FriendPoke, Long> {
 
     long countByFromUser_UserIdAndToUser_UserIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
             Long fromUserId, Long toUserId, LocalDateTime startInclusive, LocalDateTime endExclusive);
+
+    // 회원 탈퇴. 보낸 것과 받은 것을 모두 지운다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from FriendPoke p where p.fromUser.userId = :userId or p.toUser.userId = :userId")
+    int deleteAllInvolving(@Param("userId") Long userId);
 }

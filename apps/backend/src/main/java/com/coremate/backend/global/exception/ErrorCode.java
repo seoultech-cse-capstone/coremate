@@ -41,6 +41,8 @@ public enum ErrorCode {
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다"),
     ALREADY_WITHDRAWN(HttpStatus.CONFLICT, "이미 탈퇴한 계정입니다"),
+    // 관리자 웹은 403 을 받으면 로그인 화면으로 돌아가므로 400 으로 알린다.
+    CANNOT_WITHDRAW_ADMIN(HttpStatus.BAD_REQUEST, "운영자 계정은 탈퇴시킬 수 없습니다"),
 
     // Content
     SUBJECT_NOT_FOUND(HttpStatus.NOT_FOUND, "과목을 찾을 수 없습니다"),

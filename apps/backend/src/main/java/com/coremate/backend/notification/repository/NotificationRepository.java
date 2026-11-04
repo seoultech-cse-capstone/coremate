@@ -23,4 +23,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Query("update Notification n set n.read = true, n.readAt = :readAt "
             + "where n.user.userId = :userId and n.read = false")
     int markAllRead(@Param("userId") Long userId, @Param("readAt") LocalDateTime readAt);
+
+    // 회원 탈퇴. 받은 알림과 함께, 이 회원 때문에 다른 회원에게 간 친구 알림(콕 찌르기·친구 요청·수락)도 지운다.
+    // 친구 알림은 콕 찌르거나 요청·수락한 회원의 번호를 target_id 로 갖고, 제목·본문에 그때의 닉네임이 들어 있다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from Notification n where n.user.userId = :userId "
+            + "or (n.targetType = com.coremate.backend.notification.entity.type.NotificationTargetType.FRIEND "
+            + "and n.targetId = :userId)")
+    int deleteAllOfOrAboutUser(@Param("userId") Long userId);
 }
