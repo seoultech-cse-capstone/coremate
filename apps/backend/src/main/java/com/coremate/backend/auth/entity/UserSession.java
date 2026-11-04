@@ -59,8 +59,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @EntityListeners(AuditingEntityListener.class)
 public class UserSession {
 
-    private static final String ANONYMIZED_DEVICE_NAME = "삭제된 기기";
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_session_id")
@@ -162,12 +160,6 @@ public class UserSession {
 
     public void touch(LocalDateTime now) {
         this.lastSeenAt = now;
-    }
-
-    /** 탈퇴 시 표시용 기기명을 지운다. User.withdraw() 의 개인정보 파기와 짝을 이룬다. */
-    public void anonymizeDevice() {
-        this.deviceName = ANONYMIZED_DEVICE_NAME;
-        this.osVersion = null;
     }
 
     public boolean isActive() {

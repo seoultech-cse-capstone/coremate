@@ -42,6 +42,7 @@ public class AuthService {
     private final UserSessionService userSessionService;
     private final ApplicationEventPublisher eventPublisher;
     private final SignupEmailVerificationService signupEmailVerificationService;
+    private final WithdrawnUserDataCleaner withdrawnUserDataCleaner;
 
     public SignupResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -121,12 +122,7 @@ public class AuthService {
     }
 
     public void withdraw(Long userId, String password) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
-
-        if (user.getStatus() == UserStatus.WITHDRAWN) {
-            throw new CoreMateException(ErrorCode.ALREADY_WITHDRAWN);
-        }
+        User user = findWithdrawableUser(userId);
 
         // 소셜 로그인으로만 가입한 계정은 비밀번호가 없어 확인을 건너뛴다.
         if (user.getPasswordHash() != null
@@ -134,18 +130,49 @@ public class AuthService {
             throw new CoreMateException(ErrorCode.INVALID_PASSWORD);
         }
 
+        withdrawUser(userId, user);
+    }
+
+    /**
+     * 앱을 쓸 수 없는 회원이 메일로 보낸 삭제 요청을 운영자가 처리한다. 본인 확인은 운영자가 메일로 하므로
+     * 비밀번호를 묻지 않고, 지우는 범위는 앱에서 탈퇴할 때와 같다.
+     */
+    public void withdrawByAdmin(Long userId) {
+        User user = findWithdrawableUser(userId);
+        // 운영자 계정을 탈퇴시키면 관리자 웹에 들어갈 수 없게 된다.
+        if (user.getRole() == UserRole.ADMIN) {
+            throw new CoreMateException(ErrorCode.CANNOT_WITHDRAW_ADMIN);
+        }
+        withdrawUser(userId, user);
+    }
+
+    private User findWithdrawableUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreMateException(ErrorCode.USER_NOT_FOUND));
+        if (user.getStatus() == UserStatus.WITHDRAWN) {
+            throw new CoreMateException(ErrorCode.ALREADY_WITHDRAWN);
+        }
+        return user;
+    }
+
+    private void withdrawUser(Long userId, User user) {
         // 소셜 연결을 지워야 같은 소셜 계정으로 다시 가입할 수 있다(이메일·닉네임을 익명화하는 것과 같은 이유).
-        // Apple 은 탈퇴하면 Apple 쪽 연결도 끊어야 해서, 지우기 전에 refresh token 을 담아 커밋 뒤에 해지한다.
+        // Apple·카카오는 탈퇴하면 그쪽 연결도 끊어야 해서, 지우기 전에 Apple refresh token 과 카카오 회원번호를
+        // 담아 커밋 뒤에 끊는다.
         List<UserSocialAccount> links = socialAccountRepository.findByUserId(userId);
         List<String> appleRefreshTokens = links.stream()
                 .filter(link -> link.getProvider() == SocialProvider.APPLE && link.getRefreshToken() != null)
                 .map(UserSocialAccount::getRefreshToken)
                 .toList();
+        List<String> kakaoUserIds = links.stream()
+                .filter(link -> link.getProvider() == SocialProvider.KAKAO)
+                .map(UserSocialAccount::getProviderId)
+                .toList();
         socialAccountRepository.deleteAll(links);
 
         user.withdraw();
-        userSessionService.revokeAllAndAnonymize(userId);
-        eventPublisher.publishEvent(new UserWithdrawnEvent(userId, appleRefreshTokens));
+        withdrawnUserDataCleaner.deleteAll(userId);
+        eventPublisher.publishEvent(new UserWithdrawnEvent(userId, appleRefreshTokens, kakaoUserIds));
     }
 
     public AuthTokenResponse reissue(ReissueTokenRequest request) {

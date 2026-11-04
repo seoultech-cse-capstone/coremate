@@ -98,7 +98,7 @@ class AppleTokenClientTest {
                     .andRespond(withSuccess());
         }
 
-        client.revokeOnWithdraw(new UserWithdrawnEvent(1L, List.of("refresh-1", "refresh-2")));
+        client.revokeOnWithdraw(new UserWithdrawnEvent(1L, List.of("refresh-1", "refresh-2"), List.of()));
 
         appleServer.verify();
     }

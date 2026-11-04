@@ -28,7 +28,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * 회원 탈퇴. 소셜 로그인으로만 가입한 계정도 탈퇴할 수 있고, 탈퇴하면 소셜 연결을 지워 같은 소셜 계정으로
- * 다시 가입할 수 있어야 한다. Apple 연결의 refresh token 은 커밋 뒤에 해지하도록 이벤트로 넘긴다.
+ * 다시 가입할 수 있어야 한다. Apple 연결의 refresh token 과 카카오 회원번호는 커밋 뒤에 연결을 끊도록 이벤트로 넘긴다.
+ * 메일로 온 삭제 요청은 운영자가 비밀번호 없이 같은 범위로 탈퇴시킨다.
  */
 class AuthServiceWithdrawTest {
 
@@ -39,10 +40,11 @@ class AuthServiceWithdrawTest {
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final UserSessionService userSessionService = mock(UserSessionService.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
+    private final WithdrawnUserDataCleaner withdrawnUserDataCleaner = mock(WithdrawnUserDataCleaner.class);
 
     private final AuthService authService = new AuthService(userRepository, socialAccountRepository,
             mock(JwtProvider.class), passwordEncoder, userSessionService, eventPublisher,
-            mock(SignupEmailVerificationService.class));
+            mock(SignupEmailVerificationService.class), withdrawnUserDataCleaner);
 
     @Test
     void 소셜로만_가입한_계정은_비밀번호_없이_탈퇴하고_소셜_연결을_지운다() {
@@ -54,7 +56,7 @@ class AuthServiceWithdrawTest {
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
         verify(socialAccountRepository).deleteAll(links);
-        verify(userSessionService).revokeAllAndAnonymize(USER_ID);
+        verify(withdrawnUserDataCleaner).deleteAll(USER_ID);
         assertThat(publishedEvent().appleRefreshTokens()).isEmpty();
     }
 
@@ -68,6 +70,16 @@ class AuthServiceWithdrawTest {
         UserWithdrawnEvent event = publishedEvent();
         assertThat(event.userId()).isEqualTo(USER_ID);
         assertThat(event.appleRefreshTokens()).containsExactly("apple-refresh");
+    }
+
+    @Test
+    void 카카오_연결의_회원번호는_탈퇴_이벤트로_넘긴다() {
+        User user = User.socialSignup("kakao@example.com", "카카오", "유저123456");
+        givenUser(user, List.of(link(SocialProvider.KAKAO, null), link(SocialProvider.APPLE, "apple-refresh")));
+
+        authService.withdraw(USER_ID, null);
+
+        assertThat(publishedEvent().kakaoUserIds()).containsExactly("kakao-sub");
     }
 
     @Test
@@ -99,7 +111,52 @@ class AuthServiceWithdrawTest {
         authService.withdraw(USER_ID, "P@ssw0rd!");
 
         assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
-        verify(userSessionService).revokeAllAndAnonymize(USER_ID);
+        verify(withdrawnUserDataCleaner).deleteAll(USER_ID);
+    }
+
+    @Test
+    void 운영자는_비밀번호_없이_탈퇴시킨다() {
+        User user = passwordUser();
+        givenUser(user, List.of(link(SocialProvider.KAKAO, null)));
+
+        authService.withdrawByAdmin(USER_ID);
+
+        assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(withdrawnUserDataCleaner).deleteAll(USER_ID);
+        assertThat(publishedEvent().kakaoUserIds()).containsExactly("kakao-sub");
+    }
+
+    @Test
+    void 운영자_계정은_탈퇴시킬_수_없다() {
+        User admin = User.builder()
+                .email("admin@example.com")
+                .passwordHash("hashed")
+                .name("운영자")
+                .nickname("운영자")
+                .role(UserRole.ADMIN)
+                .build();
+        givenUser(admin, List.of());
+
+        assertThatThrownBy(() -> authService.withdrawByAdmin(USER_ID))
+                .isInstanceOf(CoreMateException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CANNOT_WITHDRAW_ADMIN);
+        assertThat(admin.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        verify(withdrawnUserDataCleaner, never()).deleteAll(any());
+    }
+
+    @Test
+    void 이미_탈퇴한_계정은_다시_탈퇴시킬_수_없다() {
+        User user = passwordUser();
+        user.withdraw();
+        givenUser(user, List.of());
+
+        assertThatThrownBy(() -> authService.withdrawByAdmin(USER_ID))
+                .isInstanceOf(CoreMateException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.ALREADY_WITHDRAWN);
+        verify(withdrawnUserDataCleaner, never()).deleteAll(any());
     }
 
     private void givenUser(User user, List<UserSocialAccount> links) {

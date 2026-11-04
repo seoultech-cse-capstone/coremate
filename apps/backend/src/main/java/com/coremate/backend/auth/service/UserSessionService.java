@@ -218,12 +218,6 @@ public class UserSessionService {
                 .ifPresent(session -> session.revoke(SessionRevokeReason.REMOTE_LOGOUT, LocalDateTime.now()));
     }
 
-    /** 탈퇴 시 전 세션 해지 + 표시용 기기명 파기. */
-    public void revokeAllAndAnonymize(Long userId) {
-        revokeAll(userId, SessionRevokeReason.WITHDRAWAL);
-        userSessionRepository.findByUserId(userId).forEach(UserSession::anonymizeDevice);
-    }
-
     /** 기기 목록. 조회 시점에 현재 기기의 마지막 접속 시각을 갱신한다. */
     public List<UserSession> listActive(Long userId, String currentSessionId) {
         List<UserSession> sessions =

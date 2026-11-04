@@ -1,4 +1,5 @@
 import type {
+  AdminUser,
   BugReport,
   BugReportStatus,
   Inquiry,
@@ -107,4 +108,18 @@ export async function updateBugReportStatus(
     { method: "PATCH" },
   );
   return res.data;
+}
+
+// 메일로 온 계정 삭제 요청 처리용. 가입 이메일이나 닉네임이 정확히 같은 회원을 찾는다.
+export async function searchUsers(keyword: string): Promise<AdminUser[]> {
+  const res = await request<ApiResponse<AdminUser[]>>(
+    `/api/v1/admin/users?keyword=${encodeURIComponent(keyword)}`,
+  );
+  return res.data;
+}
+
+export async function withdrawUser(userId: number): Promise<void> {
+  await request<ApiResponse<null>>(`/api/v1/admin/users/${userId}/withdraw`, {
+    method: "POST",
+  });
 }
