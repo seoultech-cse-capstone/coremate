@@ -218,6 +218,35 @@ textarea {
   margin-top: 8px;
 }
 
+.notice {
+  color: #15803d;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.btn.danger {
+  background: var(--danger);
+}
+
+/* 회원 탈퇴 */
+.search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.search-row input {
+  flex: 1;
+  padding: 9px 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font: inherit;
+}
+
+.search-help {
+  margin-bottom: 14px;
+}
+
 /* 로그인 */
 .login-wrap {
   min-height: 100vh;
