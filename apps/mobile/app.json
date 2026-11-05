@@ -2,7 +2,7 @@
   "expo": {
     "name": "CoreMate",
     "slug": "coremate",
-    "version": "1.6.2",
+    "version": "1.6.3",
     "orientation": "portrait",
     "icon": "./assets/images/splash-icon.png",
     "scheme": "coremate",
@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/images/app-icon.png",
       "bundleIdentifier": "com.coremate.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
