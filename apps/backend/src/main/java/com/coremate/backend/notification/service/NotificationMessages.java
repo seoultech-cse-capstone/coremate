@@ -59,7 +59,7 @@ public final class NotificationMessages {
                 userId,
                 NotificationType.DAILY_QUIZ_OPEN,
                 "오늘의 CS 퀴즈가 나왔어요",
-                "5문제 풀고 출석까지 한 번에 끝내볼까요?",
+                "6문제 풀고 출석까지 한 번에 끝내볼까요?",
                 NotificationTargetType.DAILY_QUIZ,
                 null
         );
