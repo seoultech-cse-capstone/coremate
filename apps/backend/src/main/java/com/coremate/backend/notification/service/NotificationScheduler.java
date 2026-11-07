@@ -25,7 +25,7 @@ public class NotificationScheduler {
     private final ScheduledNotificationService scheduledNotificationService;
     private final SchedulerLock schedulerLock;
 
-    // 매일 08:00 — 출근·등교 시간대. 오늘의 퀴즈는 5문제라 이동 중에도 소화할 수 있다.
+    // 매일 08:00 — 출근·등교 시간대. 오늘의 퀴즈는 6문제라 이동 중에도 소화할 수 있다.
     @Scheduled(cron = "0 0 8 * * *", zone = "Asia/Seoul")
     public void sendDailyQuizOpen() {
         runOnce(NotificationType.DAILY_QUIZ_OPEN, scheduledNotificationService::sendDailyQuizOpen);
