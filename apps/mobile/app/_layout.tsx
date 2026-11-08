@@ -140,6 +140,7 @@ export default function RootLayout() {
         <Stack.Screen name="friend-settings" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
           </Stack>
           {/* Stack 바깥에 둔다. 세션이 끊기면 (tabs) 네비게이터가 재마운트되면서
               로그인 화면으로 리다이렉트되는데, 화면 안에 있으면 모달이 뜨기 전에
