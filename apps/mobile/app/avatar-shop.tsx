@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { ChevronLeft, Coins, Percent, Sparkles, X } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,6 +30,7 @@ import {
   useShopProducts,
   type ShopProduct,
 } from "../src/features/shop";
+import { registerSpotlightScroll, spotlightRef } from "../src/features/onboarding/spotlightRegistry";
 import { getApiErrorMessage } from "../src/shared/utils/apiError";
 
 // 성별변경권(GENDER_CHANGE)은 09/03 확정 사항에 따라 폐기되어 화면에 노출하지 않는다.
@@ -59,6 +60,10 @@ export default function AvatarShopScreen() {
   const currencyQuery = useMyCurrency(accessToken);
   const productsQuery = useShopProducts(accessToken);
   const purchaseMutation = usePurchaseMutation(accessToken);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // 온보딩이 랜덤박스를 강조할 때 화면 가운데로 스크롤한다.
+  useEffect(() => registerSpotlightScroll("avatar-shop", scrollRef), []);
 
   const [purchasingProductId, setPurchasingProductId] = useState<number | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
@@ -203,6 +208,7 @@ export default function AvatarShopScreen() {
           </View>
         ) : (
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
           >
@@ -231,6 +237,7 @@ export default function AvatarShopScreen() {
               return (
                 <Pressable
                   key={product.shopProductId}
+                  ref={isRandomBox ? spotlightRef("randomBox") : undefined}
                   disabled={isPurchasing}
                   style={styles.featuredWrap}
                   onPress={() => handleCardPress(product)}

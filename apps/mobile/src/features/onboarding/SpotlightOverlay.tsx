@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 
 import { FONT } from "../../../constants/fonts";
@@ -9,6 +10,8 @@ export type SpotlightRect = { x: number; y: number; width: number; height: numbe
 const HOLE_PADDING = 8;
 const HOLE_RADIUS = 16;
 const TOOLTIP_GAP = 14;
+// 화면 가장자리에서 설명 카드까지의 거리(안전 영역 바깥 기준)
+const CARD_EDGE_MARGIN = 12;
 const DIM_COLOR = "rgba(8, 6, 20, 0.74)";
 
 type SpotlightOverlayProps = {
@@ -19,7 +22,7 @@ type SpotlightOverlayProps = {
   stepLabel: string;
   title: string;
   body: string;
-  /** 구멍(강조된 버튼)을 눌렀을 때 */
+  /** 화면 아무 곳이나 눌렀을 때(다음 단계로) */
   onTargetPress: () => void;
   /** target 이 없는 안내 카드의 버튼 */
   centerActionLabel?: string;
@@ -28,7 +31,7 @@ type SpotlightOverlayProps = {
 
 /**
  * 화면 전체를 어둡게 덮고 target 자리만 둥글게 뚫어 보여준다.
- * 뚫린 자리만 눌리고 나머지 터치는 모두 여기서 막는다(아래 더미 화면은 눌리지 않는다).
+ * 화면 어디를 눌러도 다음 단계로 넘어가고, 아래 실제 화면에는 터치가 가지 않는다.
  */
 export function SpotlightOverlay({
   target,
@@ -42,6 +45,8 @@ export function SpotlightOverlay({
 }: SpotlightOverlayProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [pulse] = useState(() => new Animated.Value(0));
+  const [cardHeight, setCardHeight] = useState(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -74,20 +79,26 @@ export function SpotlightOverlay({
   const outer = `M0 0H${size.width}V${size.height}H0Z`;
   const holePath = hole ? roundedRectPath(hole.x, hole.y, hole.width, hole.height, HOLE_RADIUS) : "";
 
-  // 구멍이 화면 위쪽이면 카드를 아래에, 아래쪽이면 위에 띄운다.
-  const placeBelow = hole ? hole.y + hole.height / 2 < size.height / 2 : false;
+  // 설명 카드는 늘 화면 위쪽 같은 자리에 둔다. 강조한 곳이 그 자리와 겹칠 때만 화면 아래쪽으로 내린다.
+  const cardTop = insets.top + CARD_EDGE_MARGIN;
+  const overlapsTop = hole ? hole.y < cardTop + cardHeight + TOOLTIP_GAP : false;
   const tooltipPosition = hole
-    ? placeBelow
-      ? { top: hole.y + hole.height + TOOLTIP_GAP }
-      : { bottom: size.height - hole.y + TOOLTIP_GAP }
+    ? overlapsTop
+      ? { bottom: insets.bottom + CARD_EDGE_MARGIN }
+      : { top: cardTop }
     : null;
 
   return (
     <View
       style={StyleSheet.absoluteFill}
       onLayout={handleLayout}
-      // 구멍 바깥 터치를 전부 여기서 받아 버린다.
+      // 화면 어디를 눌러도 다음 단계로 넘어간다. 아래 실제 화면에는 터치가 가지 않는다.
       onStartShouldSetResponder={() => true}
+      onResponderRelease={() => {
+        if (!measuring) {
+          onTargetPress();
+        }
+      }}
     >
       {size.width > 0 ? (
         <Svg width={size.width} height={size.height} style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -96,34 +107,27 @@ export function SpotlightOverlay({
       ) : null}
 
       {hole && !measuring ? (
-        <>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.pulseRing,
-              {
-                left: hole.x,
-                top: hole.y,
-                width: hole.width,
-                height: hole.height,
-                opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 0] }),
-                transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
-              },
-            ]}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={title}
-            style={[styles.hole, { left: hole.x, top: hole.y, width: hole.width, height: hole.height }]}
-            onPress={onTargetPress}
-          />
-        </>
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.pulseRing,
+            {
+              left: hole.x,
+              top: hole.y,
+              width: hole.width,
+              height: hole.height,
+              opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 0] }),
+              transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
+            },
+          ]}
+        />
       ) : null}
 
       {!measuring ? (
         <View
           style={[styles.card, tooltipPosition ?? styles.centerCard]}
           pointerEvents="box-none"
+          onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)}
         >
           <View style={styles.cardHeader}>
             <Text style={styles.stepLabel}>{stepLabel}</Text>
@@ -134,7 +138,7 @@ export function SpotlightOverlay({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.body}>{body}</Text>
           {hole ? (
-            <Text style={styles.hint}>반짝이는 곳을 눌러보세요</Text>
+            <Text style={styles.hint}>아무 곳이나 눌러 계속하기</Text>
           ) : (
             <Pressable accessibilityRole="button" style={styles.centerButton} onPress={onTargetPress}>
               <Text style={styles.centerButtonText}>{centerActionLabel}</Text>
@@ -158,10 +162,6 @@ function roundedRectPath(x: number, y: number, w: number, h: number, r: number) 
 }
 
 const styles = StyleSheet.create({
-  hole: {
-    position: "absolute",
-    borderRadius: HOLE_RADIUS,
-  },
   pulseRing: {
     position: "absolute",
     borderRadius: HOLE_RADIUS,

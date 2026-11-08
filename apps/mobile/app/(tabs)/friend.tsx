@@ -32,6 +32,7 @@ import {
   useUserSearchQuery,
 } from "../../src/features/friend";
 import type { Friend } from "../../src/features/friend/types";
+import { registerSpotlightScroll, spotlightRef } from "../../src/features/onboarding/spotlightRegistry";
 import { getApiErrorMessage } from "../../src/shared/utils/apiError";
 import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
@@ -48,6 +49,8 @@ export default function FriendScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+  // 온보딩이 이 화면의 버튼을 강조할 때 화면 가운데로 스크롤한다.
+  useEffect(() => registerSpotlightScroll("friend", scrollRef), []);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const [pokedFriendIds, setPokedFriendIds] = useState<number[]>([]);
@@ -201,6 +204,7 @@ export default function FriendScreen() {
                 아직 친구가 없어요. 오른쪽 위에서 닉네임으로 친구를 찾아보세요.
               </Text>
             ) : null}
+            <View collapsable={false} ref={spotlightRef("friendList")}>
             <FriendSection
               friends={attendedFriends}
               isPoked={(id) => pokedFriendIds.includes(id)}
@@ -210,6 +214,7 @@ export default function FriendScreen() {
               title="오늘 출석"
               statusColor="#22C55E"
             />
+            </View>
             <FriendSection
               friends={notAttendedFriends}
               isPoked={(id) => pokedFriendIds.includes(id)}

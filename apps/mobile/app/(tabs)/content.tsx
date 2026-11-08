@@ -45,6 +45,7 @@ import type { CompletedProblemSetSummary } from "../../src/features/logWeak/type
 import { completedProblemSetsQueryKey } from "../../src/features/logWeak/useCompletedProblemSets";
 import { usePassRates, useProblemSetProgress } from "../../src/features/progress";
 import type { ProgressScopeType } from "../../src/features/progress";
+import { registerSpotlightScroll, spotlightRef } from "../../src/features/onboarding/spotlightRegistry";
 import { useDailyRewardLimits } from "../../src/features/reward";
 import {
   useLanguage,
@@ -270,6 +271,8 @@ const getNextDepth = (depth: ContentDepth) => {
 export default function ContentScreen() {
   const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
+  // 온보딩이 이 화면의 버튼을 강조할 때 화면 가운데로 스크롤한다.
+  useEffect(() => registerSpotlightScroll("content", scrollRef), []);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { status, accessToken, user } = useAuth();
@@ -716,7 +719,7 @@ export default function ContentScreen() {
 
               {!activeQuery.isLoading &&
               !activeQuery.isError &&
-              currentItems.map((item) =>
+              currentItems.map((item, index) =>
                 isConceptDepth ? (
                   <ConceptCard
                     key={item.id}
@@ -737,8 +740,13 @@ export default function ContentScreen() {
                     onViewDetail={() => viewConceptDetail(item)}
                   />
                 ) : (
-                  <ProblemSetCard
+                  // 온보딩이 첫 카드를 강조한다. 감싸는 View 가 목록 간격(gap)을 대신 받는다.
+                  <View
+                    collapsable={false}
                     key={item.id}
+                    ref={index === 0 ? spotlightRef("problemSet") : undefined}
+                  >
+                  <ProblemSetCard
                     chapterCount={item.chapterCount}
                     countUnit={currentCountUnit}
                     hasSolved={item.hasSolved}
@@ -755,6 +763,7 @@ export default function ContentScreen() {
                     onReview={() => openRecentReview(item)}
                     onStart={() => startProblemSet(item)}
                   />
+                  </View>
                 ),
               )}
           </View>
