@@ -31,6 +31,7 @@ import { useLogWeakSelection } from "../../src/features/logWeak/LogWeakSelection
 import { useConceptCountSummary } from "../../src/features/progress";
 import type { ConceptCountSummary } from "../../src/features/progress";
 import { useLanguage } from "../../src/shared/language/LanguageContext";
+import { spotlightRef } from "../../src/features/onboarding/spotlightRegistry";
 import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 import {
   useEligibleSolveSessions,
@@ -834,6 +835,7 @@ export default function LogWeakScreen() {
       {!isWrongNote && (
         <View style={styles.aiButtonWrap}>
           <Pressable
+            ref={spotlightRef("createReport")}
             style={[styles.aiButton, { backgroundColor: activePurple }]}
             onPress={startNewReport}
           >

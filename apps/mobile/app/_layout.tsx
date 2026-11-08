@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { AuthProvider, SessionRevokedModal } from "../src/features/auth";
+import { OnboardingLayer } from "../src/features/onboarding/OnboardingLayer";
 import { AvatarEquipProvider, AvatarProfileSync, RoomFurnitureProvider, RoomThemeProvider } from "../src/features/avatar";
 import { usePushRegistration } from "../src/features/notification";
 import { queryClient } from "../src/shared/api/queryClient";
@@ -145,6 +146,8 @@ export default function RootLayout() {
               로그인 화면으로 리다이렉트되는데, 화면 안에 있으면 모달이 뜨기 전에
               언마운트된다. */}
           <SessionRevokedModal />
+          {/* 처음 들어온 회원 튜토리얼. 실제 화면 위에 겹쳐 그려야 해서 Stack 바깥에 둔다. */}
+          <OnboardingLayer />
           <StatusBar style="dark" />
         </SafeAreaProvider>
         </LanguageProvider>

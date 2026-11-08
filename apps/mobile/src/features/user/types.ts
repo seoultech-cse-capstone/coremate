@@ -33,6 +33,19 @@ export type UpdateMyProfileRequest = {
   schoolEmail?: string;
 };
 
+/** PATCH /api/users/me/nickname 요청. UpdateNicknameRequest와 1:1 대응 (최대 6글자) */
+export type UpdateNicknameRequest = {
+  nickname: string;
+};
+
+/** PATCH /api/users/me/nickname 응답. UserSummaryResponse와 1:1 대응 */
+export type UserSummary = {
+  userId: number;
+  nickname: string;
+  level: number;
+  avatarImageUrl: string | null;
+};
+
 /** PATCH /api/users/me/privacy 요청. UpdatePrivacyRequest와 1:1 대응 */
 export type UpdatePrivacyRequest = {
   learningPublic: boolean;
