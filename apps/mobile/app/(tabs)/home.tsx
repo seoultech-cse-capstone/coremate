@@ -21,6 +21,7 @@ import { useMyCurrency } from "../../src/features/currency";
 import { NightSkyBackground } from "../../src/features/home/components/NightSkyBackground";
 import { YourProgress } from "../../src/features/home/components/YourProgress";
 import { useUnreadCountQuery } from "../../src/features/notification";
+import { registerSpotlightScroll, spotlightRef } from "../../src/features/onboarding/spotlightRegistry";
 import { getLevelProgress, useMyProfile } from "../../src/features/user";
 import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
@@ -36,6 +37,8 @@ type TabPressNavigation = {
 export default function HomeScreen() {
   const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
+  // 온보딩이 이 화면의 버튼을 강조할 때 화면 가운데로 스크롤한다.
+  useEffect(() => registerSpotlightScroll("home", scrollRef), []);
   const { height } = useWindowDimensions();
   const [bounceBackground, setBounceBackground] = useState(BRAND_PURPLE);
   const { status, accessToken } = useAuth();
@@ -136,7 +139,7 @@ export default function HomeScreen() {
                     <Text numberOfLines={1} style={styles.nicknameText}>
                       {profile?.nickname ?? ""}
                     </Text>
-                    <View style={styles.coinPill}>
+                    <View ref={spotlightRef("coin")} style={styles.coinPill}>
                       <Coins color="#B45309" size={13} strokeWidth={2.2} />
                       <Text style={styles.coinText}>{currency?.coin ?? 0}</Text>
                     </View>
@@ -185,6 +188,7 @@ export default function HomeScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => goToMemberFeature("/daily-quiz")}
+                ref={spotlightRef("dailyQuiz")}
                 style={[
                   styles.primaryButton,
                   styles.dailyQuizButton,

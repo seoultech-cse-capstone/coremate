@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -57,6 +58,15 @@ public class UserController {
         return userService.updateNickname(userDetails.getUserId(), request);
     }
     */
+
+    @Operation(summary = "첫 닉네임 무료 설정",
+            description = "계정당 한 번만 코인 없이 닉네임을 정한다(온보딩). 이미 썼으면 409 INITIAL_NICKNAME_ALREADY_SET. "
+                    + "이후 변경은 상점 닉네임 변경권으로만 한다(#415).")
+    @PostMapping("/me/initial-nickname")
+    public UserSummaryResponse setInitialNickname(@AuthenticationPrincipal CustomUserDetails userDetails,
+                                                  @Valid @RequestBody UpdateNicknameRequest request) {
+        return userService.setInitialNickname(userDetails.getUserId(), request);
+    }
 
     @Operation(summary = "내 비밀번호 변경",
             description = "로그인 상태에서 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경한다. "

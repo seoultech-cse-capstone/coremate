@@ -18,6 +18,7 @@ import { FONT } from "../../constants/fonts";
 import { useRequireMember } from "../../src/features/auth";
 import { MyProfile } from "../../src/features/mypage/components/MyProfile";
 import { MyProgressStats } from "../../src/features/mypage/components/MyProgressStats";
+import { registerSpotlightScroll } from "../../src/features/onboarding/spotlightRegistry";
 import { refetchActiveQueries } from "../../src/shared/api/queryClient";
 
 const BRAND_PURPLE = "#6D5DFB";
@@ -46,6 +47,9 @@ export default function MyPageScreen() {
 
     return unsubscribe;
   }, [navigation]);
+
+  // 온보딩이 이 화면의 버튼을 강조할 때 화면 가운데로 스크롤한다.
+  useEffect(() => registerSpotlightScroll("mypage", scrollRef), []);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;

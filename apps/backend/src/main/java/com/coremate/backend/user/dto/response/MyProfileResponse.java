@@ -67,4 +67,7 @@ public class MyProfileResponse {
 
     @Schema(example = "true", description = "비밀번호가 있는 계정인지. 소셜 로그인으로만 가입했으면 false 라 탈퇴할 때 비밀번호를 묻지 않는다.")
     private Boolean hasPassword;
+
+    @Schema(example = "false", description = "첫 닉네임 무료 설정(계정당 1회)을 이미 썼는지. false 면 POST /api/users/me/initial-nickname 을 한 번 쓸 수 있다")
+    private Boolean initialNicknameSet;
 }

@@ -6,6 +6,7 @@ import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 import { FONT } from "../../../../constants/fonts";
 import { useAuth } from "../../auth";
 import { useSubjects } from "../../content";
+import { spotlightRef } from "../../onboarding/spotlightRegistry";
 import { useMySubjectStats } from "../../user";
 
 const CHART_SIZE = 220;
@@ -194,6 +195,7 @@ export function MyProgressStats() {
         {actionItems.map(({ Icon, label, route }) => (
           <Pressable
             key={label}
+            ref={route === "/avatar-shop" ? spotlightRef("avatarShop") : undefined}
             style={styles.actionButton}
             onPress={() => router.push(route)}
           >

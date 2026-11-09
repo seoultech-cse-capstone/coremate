@@ -7,7 +7,7 @@ import {
   CornerDownRight,
   Info,
 } from "lucide-react-native";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../constants/fonts";
 import { useAuth, useRequireMember } from "../src/features/auth";
+import { registerSpotlightScroll, spotlightRef } from "../src/features/onboarding/spotlightRegistry";
 import { useWeaknessReportDetail } from "../src/features/weakness";
 import type {
   RelatedConcept,
@@ -53,6 +54,8 @@ export default function WeaknessReportScreen() {
 
   // 약점 목록에서 개념을 누르면 해당 카드로 내려간다. 카드마다 y 좌표를 기억해 둔다.
   const scrollRef = useRef<ScrollView>(null);
+  // 온보딩이 이 화면의 버튼을 강조할 때 화면 가운데로 스크롤한다.
+  useEffect(() => registerSpotlightScroll("weakness-report", scrollRef), []);
   const cardOffsets = useRef<Record<number, number>>({});
   // 이동 칩이 상단에 고정되므로 그 높이만큼 더 올려야 카드 머리가 칩에 가리지 않는다.
   const stickyHeight = useRef(0);
@@ -114,7 +117,7 @@ export default function WeaknessReportScreen() {
 
     if (concepts.length > 0) {
       blocks.push(
-        <View key="priority">
+        <View collapsable={false} key="priority" ref={spotlightRef("reportPriority")}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>먼저 볼 약점</Text>
             <Text style={styles.sectionHint}>위에서부터 보면 돼요</Text>
