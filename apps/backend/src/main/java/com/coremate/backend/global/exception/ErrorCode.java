@@ -39,6 +39,8 @@ public enum ErrorCode {
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다"),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다"),
+    INITIAL_NICKNAME_ALREADY_SET(HttpStatus.CONFLICT, "첫 닉네임은 이미 정했어요. 상점의 닉네임 변경권으로 바꿀 수 있어요"),
+    NICKNAME_UNCHANGED(HttpStatus.BAD_REQUEST, "지금 닉네임과 같아요"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 사용 중인 이메일입니다"),
     ALREADY_WITHDRAWN(HttpStatus.CONFLICT, "이미 탈퇴한 계정입니다"),
     // 관리자 웹은 403 을 받으면 로그인 화면으로 돌아가므로 400 으로 알린다.

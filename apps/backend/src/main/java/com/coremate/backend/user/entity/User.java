@@ -68,6 +68,10 @@ public class User {
     @Column(name = "learning_public", nullable = false)
     private boolean learningPublic;
 
+    // 첫 닉네임 무료 설정(계정당 1회)을 썼는지. 쓴 뒤로는 상점 닉네임 변경권으로만 바꾼다(#415).
+    @Column(name = "initial_nickname_set", nullable = false)
+    private boolean initialNicknameSet;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status;
@@ -95,6 +99,7 @@ public class User {
         this.totalXp = 0;
         this.schoolVerified = false;
         this.learningPublic = true;
+        this.initialNicknameSet = false;
         this.status = UserStatus.ACTIVE;
     }
 
