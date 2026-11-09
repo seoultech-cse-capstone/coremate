@@ -15,6 +15,7 @@ import com.coremate.backend.progress.service.ProgressService;
 import com.coremate.backend.user.dto.response.UserSubjectStatResponse;
 import com.coremate.backend.user.dto.response.UserSummaryResponse;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import com.coremate.backend.user.entity.User;
 import com.coremate.backend.user.repository.UserRepository;
@@ -54,6 +55,39 @@ public class UserService {
 
         user.updateProfile(null, request.getSchoolName(), request.getSchoolEmail());
         return toMyProfileResponse(user);
+    }
+
+    /**
+     * 첫 닉네임 무료 설정(계정당 1회, #415). 온보딩에서 쓴다. 이후 변경은 상점 닉네임 변경권(500 코인)으로만 한다.
+     * 검증은 변경권과 같다: 앞뒤 공백 정리, 최대 6자(@Valid), 지금 닉네임과 같으면 거절, 중복 거절.
+     */
+    @Transactional
+    public UserSummaryResponse setInitialNickname(Long userId, UpdateNicknameRequest request) {
+        User user = findUser(userId);
+        if (user.isInitialNicknameSet()) {
+            throw new CoreMateException(ErrorCode.INITIAL_NICKNAME_ALREADY_SET);
+        }
+        String nickname = request.getNickname().trim();
+        if (nickname.isEmpty()) {
+            throw new CoreMateException(ErrorCode.INVALID_INPUT);
+        }
+        if (nickname.equals(user.getNickname())) {
+            throw new CoreMateException(ErrorCode.NICKNAME_UNCHANGED);
+        }
+        if (userRepository.existsByNicknameAndUserIdNot(nickname, userId)) {
+            throw new CoreMateException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+        // 위 확인 뒤 같은 계정의 다른 요청이 먼저 썼다면 여기서 0행이 된다.
+        if (userRepository.setInitialNickname(userId, nickname, LocalDateTime.now()) == 0) {
+            throw new CoreMateException(ErrorCode.INITIAL_NICKNAME_ALREADY_SET);
+        }
+        User updated = findUser(userId);
+        return UserSummaryResponse.builder()
+                .userId(updated.getUserId())
+                .nickname(updated.getNickname())
+                .level(updated.getLevel())
+                .avatarImageUrl(null)
+                .build();
     }
 
     @Transactional
@@ -152,6 +186,7 @@ public class UserService {
                 .lastAttendanceDate(lastAttendanceDate)
                 .learningPublic(user.isLearningPublic())
                 .hasPassword(user.getPasswordHash() != null)
+                .initialNicknameSet(user.isInitialNicknameSet())
                 .build();
     }
 }

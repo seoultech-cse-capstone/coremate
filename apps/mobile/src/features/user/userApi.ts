@@ -17,9 +17,9 @@ export const userApi = {
     return httpClient.put<MyProfile>("/api/users/me", body, { accessToken });
   },
 
-  /** 코인 없이 닉네임을 바꾼다. 온보딩의 첫 닉네임 설정에만 쓴다(이후 변경은 상점 변경권). */
-  updateNickname(body: UpdateNicknameRequest, accessToken: string): Promise<UserSummary> {
-    return httpClient.patch<UserSummary>("/api/users/me/nickname", body, { accessToken });
+  /** 첫 닉네임 무료 설정(계정당 1회, #415). 온보딩에서만 쓴다. 이후 변경은 상점 변경권으로 한다. */
+  setInitialNickname(body: UpdateNicknameRequest, accessToken: string): Promise<UserSummary> {
+    return httpClient.post<UserSummary>("/api/users/me/initial-nickname", body, { accessToken });
   },
 
   updatePrivacy(body: UpdatePrivacyRequest, accessToken: string): Promise<MyProfile> {

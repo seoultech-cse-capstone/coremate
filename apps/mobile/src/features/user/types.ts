@@ -24,6 +24,8 @@ export type MyProfile = {
   learningPublic?: boolean;
   /** 비밀번호가 있는 계정인지. 소셜 로그인으로만 가입했으면 false. 이 필드가 생기기 전 서버에는 없다 */
   hasPassword?: boolean;
+  /** 첫 닉네임 무료 설정(계정당 1회)을 이미 썼는지. 이 필드가 생기기 전 서버에는 없다 */
+  initialNicknameSet?: boolean;
 };
 
 /** PUT /api/users/me 요청. UpdateUserProfileRequest와 1:1 대응 */
@@ -33,12 +35,12 @@ export type UpdateMyProfileRequest = {
   schoolEmail?: string;
 };
 
-/** PATCH /api/users/me/nickname 요청. UpdateNicknameRequest와 1:1 대응 (최대 6글자) */
+/** POST /api/users/me/initial-nickname 요청. UpdateNicknameRequest와 1:1 대응 (최대 6글자) */
 export type UpdateNicknameRequest = {
   nickname: string;
 };
 
-/** PATCH /api/users/me/nickname 응답. UserSummaryResponse와 1:1 대응 */
+/** POST /api/users/me/initial-nickname 응답. UserSummaryResponse와 1:1 대응 */
 export type UserSummary = {
   userId: number;
   nickname: string;
