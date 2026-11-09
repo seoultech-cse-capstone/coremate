@@ -40,7 +40,7 @@ export function OnboardingNicknameStep({ onDone }: { onDone: () => void }) {
       return;
     }
     if (trimmed === currentNickname) {
-      setErrorMessage("지금 닉네임과 같아요. 그대로 쓰려면 아래 「지금 닉네임 그대로 쓸게요」를 눌러주세요.");
+      setErrorMessage("지금 닉네임과 같아요. 새 닉네임을 입력해주세요.");
       return;
     }
     setIsSubmitting(true);
@@ -111,18 +111,6 @@ export function OnboardingNicknameStep({ onDone }: { onDone: () => void }) {
             <Text style={styles.buttonText}>CoreMate 시작하기</Text>
           )}
         </Pressable>
-        {/* 무료 기회는 쓰지 않은 채로 남는다(서버의 initialNicknameSet 이 그대로 false). */}
-        <Pressable
-          accessibilityRole="button"
-          disabled={isSubmitting}
-          hitSlop={8}
-          style={styles.keepButton}
-          onPress={onDone}
-        >
-          <Text style={styles.keepButtonText}>
-            {currentNickname ? `지금 닉네임(${currentNickname}) 그대로 쓸게요` : "지금 닉네임 그대로 쓸게요"}
-          </Text>
-        </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -179,6 +167,4 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { backgroundColor: "#C7C2F5" },
   buttonText: { color: "#FFFFFF", fontFamily: FONT.pretendard, fontSize: 16, fontWeight: "700" },
-  keepButton: { alignItems: "center", paddingVertical: 14 },
-  keepButtonText: { color: "#64748B", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "600" },
 });
