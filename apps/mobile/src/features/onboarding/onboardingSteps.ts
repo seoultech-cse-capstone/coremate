@@ -13,7 +13,8 @@ export type OnboardingStep = {
   body: string;
 };
 
-// 마지막 단계(랜덤박스)는 안내만 하고 실제로 열지 않는다. 누르면 닉네임 설정으로 넘어간다.
+// 마지막 단계(랜덤박스)는 안내만 하고 실제로 열지 않는다. 누르면 첫 닉네임 무료 설정(#415)을 아직 안 쓴
+// 계정은 닉네임 설정으로, 이미 쓴 계정은 바로 홈으로 간다.
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     target: null,

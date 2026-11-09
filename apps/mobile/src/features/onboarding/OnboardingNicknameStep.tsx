@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FONT } from "../../../constants/fonts";
-import { getApiErrorMessage } from "../../shared/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage } from "../../shared/utils/apiError";
 import { useAuth } from "../auth";
 import { useMyProfile, userApi, type MyProfile } from "../user";
 
@@ -33,20 +33,30 @@ export function OnboardingNicknameStep({ onDone }: { onDone: () => void }) {
 
   const trimmed = nickname.trim();
   const canSubmit = trimmed.length > 0 && !isSubmitting && accessToken !== null;
+  const currentNickname = profile?.nickname ?? null;
 
   const handleSubmit = async () => {
     if (!canSubmit || !accessToken) {
       return;
     }
+    if (trimmed === currentNickname) {
+      setErrorMessage("지금 닉네임과 같아요. 그대로 쓰려면 아래 「지금 닉네임 그대로 쓸게요」를 눌러주세요.");
+      return;
+    }
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
-      const updated = await userApi.updateNickname({ nickname: trimmed }, accessToken);
+      const updated = await userApi.setInitialNickname({ nickname: trimmed }, accessToken);
       queryClient.setQueryData<MyProfile>(["user", "me"], (previous) =>
-        previous ? { ...previous, nickname: updated.nickname } : previous,
+        previous ? { ...previous, nickname: updated.nickname, initialNicknameSet: true } : previous,
       );
       onDone();
     } catch (error) {
+      // 다른 기기에서 이미 썼다면 정할 게 없으니 그대로 온보딩을 마친다.
+      if (getApiErrorCode(error) === "INITIAL_NICKNAME_ALREADY_SET") {
+        onDone();
+        return;
+      }
       console.error("[onboarding] 닉네임 설정 실패", error);
       setErrorMessage(getApiErrorMessage(error, "닉네임을 정하지 못했어요. 다시 시도해주세요."));
       setIsSubmitting(false);
@@ -100,6 +110,18 @@ export function OnboardingNicknameStep({ onDone }: { onDone: () => void }) {
           ) : (
             <Text style={styles.buttonText}>CoreMate 시작하기</Text>
           )}
+        </Pressable>
+        {/* 무료 기회는 쓰지 않은 채로 남는다(서버의 initialNicknameSet 이 그대로 false). */}
+        <Pressable
+          accessibilityRole="button"
+          disabled={isSubmitting}
+          hitSlop={8}
+          style={styles.keepButton}
+          onPress={onDone}
+        >
+          <Text style={styles.keepButtonText}>
+            {currentNickname ? `지금 닉네임(${currentNickname}) 그대로 쓸게요` : "지금 닉네임 그대로 쓸게요"}
+          </Text>
         </Pressable>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -157,4 +179,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { backgroundColor: "#C7C2F5" },
   buttonText: { color: "#FFFFFF", fontFamily: FONT.pretendard, fontSize: 16, fontWeight: "700" },
+  keepButton: { alignItems: "center", paddingVertical: 14 },
+  keepButtonText: { color: "#64748B", fontFamily: FONT.pretendard, fontSize: 14, fontWeight: "600" },
 });

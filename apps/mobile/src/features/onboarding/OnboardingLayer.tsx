@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BackHandler, StyleSheet, View } from "react-native";
 
 import { useAuth } from "../auth";
+import { useMyProfile } from "../user";
 import { OnboardingNicknameStep } from "./OnboardingNicknameStep";
 import { ONBOARDING_STEPS } from "./onboardingSteps";
 import { onboardingStorage } from "./onboardingStorage";
@@ -22,8 +23,9 @@ const MEASURE_MAX_ATTEMPTS = 40;
  * 루트 레이아웃에서 Stack 위에 겹쳐 그린다. 튜토리얼 동안만 친구·분석표를 더미로 채운다.
  */
 export function OnboardingLayer() {
-  const { status, user } = useAuth();
+  const { status, user, accessToken } = useAuth();
   const userId = user?.userId ?? null;
+  const { data: profile } = useMyProfile(accessToken);
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const [phase, setPhase] = useState<Phase>("idle");
@@ -137,7 +139,7 @@ export function OnboardingLayer() {
   const goNext = () => {
     const nextIndex = stepIndex + 1;
     if (nextIndex >= ONBOARDING_STEPS.length) {
-      setPhase("nickname");
+      goToNicknameOrFinish();
       return;
     }
     const next = ONBOARDING_STEPS[nextIndex];
@@ -147,6 +149,16 @@ export function OnboardingLayer() {
       router.navigate(next.navigate);
     }
     setStepIndex(nextIndex);
+  };
+
+  // 첫 닉네임 무료 설정(#415)을 아직 안 쓴 계정만 닉네임 단계를 보여준다. 이미 썼거나, 이 값을 주지 않는
+  // 이전 서버라면 정할 수 없으니 바로 끝낸다(닉네임 화면에 갇히지 않게).
+  const goToNicknameOrFinish = () => {
+    if (profile?.initialNicknameSet === false) {
+      setPhase("nickname");
+    } else {
+      finish();
+    }
   };
 
   const finish = async () => {
@@ -187,7 +199,7 @@ export function OnboardingLayer() {
         body={step.body}
         centerActionLabel={stepIndex === 0 ? "둘러보기 시작" : "다음"}
         onTargetPress={goNext}
-        onSkip={() => setPhase("nickname")}
+        onSkip={goToNicknameOrFinish}
       />
     </View>
   );
