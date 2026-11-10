@@ -17,3 +17,11 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# 지표(/actuator/prometheus·metrics)는 로컬 부하테스트에서만 쓴다. /actuator/** 도 인증 없이 열려 있고
+# (SecurityConfig permitAll) 배포 환경은 인터넷에서 그대로 닿으므로, 여기서는 health 만 내보낸다.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
