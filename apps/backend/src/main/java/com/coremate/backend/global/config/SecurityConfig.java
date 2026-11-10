@@ -84,7 +84,7 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 // 부하테스트 관측용(이슈 #273). Prometheus 가 인증 없이 메트릭을 긁는다.
-                                // 로컬 127.0.0.1 바인딩이라 외부 노출은 없다.
+                                // 배포 환경에서는 application-dev.yaml 이 health 만 내보낸다.
                                 "/actuator/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST,
