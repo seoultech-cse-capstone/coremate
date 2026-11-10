@@ -37,7 +37,7 @@ public class AccountRecoveryService {
     }
 
     /**
-     * 이메일 로컬 파트 일부만 노출하고 나머지는 마스킹한다. (예: lange50300@gmail.com -> lan****@gmail.com)
+     * 이메일 로컬 파트 일부만 노출하고 나머지는 마스킹한다. (예: student@example.com -> stu****@example.com)
      */
     private static String maskEmail(String email) {
         int at = email.indexOf('@');
