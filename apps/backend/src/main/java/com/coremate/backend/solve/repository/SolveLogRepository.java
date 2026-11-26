@@ -5,6 +5,7 @@ import com.coremate.backend.solve.entity.SolveLog;
 import com.coremate.backend.solve.entity.SolveSession;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,7 +19,8 @@ public interface SolveLogRepository extends JpaRepository<SolveLog, Long> {
     @Query("SELECT l FROM SolveLog l JOIN FETCH l.question WHERE l.solveLogId IN :solveLogIds")
     List<SolveLog> findAllWithQuestionBySolveLogIdIn(@Param("solveLogIds") Collection<Long> solveLogIds);
 
-    boolean existsBySolveSessionAndQuestion_QuestionId(SolveSession solveSession, Long questionId);
+    Optional<SolveLog> findFirstBySolveSessionAndQuestion_QuestionIdOrderBySolveLogIdAsc(
+            SolveSession solveSession, Long questionId);
 
     long countBySolveSessionAndCorrectTrue(SolveSession solveSession);
 
