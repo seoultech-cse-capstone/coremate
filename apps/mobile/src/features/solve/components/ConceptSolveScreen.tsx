@@ -131,6 +131,11 @@ export function ConceptSolveScreen({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 연타로 같은 문제가 두 번 제출되지 않게 막는 잠금. state 는 다음 렌더에야 바뀌어서
+  // 그 사이 들어온 두 번째 누름을 못 막는다.
+  const isSubmittingRef = useRef(false);
+  // 앞에서부터 제출을 마친 문제 수. 이 번호보다 앞의 문제는 이미 제출한 문제다.
+  const [submittedCount, setSubmittedCount] = useState(0);
   const [isHintVisible, setIsHintVisible] = useState(false);
   const [hintState, setHintState] = useState<HintState>({ status: "idle" });
   const [bookmarkMap, setBookmarkMap] = useState<Map<number, number>>(new Map());
@@ -209,6 +214,7 @@ export function ConceptSolveScreen({
     // 초기화한다.
     setSession({ status: "loading" });
     setCurrentIndex(0);
+    setSubmittedCount(0);
     setSelectedAnswer(null);
     setIsHintVisible(false);
     setHintState({ status: "idle" });
@@ -368,7 +374,23 @@ export function ConceptSolveScreen({
 
   const { sessionId, questions } = session;
   const currentQuestion = questions[currentIndex];
+  // 순서가 꼬여 없는 문제를 가리키면 아래에서 바로 터져 앱이 꺼진다. 그 대신 안내 화면을 띄운다.
+  if (!currentQuestion) {
+    return (
+      <View style={styles.stateScreen}>
+        <Text style={styles.stateText}>문제를 불러오지 못했습니다.</Text>
+        <Pressable style={styles.stateBackButton} onPress={onBack}>
+          <Text style={styles.stateBackButtonText}>돌아가기</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  // 이미 제출한 답. 서버는 같은 문제를 다시 보내면 처음 저장한 답으로 채점하므로, 이전 문제로
+  // 돌아가면 제출한 답을 그대로 보여 주고 바꾸지 못하게 한다. 예전에는 선택을 지워 버려서,
+  // 다른 답을 골라도 처음 제출한 답이 채점됐다.
+  const isCurrentSubmitted = currentIndex < submittedCount;
   const isLastQuestion = currentIndex === questions.length - 1;
+  const isPreviousDisabled = currentIndex === 0 || isSubmitting;
   const progress = ((currentIndex + 1) / questions.length) * 100;
   const remainingTimeLabel =
     remainingSeconds !== null
@@ -377,8 +399,17 @@ export function ConceptSolveScreen({
           .padStart(2, "0")}:${(remainingSeconds % 60).toString().padStart(2, "0")}`
       : null;
 
+  const goToQuestion = (nextIndex: number) => {
+    const submittedAnswers =
+      sessionId !== null ? reviewItemsRef.current : answersRef.current;
+    setCurrentIndex(nextIndex);
+    setSelectedAnswer(submittedAnswers[nextIndex]?.selectedAnswer ?? null);
+    setIsHintVisible(false);
+    setHintState({ status: "idle" });
+  };
+
   const handleContinue = async () => {
-    if (!selectedAnswer || isSubmitting) {
+    if (!selectedAnswer || isSubmittingRef.current) {
       return;
     }
 
@@ -390,65 +421,54 @@ export function ConceptSolveScreen({
       return;
     }
 
-    // "이전"으로 돌아갔다가 다시 고른 경우, 이미 제출된 문제라면 재제출하지 않고
-    // 다음으로만 이동한다(이미 서버/누적 목록에 답안이 반영돼 있음).
-    const answeredCount =
-      sessionId !== null && accessToken
-        ? reviewItemsRef.current.length
-        : answersRef.current.length;
-    if (currentIndex < answeredCount) {
-      setCurrentIndex((index) => index + 1);
-      setSelectedAnswer(null);
-      setIsHintVisible(false);
-      setHintState({ status: "idle" });
-      return;
-    }
-
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const currentVisitElapsedMs = Date.now() - questionVisitStartedAtRef.current;
-      const accumulatedMs =
-        (questionTimeAccumulatorRef.current.get(currentIndex) ?? 0) +
-        currentVisitElapsedMs;
-      const timeSpentSec = Math.round(accumulatedMs / 1000);
-      const optionChangeCount = optionChangeCountRef.current;
-      const isAnswerChanged = optionChangeCount > 0;
+      // 이미 제출한 문제(이전으로 돌아왔거나, 마지막 문제 제출 뒤 완료만 실패한 경우)는
+      // 다시 제출하지 않고 다음 문제나 완료 단계로 간다.
+      if (!isCurrentSubmitted) {
+        const currentVisitElapsedMs = Date.now() - questionVisitStartedAtRef.current;
+        const accumulatedMs =
+          (questionTimeAccumulatorRef.current.get(currentIndex) ?? 0) +
+          currentVisitElapsedMs;
+        const timeSpentSec = Math.round(accumulatedMs / 1000);
+        const optionChangeCount = optionChangeCountRef.current;
+        const isAnswerChanged = optionChangeCount > 0;
 
-      if (sessionId !== null && accessToken) {
-        const result = await solveApi.submitAnswer(
-          sessionId,
-          {
+        if (sessionId !== null && accessToken) {
+          const result = await solveApi.submitAnswer(
+            sessionId,
+            {
+              questionId: currentQuestion.questionId,
+              selectedAnswer,
+              timeSpentSec,
+              optionChangeCount,
+              isAnswerChanged,
+              hintUsed: hintUsedRef.current,
+              hintCount: hintCountRef.current,
+            },
+            accessToken,
+          );
+          reviewItemsRef.current.push({
+            questionId: currentQuestion.questionId,
+            questionText: currentQuestion.questionText,
+            choices: currentQuestion.choices,
+            selectedAnswer: result.selectedAnswer,
+            correctAnswer: result.correctAnswer,
+            isCorrect: result.isCorrect,
+            explanationText: result.explanationText,
+          });
+        } else {
+          answersRef.current.push({
             questionId: currentQuestion.questionId,
             selectedAnswer,
-            timeSpentSec,
-            optionChangeCount,
-            isAnswerChanged,
-            hintUsed: hintUsedRef.current,
-            hintCount: hintCountRef.current,
-          },
-          accessToken,
-        );
-        reviewItemsRef.current.push({
-          questionId: currentQuestion.questionId,
-          questionText: currentQuestion.questionText,
-          choices: currentQuestion.choices,
-          selectedAnswer: result.selectedAnswer,
-          correctAnswer: result.correctAnswer,
-          isCorrect: result.isCorrect,
-          explanationText: result.explanationText,
-        });
-      } else {
-        answersRef.current.push({
-          questionId: currentQuestion.questionId,
-          selectedAnswer,
-        });
+          });
+        }
+        setSubmittedCount(currentIndex + 1);
       }
 
       if (!isLastQuestion) {
-        setCurrentIndex((index) => index + 1);
-        setSelectedAnswer(null);
-        setIsHintVisible(false);
-        setHintState({ status: "idle" });
+        goToQuestion(currentIndex + 1);
         return;
       }
 
@@ -507,11 +527,19 @@ export function ConceptSolveScreen({
         setSession({ status: "expired" });
         return;
       }
+      // 응답 지연·연결 끊김·서버 오류는 대개 잠깐이다. 풀이를 통째로 끝내지 말고 같은
+      // 문제에 머물러 다시 누를 수 있게 한다. 회차 완료는 멱등키가 고정이라 다시 보내도 안전하다.
+      const isTemporaryFailure = !(error instanceof HttpError) || error.status >= 500;
+      if (isTemporaryFailure) {
+        showToast("제출하지 못했어요. 연결을 확인하고 다시 눌러 주세요.");
+        return;
+      }
       setSession({
         status: "error",
         message: getApiErrorMessage(error, "제출에 실패했습니다. 다시 시도해주세요."),
       });
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -665,6 +693,7 @@ export function ConceptSolveScreen({
               return (
                 <Pressable
                   key={choice.key}
+                  disabled={isCurrentSubmitted}
                   style={[styles.choice, isSelected && styles.selectedChoice]}
                   onPress={() => {
                     if (selectedAnswer !== null && selectedAnswer !== choice.key) {
@@ -695,6 +724,10 @@ export function ConceptSolveScreen({
               );
             })}
           </View>
+
+          {isCurrentSubmitted && (
+            <Text style={styles.submittedNote}>이미 제출한 답이에요. 제출한 답은 바꿀 수 없어요.</Text>
+          )}
 
           <Pressable
             accessibilityRole="button"
@@ -737,19 +770,15 @@ export function ConceptSolveScreen({
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        {/* 제출을 기다리는 동안 이전으로 가면, 응답이 온 뒤 엉뚱한 문제로 넘어간다. */}
         <Pressable
           accessibilityLabel="이전 문제"
-          disabled={currentIndex === 0}
-          style={[styles.previousButton, currentIndex === 0 && styles.disabledButton]}
-          onPress={() => {
-            setCurrentIndex((index) => index - 1);
-            setSelectedAnswer(null);
-            setIsHintVisible(false);
-            setHintState({ status: "idle" });
-          }}
+          disabled={isPreviousDisabled}
+          style={[styles.previousButton, isPreviousDisabled && styles.disabledButton]}
+          onPress={() => goToQuestion(currentIndex - 1)}
         >
-          <ChevronLeft color={currentIndex === 0 ? "#aab2bd" : "#475569"} size={20} />
-          <Text style={[styles.previousButtonText, currentIndex === 0 && styles.disabledText]}>
+          <ChevronLeft color={isPreviousDisabled ? "#aab2bd" : "#475569"} size={20} />
+          <Text style={[styles.previousButtonText, isPreviousDisabled && styles.disabledText]}>
             이전
           </Text>
         </Pressable>
@@ -917,6 +946,7 @@ const styles = StyleSheet.create({
   selectedChoiceNumberText: { color: "#ffffff" },
   choiceText: { flex: 1, color: "#334155", fontFamily: FONT.pretendard, fontSize: 15, fontWeight: "500", lineHeight: 21 },
   selectedChoiceText: { color: "#5144cf", fontWeight: "700" },
+  submittedNote: { marginTop: 12, color: "#64748b", fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "500" },
   hintButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, marginTop: 24 },
   hintButtonText: { color: BRAND_PURPLE, fontFamily: FONT.pretendard, fontSize: 13, fontWeight: "700" },
   hintPanel: { borderRadius: 8, backgroundColor: "#F1EFFF", marginTop: 14, padding: 15 },

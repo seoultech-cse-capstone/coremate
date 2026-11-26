@@ -8,6 +8,10 @@ import type {
   SubmitAnswerResponse,
 } from "./types";
 
+// 답안 제출·회차 완료는 응답이 안 오면 버튼이 「처리 중…」에 멈춘 채 끝없이 기다렸다.
+// 끊고 실패로 돌려 사용자가 같은 문제에서 다시 누를 수 있게 한다.
+const SOLVE_REQUEST_TIMEOUT_MS = 15_000;
+
 /**
  * 개념 문제집(CONCEPT_PRACTICE) 풀이 세션 REST 호출.
  * /concept, /guest/complete는 permitAll(게스트 가능), 나머지는 회원 전용.
@@ -82,7 +86,7 @@ export const solveApi = {
       .post<ApiEnvelope<SubmitAnswerResponse>>(
         `/api/v1/solve-sessions/${sessionId}/answers`,
         body,
-        { accessToken },
+        { accessToken, timeoutMs: SOLVE_REQUEST_TIMEOUT_MS },
       )
       .then((res) => res.data);
   },
@@ -107,6 +111,7 @@ export const solveApi = {
         {
           accessToken,
           headers: { "Idempotency-Key": `solve-complete-${sessionId}` },
+          timeoutMs: SOLVE_REQUEST_TIMEOUT_MS,
         },
       )
       .then((res) => res.data);

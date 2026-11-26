@@ -36,6 +36,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Set;
@@ -205,8 +206,13 @@ public class SolveSessionService {
         requireInProgress(session);
         rejectIfExpired(session);
 
-        if (solveLogRepository.existsBySolveSessionAndQuestion_QuestionId(session, request.questionId())) {
-            throw new CoreMateException(ErrorCode.ANSWER_ALREADY_SUBMITTED);
+        // 같은 문제를 다시 보내면(앱이 응답을 못 받고 다시 누른 경우) 새로 저장하지 않고 처음 저장한
+        // 결과를 돌려준다. 예전처럼 거절하면 앱은 이미 저장된 답의 채점 결과를 받을 길이 없어 풀이를 끝까지
+        // 이어 가지 못했다.
+        Optional<SolveLog> alreadySubmitted = solveLogRepository
+                .findFirstBySolveSessionAndQuestion_QuestionIdOrderBySolveLogIdAsc(session, request.questionId());
+        if (alreadySubmitted.isPresent()) {
+            return toSubmitAnswerResponse(session, alreadySubmitted.get());
         }
 
         // 세션 시작 시 결정된 questionId 목록에서 순서(order)를 결정론적으로 계산한다.
@@ -241,6 +247,11 @@ public class SolveSessionService {
 
         solveLogRepository.save(log);
 
+        return toSubmitAnswerResponse(session, log);
+    }
+
+    private SubmitAnswerResponse toSubmitAnswerResponse(SolveSession session, SolveLog log) {
+        int order = log.getQuestionOrder();
         long totalSubmitted = solveLogRepository.countBySolveSession(session);
         boolean isSessionAnswerCompleted = totalSubmitted >= session.getTotalQuestionCount();
 
@@ -250,11 +261,11 @@ public class SolveSessionService {
 
         return new SubmitAnswerResponse(
                 log.getSolveLogId(),
-                question.getQuestionId(),
-                request.selectedAnswer(),
-                question.getCorrectAnswer(),
-                isCorrect,
-                question.getExplanationText(),
+                log.getQuestion().getQuestionId(),
+                log.getSelectedAnswer(),
+                log.getCorrectAnswerSnapshot(),
+                log.isCorrect(),
+                log.getQuestion().getExplanationText(),
                 nextQuestionOrder,
                 isSessionAnswerCompleted
         );

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { router, useRootNavigationState } from "expo-router";
 
 import { useAuth } from "../auth/AuthContext";
 import { deviceStorage } from "../device/deviceStorage";
+import { onboardingStorage } from "../onboarding/onboardingStorage";
 import { getDeviceInfo } from "../device/deviceInfo";
 import { notificationApi } from "./notificationApi";
 import { getFcmToken, rememberRegisteredToken } from "./pushToken";
@@ -49,8 +50,15 @@ function openTarget(data: Record<string, unknown> | undefined) {
  * 다른 사람이 그 기기를 쓰면 남의 알림을 보게 된다.
  */
 export function usePushRegistration() {
-  const { accessToken, isAuthenticated, status } = useAuth();
+  const { accessToken, isAuthenticated, status, user } = useAuth();
+  const userId = user?.userId ?? null;
   const queryClient = useQueryClient();
+  // 온보딩이 끝나면 올려서 아래 등록 effect 를 다시 돌린다.
+  const [onboardingDoneCount, setOnboardingDoneCount] = useState(0);
+  useEffect(
+    () => onboardingStorage.onDone(() => setOnboardingDoneCount((count) => count + 1)),
+    [],
+  );
   // 앱이 꺼진 상태에서 알림으로 열리면 화면이 준비되기 전에 이동을 시도하게 된다.
   // key 가 생기면 라우터가 첫 화면을 올린 뒤다.
   const navigationState = useRootNavigationState();
@@ -63,6 +71,14 @@ export function usePushRegistration() {
     let cancelled = false;
 
     (async () => {
+      // 처음 들어온 회원은 온보딩을 마친 뒤에 알림 권한을 묻는다. 로그인하자마자 물으면
+      // 권한 창이 온보딩 첫 안내 카드를 덮는다.
+      if (userId !== null && !(await onboardingStorage.isDone(userId))) {
+        return;
+      }
+      if (cancelled) {
+        return;
+      }
       const token = await getFcmToken();
       if (!token || cancelled) {
         return;
@@ -83,7 +99,7 @@ export function usePushRegistration() {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, isAuthenticated]);
+  }, [accessToken, isAuthenticated, userId, onboardingDoneCount]);
 
   // 알림을 눌러 앱이 열린 경우(백그라운드에서 복귀).
   useEffect(() => {

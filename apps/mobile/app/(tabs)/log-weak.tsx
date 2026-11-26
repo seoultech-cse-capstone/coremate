@@ -571,6 +571,11 @@ export default function LogWeakScreen() {
   useEffect(() => {
     if (modeParam === "weakness") {
       setMode("weakness");
+      // 분석표를 만들고 돌아온 경우다. 회차를 고르던 상태와 내려 둔 스크롤 위치가 남아 있으면
+      // 목록이 비어 보여서 새 분석표가 안 보인다.
+      setIsSelecting(false);
+      setSelectedExamIds([]);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
     }
 
     if (modeParam === "wrongNote") {

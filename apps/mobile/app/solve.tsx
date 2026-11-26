@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, type ErrorBoundaryProps } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "../src/features/auth";
@@ -98,6 +98,21 @@ export default function SolveScreen() {
         })
       }
     />
+  );
+}
+
+// 풀이 화면에서 렌더 오류가 나면 앱이 통째로 꺼졌다. 안내 화면으로 받아 돌아갈 수 있게 한다.
+export function ErrorBoundary({ error }: ErrorBoundaryProps) {
+  console.error("[solve] 화면 오류", error);
+  return (
+    <View style={styles.stateScreen}>
+      <Text style={styles.stateText}>
+        문제 풀이 중 오류가 발생했어요.{"\n"}문제집 목록에서 다시 시작해주세요.
+      </Text>
+      <Pressable style={styles.stateBackButton} onPress={() => router.back()}>
+        <Text style={styles.stateBackButtonText}>돌아가기</Text>
+      </Pressable>
+    </View>
   );
 }
 

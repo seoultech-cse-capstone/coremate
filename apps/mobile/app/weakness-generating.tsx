@@ -67,7 +67,9 @@ export default function WeaknessGeneratingScreen() {
         if (router.canDismiss()) {
           router.dismissAll();
         }
-        router.replace("/(tabs)/log-weak");
+        // 모드를 꼭 넘긴다. 분석표 목록의 「새 약점 분석표 만들기」가 회차 선택을 위해 오답노트
+        // 모드로 바꿔 두기 때문에, 그대로 돌아가면 오답노트가 떠서 새 분석표가 안 보인다.
+        router.replace({ pathname: "/(tabs)/log-weak", params: { mode: "weakness" } });
       } catch (err) {
         // 근거 부족(WEAKNESS_INSUFFICIENT_EVIDENCE) 같은 정상 분기도 400 으로 오므로
         // console.error 를 쓰지 않는다. 개발 빌드에서 화면을 덮는 에러 오버레이가 뜬다.
