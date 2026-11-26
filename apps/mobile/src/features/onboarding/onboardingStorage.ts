@@ -4,6 +4,9 @@ import * as SecureStore from "expo-secure-store";
 // 계정별로 따로 둬야 한 기기에서 다른 계정으로 가입했을 때도 그 계정에 온보딩이 뜬다.
 const keyFor = (userId: number) => `coremate.onboardingDone.${userId}`;
 
+// 온보딩이 끝나기를 기다리는 쪽(알림 권한 요청)에 끝났다고 알려 준다.
+const doneListeners = new Set<() => void>();
+
 /**
  * 온보딩 완료 플래그. 값이 없으면(false) 온보딩을 띄우고, 끝나면 true 로 바꾼다.
  * 로그인 정보가 아니라 이 기기 기준 기록이라 tokenStorage.clear() 대상이 아니다.
@@ -25,5 +28,14 @@ export const onboardingStorage = {
     } catch (error) {
       console.error("[onboarding] 완료 플래그 저장 실패", error);
     }
+    doneListeners.forEach((listener) => listener());
+  },
+
+  /** 온보딩이 끝날 때마다 불린다. 반환값을 부르면 구독을 끊는다. */
+  onDone(listener: () => void): () => void {
+    doneListeners.add(listener);
+    return () => {
+      doneListeners.delete(listener);
+    };
   },
 };
